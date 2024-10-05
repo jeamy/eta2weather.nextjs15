@@ -1,6 +1,5 @@
 import * as fs from 'fs';
-
-const F_NAMES2ID = 'F_NAMES2ID';
+import {F_NAMES2ID} from './Config';
 
 export const HEIZKURVE: string = 'HK';
 export const SCHIEBERPOS: string = 'SP';

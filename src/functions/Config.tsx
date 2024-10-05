@@ -1,15 +1,17 @@
 import * as fs from 'fs';
 
-const T_SOLL = 'T_SOLL';
-const T_DELTA = 'T_DELTA';
-const F_ETA = 'F_ETA';
-const F_WIFIAF83 = 'F_WIFIAF83';
-const F_NAMES2ID = 'F_NAMES2ID';
+export const T_SOLL = 'T_SOLL';
+export const T_DELTA = 'T_DELTA';
+export const F_ETA = 'F_ETA';
+export const S_ETA = 'S_ETA';
+export const F_WIFIAF83 = 'F_WIFIAF83';
+export const F_NAMES2ID = 'F_NAMES2ID';
 
 const defaultConfig: { [key: string]: string } = {
     [T_SOLL]: '22',
     [T_DELTA]: '0',
     [F_ETA]: 'f_eta.json',
+    [S_ETA]: '192.168.8.100:8080',
     [F_WIFIAF83]: 'f_wifiaf89.json',
     [F_NAMES2ID]: 'f_names2id.json'
 };

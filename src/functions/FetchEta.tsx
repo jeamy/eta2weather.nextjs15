@@ -32,7 +32,7 @@ class FetchEta {
      * @returns { [key: string]: {[key: string]: string } } The Eta data with the
      * shortkey as the key and the data as the value.
      */
-    public fetchEtaData(): { [key: string]: { [key: string]: string } } {
+    public async fetchEtaData(): Promise<{ [key: string]: { [key: string]: string } }> {
         const data: { [key: string]: { [key: string]: string } } = {};
         this.prepareAndFetchGetUserVar(HEIZKURVE, data);
         this.prepareAndFetchGetUserVar(SCHIEBERPOS, data);
@@ -48,7 +48,7 @@ class FetchEta {
 
         if (Object.keys(data['ETA']).length > 0) {
             const jeta = JSON.stringify(data['ETA']);
-            this.writeData(this.config['F_ETA'], jeta);
+            await this.writeData(this.config['F_ETA'], jeta);
             console.log(data['ETA']);
         }
         return data;
@@ -92,7 +92,7 @@ class FetchEta {
      * @param shortkey the shortkey to fetch the data for
      * @param data the object to store the fetched data in
      */
-    private async prepareAndFetchGetUserVar(shortkey: string, data: { [key: string]: { [key: string]: string } }): Promise<void> {
+    public async prepareAndFetchGetUserVar(shortkey: string, data: { [key: string]: { [key: string]: string } }): Promise<void> {
         const result = await etaApi.fGetUserVar(this.names2id[shortkey]['id']);
 
         if (result.error === false && typeof result.result === 'string') {
