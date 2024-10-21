@@ -1,83 +1,51 @@
 import * as fs from 'fs';
-import {F_NAMES2ID} from './Config';
+import { ConfigKeys } from './Config';
 
-export const HEIZKURVE: string = 'HK';
-export const SCHIEBERPOS: string = 'SP';
-export const AUSSENTEMP: string = 'AT';
-export const VORRAT: string = 'VR';
-export const INHALT_PELLETS_BEHALTER: string = 'IP';
-export const SCHALTZUSTAND: string = 'SZ';
-export const EIN_AUS_TASTE: string = 'EAT';
-export const KESSELTEMP: string = 'KZ';
-export const HEIZENTASTE: string = 'HT';
-export const KOMMENTASTE: string = 'KT';
-export const VORLAUFTEMP: string = 'VT';
+export const Constants = {
+  HEIZKURVE: 'HK',
+  SCHIEBERPOS: 'SP',
+  AUSSENTEMP: 'AT',
+  VORRAT: 'VR',
+  INHALT_PELLETS_BEHALTER: 'IP',
+  SCHALTZUSTAND: 'SZ',
+  EIN_AUS_TASTE: 'EAT',
+  KESSELTEMP: 'KZ',
+  HEIZENTASTE: 'HT',
+  KOMMENTASTE: 'KT',
+  VORLAUFTEMP: 'VT',
+} as const;
 
-const defaultNames2id: {[key: string]: {[key: string]: string }} = {
-    [HEIZKURVE]: { 
-        id: "/120/10101/0/0/12111", 
-        name: "Heizkurve" 
-    },
-    [SCHIEBERPOS]: { 
-        id: "/120/10101/0/0/12240", 
-        name: "Schieber Position" 
-    },
-    [AUSSENTEMP]: { 
-        id: "/120/10101/0/0/12197", 
-        name: "Außentemperatur" 
-    },
-    [VORRAT]: { 
-        id: "/40/10201/0/0/12015", 
-        name: "Vorrat" 
-    },
-    [INHALT_PELLETS_BEHALTER]: { 
-        id: "/40/10021/0/0/12011", 
-        name: "Inhalt Pelletsbehälter" 
-    },
-    [SCHALTZUSTAND]: { 
-        id: "/120/10101/12113/0/1109",
-         name: "Schaltzustand" 
-        },
-    [EIN_AUS_TASTE]: { 
-        id: "/120/10101/0/0/12080", 
-        name: "Ein/Aus Taste" 
-    },
-    [KESSELTEMP]: { 
-        id: "/40/10021/0/11109/0", 
-        name: "Kessel Temperatur" 
-    },
-    [HEIZENTASTE]: { 
-        id: "/120/10101/0/0/12125", 
-        name: "Heizen Taste" 
-    },
-    [KOMMENTASTE]: { 
-        id: "/120/10101/0/0/12218", 
-        name: "Kommen Taste" 
-    },
-    [VORLAUFTEMP]: { 
-        id: "/120/10101/0/0/12241", 
-        name: "Vorlauf Temperatur" 
-    },
-};
+type Names2IdType = Record<string, { id: string; name: string }>;
 
-class Names2IdReader {
-    private config: { [key: string]: string };
+// defaultNames2id als separate Funktion
+const getDefaultNames2Id = (): Names2IdType => ({
+  [Constants.HEIZKURVE]: { id: "/120/10101/0/0/12111", name: "Heizkurve" },
+  [Constants.SCHIEBERPOS]: { id: "/120/10101/0/0/12240", name: "Schieber Position" },
+  [Constants.AUSSENTEMP]: { id: "/120/10101/0/0/12197", name: "Außentemperatur" },
+  [Constants.VORRAT]: { id: "/40/10201/0/0/12015", name: "Vorrat" },
+  [Constants.INHALT_PELLETS_BEHALTER]: { id: "/40/10021/0/0/12011", name: "Inhalt Pelletsbehälter" },
+  [Constants.SCHALTZUSTAND]: { id: "/120/10101/12113/0/1109", name: "Schaltzustand" },
+  [Constants.EIN_AUS_TASTE]: { id: "/120/10101/0/0/12080", name: "Ein/Aus Taste" },
+  [Constants.KESSELTEMP]: { id: "/40/10021/0/11109/0", name: "Kessel Temperatur" },
+  [Constants.HEIZENTASTE]: { id: "/120/10101/0/0/12125", name: "Heizen Taste" },
+  [Constants.KOMMENTASTE]: { id: "/120/10101/0/0/12218", name: "Kommen Taste" },
+  [Constants.VORLAUFTEMP]: { id: "/120/10101/0/0/12241", name: "Vorlauf Temperatur" },
+});
 
-    constructor(config: { [key: string]: string }) {
-        this.config = config;
+export class Names2IdReader {
+  private config: Record<string, string>;
+
+  constructor(config: Record<string, string>) {
+    this.config = config;
+  }
+
+  public readNames2Id(): Names2IdType {
+    const filePath = this.config[ConfigKeys.F_NAMES2ID];
+    
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, JSON.stringify(getDefaultNames2Id()));
     }
-    public readNames2Id(): {[key: string]: {[key: string]: string }} {
-    /**
-     * Reads the names2id configuration file and returns the configuration as an object.
-     * If the file does not exist, it is created with the default configuration.
-     * @returns The configuration as an object.
-     */
-        const filePath = this.config[F_NAMES2ID];
-        if (!fs.existsSync(filePath)) {
-            fs.writeFileSync(filePath, JSON.stringify(defaultNames2id));
-        }
-        const names2id: {[key: string]: {[key: string]: string }} = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        return names2id;
-    }
+    
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  }
 }
-export default Names2IdReader;

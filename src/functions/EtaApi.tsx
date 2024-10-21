@@ -1,9 +1,15 @@
-const defaultServer = "192.168.8.100:8080";
+const DEFAULT_SERVER = "192.168.8.100:8080";
+
+// Neuer Typ für die Rückgabe
+type ApiResponse = {
+    result: string | null;
+    error: string | null;
+};
 
 class EtaApi {
     private server: string;
 
-    constructor(server: string = defaultServer) {
+    constructor(server: string = DEFAULT_SERVER) {
         this.server = server;
     }
 
@@ -11,58 +17,37 @@ class EtaApi {
         this.server = server;
     }
 
-    async fGetEtaApi(url: string): Promise<{ result: string | false; error: string | false }> {
+    private async fetchApi(endpoint: string, method: 'GET' | 'POST', body?: Record<string, string>): Promise<ApiResponse> {
+        const url = `http://${this.server}${endpoint}`;
         try {
             const response = await fetch(url, {
-                method: "GET",
+                method,
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
                 },
+                body: body ? new URLSearchParams(body).toString() : undefined,
             });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP-Fehler! Status: ${response.status}`);
+            }
+            
             const result = await response.text();
-            return { 
-                result, 
-                error: false 
-            };
+            return { result, error: null };
         } catch (error) {
             return { 
-                result: false, 
-                error: (error as Error).message
+                result: null, 
+                error: error instanceof Error ? error.message : String(error)
             };
         }
     }
 
-    async fPostEtaApi(url: string, value: string, begin: string, end: string): Promise<{ result: string | false; error: string | false }> {
-        try {
-            const data = new URLSearchParams({ value, begin, end });
-            const response = await fetch(url, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: data.toString(),
-            });
-            const result = await response.text();
-            return { 
-                result, 
-                error: false 
-            };
-        } catch (error) {
-            return { 
-                result: false, 
-                error: (error as Error).message
-            };
-        }
+    public async getUserVar(id: string): Promise<ApiResponse> {
+        return this.fetchApi(`/user/var/${id}`, 'GET');
     }
 
-    public async fGetUserVar(id: string): Promise<{ result: string | false; error: string | false }> {
-        const url = `http://${this.server}/user/var/${id}`;
-        return this.fGetEtaApi(url);
-    }
-
-    public async fSetUserVar(id: string, value: string, begin: string, end: string): Promise<{ result: string | false; error: string | false }> {
-        const url = `http://${this.server}/user/var/${id}`;
-        return this.fPostEtaApi(url, value, begin, end);
+    public async setUserVar(id: string, value: string, begin: string, end: string): Promise<ApiResponse> {
+        return this.fetchApi(`/user/var/${id}`, 'POST', { value, begin, end });
     }
 }
 

@@ -1,23 +1,51 @@
-import { F_WIFIAF83 } from "./Config";
+import { ConfigKeys } from "./Config";
+import * as fs from 'fs/promises';
+import WifiAf83Api from './WifiAf83Api'; 
 
-class WifiAF83Service {
-    private wifiaf83: any;
-    private data: any = {};
-    private config: { [key: string]: string } = {};
+export const WIFIAF83 = 'WIFIAF83';
 
-    constructor(config: { [key: string]: string }) {
+export interface WifiAF83Data {
+    time: number;
+    datestring: string;
+    [key: string]: any;
+}
+
+class FetchWifiAf83 {
+    private readonly config: Record<string, string>;
+    private data: WifiAF83Data = {} as WifiAF83Data;
+    private wifiaf83: any; 
+
+    constructor(config: Record<string, string>) {
         this.config = config;
+        this.wifiaf83 = new WifiAf83Api(); // Initialisieren Sie wifiaf83 hier
     }
 
-    async fetchWifiAF83Data(): Promise<{ [key: string]: any }> {
-        const result = await this.wifiaf83.fGetRealtime();
-        if (result.error !== false) {
-            console.error("Fetching WifiAF83 failed.", result.error);
-            return { error: result.error } as { [key: string]: any };
-        }
+    public async fetchWifiAF83Data(): Promise<WifiAF83Data | { error: any }> {
+        try {
+            const data: WifiAF83Data = {
+                [WIFIAF83]: {},
+                time: Date.now(),
+                datestring: ''
+            };
+            const result = await this.wifiaf83.getRealtime();
+            if (result.error) {
+                throw new Error(result.error);
+            }
 
-        this.data = JSON.parse(result.result);
-        const formattedDateTime = new Date(this.data.time).toLocaleString('de-DE', {
+            data[WIFIAF83] = JSON.parse(result.result);
+            this.formatDateTime();
+            await this.writeData();
+
+            return this.data;
+        } catch (error) {
+            console.error("Fehler beim Abrufen der WifiAF83-Daten:", error);
+            return { error };
+        }
+    }
+
+    private formatDateTime(): void {
+        const date = new Date(this.data.time);
+        this.data.datestring = date.toLocaleString('de-DE', {
             hour: 'numeric',
             minute: 'numeric',
             second: 'numeric',
@@ -26,18 +54,13 @@ class WifiAF83Service {
             month: 'long',
             year: 'numeric',
         });
-        this.data.datestring = formattedDateTime;
-
-        const jwifiaf89 = JSON.stringify(this.data);
-        await this.writeData(this.config[F_WIFIAF83], jwifiaf89);
-
-        return this.data;
     }
 
-    private writeData(file: string, data: string): void {
-        const fs = require('fs');
-        fs.writeFileSync(file, data);
+    private async writeData(): Promise<void> {
+        const filePath = this.config[ConfigKeys.F_WIFIAF83];
+        const jsonData = JSON.stringify(this.data);
+        await fs.writeFile(filePath, jsonData);
     }
 }
 
-export default WifiAF83Service;
+export default FetchWifiAf83;
