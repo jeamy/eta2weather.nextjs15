@@ -3,6 +3,8 @@ import EtaApi from './EtaApi';
 import * as fs from 'fs/promises';
 
 import { Constants } from './Names2Id';
+import { store } from '../redux/store';
+import { setEtaData } from '../redux/etaSlice';
 
 export const ETA = 'ETA';
 
@@ -39,6 +41,9 @@ class FetchEta {
         if (Object.keys(data[ETA]).length > 0) {
             await this.writeData(this.config['F_ETA'], JSON.stringify(data[ETA]));
             console.log(data[ETA]);
+            
+            // Speichern der Daten im Redux-Store
+            store.dispatch(setEtaData(data));
         }
         return data;
     }
@@ -103,3 +108,4 @@ class FetchEta {
 }
 
 export default FetchEta;
+
