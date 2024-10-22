@@ -1,0 +1,15 @@
+{
+  "code": 0,
+  "msg": "success",
+  "time": "1701281532",
+  "data": {
+    "outdoor": {
+      "temperature": { "time": "1701281205", "unit": "\u2103", "value": "-1.6" }
+    },
+    "indoor": {
+      "temperature": { "time": "1701281205", "unit": "\u2103", "value": "21.0" }
+    }
+  },
+  "datestring": "Wednesday, 29. November 2023 19:12:12",
+  "diff": "0"
+}

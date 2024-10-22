@@ -3,13 +3,15 @@ import { useSelector } from 'react-redux';
 import { useConfigReader } from '../functions/Config';
 import { RootState } from '../redux/store';
 
-function ConfigData() {
-    const { loadConfig } = useConfigReader('path/to/config.json');
+const fconfig = '../config/f_etacfg.json';
+
+const ConfigData: React.FC = async () => {
+    const { loadConfig } = useConfigReader(fconfig);
     const config = useSelector((state: RootState) => state.config);
 
     useEffect(() => {
         loadConfig();
-    }, []);
+    }, [loadConfig]);
 
     return (
         <div>

@@ -25,7 +25,6 @@ export const defaultConfig: Config = {
     [ConfigKeys.F_NAMES2ID]: 'f_names2id.json'
 };
 
-
 export class ConfigReader {
     private readonly fconfig: string;
 
@@ -33,7 +32,7 @@ export class ConfigReader {
         this.fconfig = fconfig;
     }
 
-    public readConfig(): Config {
+    public async readConfig(): Promise<Config> {
         if (!fs.existsSync(this.fconfig)) {
             fs.writeFileSync(this.fconfig, JSON.stringify(defaultConfig));
         }
@@ -43,13 +42,12 @@ export class ConfigReader {
     }
 }
 
-// Neue Funktion zum Lesen der Konfiguration und Speichern im Redux-Store
 export function useConfigReader(fconfig: string) {
     const dispatch = useDispatch();
     
-    const loadConfig = () => {
+    const loadConfig = async () => {
         const configReader = new ConfigReader(fconfig);
-        const config = configReader.readConfig();
+        const config = await configReader.readConfig();
         dispatch(setConfig(config));
     };
 

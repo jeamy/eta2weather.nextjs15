@@ -1,9 +1,9 @@
 import { Constants, Names2IdReader } from './Names2Id';
 import { ConfigKeys, ConfigReader } from './Config';
 import FetchWifiAf83 from './FetchWifiAf83';
-import FetchEta, { ETA } from './FetchEta';
+import { FetchEta,  ETA } from './FetchEta';
 import Diff from './Diff';
-import EtaApi from './EtaApi';
+import { EtaApi } from './EtaApi';
 import * as fs from 'fs';
 
 type EtaValues = {
@@ -62,16 +62,13 @@ export class SetEta {
 
   private async initializeData(): Promise<void> {
     const configReader = new ConfigReader(ConfigKeys.F_ETA);
-    [this.config, this.names2id] = await Promise.all([
-      configReader.readConfig(),
-      new Names2IdReader(await configReader.readConfig()).readNames2Id()
-    ]);
-    this.fetchEta = new FetchEta(this.config, this.names2id);
+    this.config = await configReader.readConfig();
+    this.names2id = new Names2IdReader(this.config).readNames2Id();
   }
 
   private async fetchData(): Promise<[Record<string, any>, any]> {
     return Promise.all([
-      this.fetchEta.fetchEtaData(),
+      new FetchEta(this.config, this.names2id).fetchEtaData(),
       new FetchWifiAf83(this.config).fetchWifiAF83Data()
     ]);
   }

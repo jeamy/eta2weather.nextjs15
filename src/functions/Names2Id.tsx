@@ -1,21 +1,23 @@
 import * as fs from 'fs';
 import { ConfigKeys } from './Config';
+import { useDispatch } from 'react-redux';
+import { setNames2IdData } from '../redux/names2IdSlice';
 
-export const Constants = {
-  HEIZKURVE: 'HK',
-  SCHIEBERPOS: 'SP',
-  AUSSENTEMP: 'AT',
-  VORRAT: 'VR',
-  INHALT_PELLETS_BEHALTER: 'IP',
-  SCHALTZUSTAND: 'SZ',
-  EIN_AUS_TASTE: 'EAT',
-  KESSELTEMP: 'KZ',
-  HEIZENTASTE: 'HT',
-  KOMMENTASTE: 'KT',
-  VORLAUFTEMP: 'VT',
-} as const;
+export enum Constants {
+  HEIZKURVE = 'HK',
+  SCHIEBERPOS = 'SP',
+  AUSSENTEMP = 'AT',
+  VORRAT = 'VR',
+  INHALT_PELLETS_BEHALTER = 'IP',
+  SCHALTZUSTAND = 'SZ',
+  EIN_AUS_TASTE = 'EAT',
+  KESSELTEMP = 'KZ',
+  HEIZENTASTE = 'HT',
+  KOMMENTASTE = 'KT',
+  VORLAUFTEMP = 'VT',
+}
 
-type Names2IdType = Record<string, { id: string; name: string }>;
+export type Names2IdType = Record<string, { id: string; name: string }>;
 
 // defaultNames2id als separate Funktion
 const getDefaultNames2Id = (): Names2IdType => ({
@@ -49,3 +51,15 @@ export class Names2IdReader {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
   }
 }
+
+export const useLoadNames2Id = (config: Record<string, string>) => {
+  const dispatch = useDispatch();
+  
+  const loadNames2Id = async () => {
+    const reader = new Names2IdReader(config);
+    const names2IdData = await reader.readNames2Id();
+    dispatch(setNames2IdData(names2IdData));
+  };
+
+  return loadNames2Id;
+};

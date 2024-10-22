@@ -1,11 +1,14 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Config, defaultConfig } from '../functions/Config';
 
+const initialState: Config = defaultConfig;
+
 const configSlice = createSlice({
     name: 'config',
-    initialState: defaultConfig,
+    initialState,
     reducers: {
         setConfig: (state, action: PayloadAction<Config>) => {
+            state = action.payload;
             return action.payload;
         },
     },

@@ -6,7 +6,7 @@ type ApiResponse = {
     error: string | null;
 };
 
-class EtaApi {
+export class EtaApi {
     private server: string;
 
     constructor(server: string = DEFAULT_SERVER) {
@@ -50,5 +50,3 @@ class EtaApi {
         return this.fetchApi(`/user/var/${id}`, 'POST', { value, begin, end });
     }
 }
-
-export default EtaApi;

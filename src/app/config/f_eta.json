@@ -1,0 +1,124 @@
+{
+  "/120/10101/0/0/12111": {
+    "advTextOffset": "0",
+    "unit": "\u00b0C",
+    "uri": "/user/var//120/10101/0/0/12111",
+    "strValue": "42",
+    "scaleFactor": "10",
+    "decPlaces": "0",
+    "value": "417",
+    "long": "Heizkurve",
+    "short": "HK"
+  },
+  "/120/10101/0/0/12240": {
+    "advTextOffset": "0",
+    "unit": "%",
+    "uri": "/user/var//120/10101/0/0/12240",
+    "strValue": "0",
+    "scaleFactor": "10",
+    "decPlaces": "0",
+    "value": "0",
+    "long": "Schieber Position",
+    "short": "SP"
+  },
+  "120/10101/0/0/12197": {
+    "advTextOffset": "0",
+    "unit": "\u00b0C",
+    "uri": "/user/var/120/10101/0/0/12197",
+    "strValue": "-0,5",
+    "scaleFactor": "10",
+    "decPlaces": "1",
+    "value": "-5",
+    "long": "Au\u00dfentemperatur",
+    "short": "AT"
+  },
+  "/40/10201/0/0/12015": {
+    "advTextOffset": "0",
+    "unit": "kg",
+    "uri": "/user/var//40/10201/0/0/12015",
+    "strValue": "3376",
+    "scaleFactor": "10",
+    "decPlaces": "0",
+    "value": "33763",
+    "long": "Vorrat",
+    "short": "VR"
+  },
+  "/40/10021/0/0/12011": {
+    "advTextOffset": "0",
+    "unit": "kg",
+    "uri": "/user/var//40/10021/0/0/12011",
+    "strValue": "29",
+    "scaleFactor": "10",
+    "decPlaces": "0",
+    "value": "288",
+    "long": "Inhalt Pelletsbeh\u00e4lter",
+    "short": "IP"
+  },
+  "/120/10101/12113/0/1109": {
+    "advTextOffset": "1802",
+    "unit": "",
+    "uri": "/user/var//120/10101/12113/0/1109",
+    "strValue": "Ein",
+    "scaleFactor": "1",
+    "decPlaces": "0",
+    "value": "1803",
+    "long": "Schaltzustand",
+    "short": "SZ"
+  },
+  "/120/10101/0/0/12080": {
+    "advTextOffset": "1802",
+    "unit": "",
+    "uri": "/user/var//120/10101/0/0/12080",
+    "strValue": "Ein",
+    "scaleFactor": "1",
+    "decPlaces": "0",
+    "value": "1803",
+    "long": "Ein/Aus Taste",
+    "short": "EAT"
+  },
+  "/120/10101/0/0/12125": {
+    "advTextOffset": "1802",
+    "unit": "",
+    "uri": "/user/var//120/10101/0/0/12125",
+    "strValue": "Aus",
+    "scaleFactor": "1",
+    "decPlaces": "0",
+    "value": "1802",
+    "long": "Heizen Taste",
+    "short": "HT"
+  },
+  "/120/10101/0/0/12218": {
+    "advTextOffset": "1802",
+    "unit": "",
+    "uri": "/user/var//120/10101/0/0/12218",
+    "strValue": "Aus",
+    "scaleFactor": "1",
+    "decPlaces": "0",
+    "value": "1802",
+    "long": "Kommen Taste",
+    "short": "KT"
+  },
+  "/40/10021/0/11109/0": {
+    "advTextOffset": "0",
+    "unit": "\u00b0C",
+    "uri": "/user/var//40/10021/0/11109/0",
+    "strValue": "72",
+    "scaleFactor": "10",
+    "decPlaces": "0",
+    "value": "715",
+    "long": "Kessel Temperatur",
+    "short": "KZ"
+  },
+  "/120/10101/0/0/12241": {
+    "advTextOffset": "0",
+    "unit": "\u00b0C",
+    "uri": "/user/var//120/10101/0/0/12241",
+    "strValue": "41",
+    "scaleFactor": "10",
+    "decPlaces": "0",
+    "value": "413",
+    "long": "Vorlauf Temperatur",
+    "short": "VT"
+  },
+  "schieber": 0
+}

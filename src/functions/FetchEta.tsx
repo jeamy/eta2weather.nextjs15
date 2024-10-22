@@ -1,10 +1,10 @@
 import { DOMParser } from 'xmldom';
-import EtaApi from './EtaApi';
+import { EtaApi } from './EtaApi';
 import * as fs from 'fs/promises';
 
 import { Constants } from './Names2Id';
-import { store } from '../redux/store';
 import { setEtaData } from '../redux/etaSlice';
+import { useDispatch } from 'react-redux';
 
 export const ETA = 'ETA';
 
@@ -14,7 +14,7 @@ type Names2Id = Record<string, Record<string, string>>;
 export type ParsedXmlData = Record<string, string>;
 export type EtaData = Record<string, Record<string, ParsedXmlData>>;
 
-class FetchEta {
+export class FetchEta {
 
     private readonly etaApi: EtaApi;
     private readonly config: EtaConfig;
@@ -41,9 +41,6 @@ class FetchEta {
         if (Object.keys(data[ETA]).length > 0) {
             await this.writeData(this.config['F_ETA'], JSON.stringify(data[ETA]));
             console.log(data[ETA]);
-            
-            // Speichern der Daten im Redux-Store
-            store.dispatch(setEtaData(data));
         }
         return data;
     }
@@ -107,5 +104,15 @@ class FetchEta {
     }
 }
 
-export default FetchEta;
+export function useEtaReader(config: EtaConfig, names2id: Names2Id ) {
+    const dispatch = useDispatch();
+    
+    const loadEta = async () => {
+        const loadEtaData = new FetchEta(config, names2id);
+        const eta = await loadEtaData.fetchEtaData();
+        dispatch(setEtaData(eta));
+    };
+
+    return loadEta ;
+}
 

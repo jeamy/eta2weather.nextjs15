@@ -1,0 +1,13 @@
+{
+  "HK": { "id": "/120/10101/0/0/12111", "name": "Heizkurve" },
+  "SP": { "id": "/120/10101/0/0/12240", "name": "Schieber Position" },
+  "AT": { "id": "120/10101/0/0/12197", "name": "Au\u00dfentemperatur" },
+  "VR": { "id": "/40/10201/0/0/12015", "name": "Vorrat" },
+  "IP": { "id": "/40/10021/0/0/12011", "name": "Inhalt Pelletsbeh\u00e4lter" },
+  "SZ": { "id": "/120/10101/12113/0/1109", "name": "Schaltzustand" },
+  "EAT": { "id": "/120/10101/0/0/12080", "name": "Ein/Aus Taste" },
+  "KZ": { "id": "/40/10021/0/11109/0", "name": "Kessel Temperatur" },
+  "HT": { "id": "/120/10101/0/0/12125", "name": "Heizen Taste" },
+  "KT": { "id": "/120/10101/0/0/12218", "name": "Kommen Taste" },
+  "VT": { "id": "/120/10101/0/0/12241", "name": "Vorlauf Temperatur" }
+}
