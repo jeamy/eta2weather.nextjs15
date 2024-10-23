@@ -1,7 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 export type DataState = {
-  // Definieren Sie hier Ihre Datenstruktur
   value: number;
 }
 

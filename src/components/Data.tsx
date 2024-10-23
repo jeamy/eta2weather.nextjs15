@@ -1,4 +1,4 @@
-import { useDataReader } from '@/functions/data';
+import { useDataReader } from '@/functions/DataReader';
 import { RootState } from '../redux';
 import { useSelector } from 'react-redux';
 import { useEffect } from 'react';
