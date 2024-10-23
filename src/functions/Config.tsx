@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { useDispatch } from 'react-redux';
-import { setConfig } from '../redux/configSlice'; // Importieren Sie die Action
-import { store } from '../redux/store';
+import { setConfig } from '../redux/configSlice';
+
 
 // Konstanten als Enum definieren
 export enum ConfigKeys {

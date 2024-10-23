@@ -1,8 +1,7 @@
 import React, { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useConfigReader } from '../functions/Config';
-import { RootState } from '../redux/store';
-
+import { RootState } from '../redux'
 const fconfig = '../config/f_etacfg.json';
 
 const ConfigData: React.FC = async () => {

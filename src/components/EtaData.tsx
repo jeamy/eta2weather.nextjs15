@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { RootState } from '@/redux/store';
+import { RootState } from '@/redux';
 import { useEtaReader } from '../functions/FetchEta';
 import { Names2IdReader } from '../functions/Names2Id';
 import { ConfigKeys, ConfigReader } from '../functions/Config';
