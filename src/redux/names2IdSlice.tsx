@@ -1,22 +1,38 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Names2IdType } from '../functions/Names2Id';
+import { Names2Id } from '../functions/Names2Id';
+import { LoadingState } from './interface';
 
-const initialState: Names2IdType = { data: {
-  id: '',
-  name: ''
-} };
+export type Names2IdState = {
+  data: Names2Id;
+  loadingState: LoadingState;
+}
+
+const initialState: Names2IdState = {
+  data: {},
+  loadingState: {
+    error: null,
+    isLoading: false
+  }
+};
 
 const names2IdSlice = createSlice({
   name: 'names2Id',
   initialState,
   reducers: {
-    setNames2IdData: (state, action: PayloadAction<Names2IdType>) => {
-      state = action.payload;
-      return action.payload;
+    storeData: (state, action: PayloadAction<Names2Id>) => {
+      state.data = action.payload;
+      state.loadingState.isLoading = false;
     },
+    storeError: (state, action: PayloadAction<string>) => {
+      state.loadingState.error = action.payload;
+      state.loadingState.isLoading = false;
+    },
+    setIsLoading: (state, action: PayloadAction<boolean>) => {
+      state.loadingState.isLoading = action.payload;
+    }
   },
 });
 
-export const { setNames2IdData } = names2IdSlice.actions;
+export const { storeData, storeError, setIsLoading } = names2IdSlice.actions;
 export default names2IdSlice.reducer;
 

@@ -1,16 +1,18 @@
 import React, { useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { useConfigReader } from '../functions/Config';
+import { useConfigReadAndStore } from '../functions/Config';
 import { RootState } from '../redux'
-const fconfig = '../config/f_etacfg.json';
+import { env } from 'process';
+
+const defaultConfigFile = env.DEFAULT_CONFIG_FILE || '../config/f_etacfg.json';
 
 const ConfigData: React.FC = async () => {
-    const { loadConfig } = useConfigReader(fconfig);
+    const loadAndStoreConfig  = useConfigReadAndStore(defaultConfigFile);
     const config = useSelector((state: RootState) => state.config);
 
     useEffect(() => {
-        loadConfig();
-    }, [loadConfig]);
+        loadAndStoreConfig();
+    }, [loadAndStoreConfig]);
 
     return (
         <div>

@@ -1,4 +1,6 @@
-const DEFAULT_SERVER = "192.168.8.100:8080";
+import { env } from 'process';
+
+const DEFAULT_SERVER = env.DEFAULT_SERVER || '192.168.1.100';
 
 // Neuer Typ für die Rückgabe
 type ApiResponse = {

@@ -1,10 +1,11 @@
-import { Constants, Names2IdReader } from './Names2Id';
-import { ConfigKeys, ConfigReader } from './Config';
-import FetchWifiAf83 from './FetchWifiAf83';
-import { FetchEta,  ETA } from './FetchEta';
+import { EtaConstants, Names2Id, Names2IdReader } from './Names2Id';
+import { Config, ConfigKeys, ConfigReader, useConfigReadAndStore } from './Config';
+import { FetchWifiAf83 } from './FetchWifiAf83';
+import { FetchEta, ETA } from './FetchEta';
 import Diff from './Diff';
 import { EtaApi } from './EtaApi';
 import * as fs from 'fs';
+import  {useGetConfigFromStore}  from '../functions/Config';
 
 type EtaValues = {
   einaus: string;
@@ -21,26 +22,27 @@ type TempDiff = {
 };
 
 export class SetEta {
-  private config: Record<string, any> = {};
-  private names2id: Record<string, Record<string, string>> = {};
+  private config: Config = {} as Config;
+  private names2id: Names2Id = {} as Names2Id;
   private etaApi: EtaApi;
-  private fetchEta: FetchEta; 
+  private fetchEta: FetchEta;
 
   constructor() {
+    this.config = useGetConfigFromStore();
     this.etaApi = new EtaApi();
-    this.fetchEta = new FetchEta({}, {}); 
+    this.fetchEta = new FetchEta(this.config, {});
   }
 
   public async setEta(): Promise<string> {
     try {
       await this.initializeData();
       const [etaData, wifiAf83Data] = await this.fetchData();
-      
+
       if (!wifiAf83Data) throw new Error("Fetching WifiAF83 failed.");
 
       const etaValues = this.getEtaValues(etaData);
       const tempDiff = this.calculateTemperatureDiff(wifiAf83Data);
-      
+
       if (tempDiff.diff === null) return '0';
 
       const newSliderPosition = this.calculateNewSliderPosition(etaValues, tempDiff.diff);
@@ -61,8 +63,11 @@ export class SetEta {
   }
 
   private async initializeData(): Promise<void> {
+     
+
     const configReader = new ConfigReader(ConfigKeys.F_ETA);
     this.config = await configReader.readConfig();
+
     this.names2id = new Names2IdReader(this.config).readNames2Id();
   }
 
@@ -76,11 +81,11 @@ export class SetEta {
   private getEtaValues(etaData: Record<string, any>): EtaValues {
     const getValue = (name: string) => this.getEtaNameData(name, etaData);
     return {
-      einaus: getValue(Constants.EIN_AUS_TASTE),
-      schalt: getValue(Constants.SCHALTZUSTAND),
-      kommenttaste: getValue(Constants.KOMMENTASTE),
-      tes: Number(getValue(Constants.SCHIEBERPOS)),
-      tea: Number(getValue(Constants.AUSSENTEMP))
+      einaus: getValue(EtaConstants.EIN_AUS_TASTE),
+      schalt: getValue(EtaConstants.SCHALTZUSTAND),
+      kommenttaste: getValue(EtaConstants.KOMMENTASTE),
+      tes: Number(getValue(EtaConstants.SCHIEBERPOS)),
+      tea: Number(getValue(EtaConstants.AUSSENTEMP))
     };
   }
 
@@ -105,7 +110,7 @@ export class SetEta {
   }
 
   private async updateData(etaData: Record<string, any>, wifiAf83Data: any, newPosition: string, diff: number): Promise<void> {
-    etaData[ETA][Constants.SCHIEBERPOS] = { strValue: newPosition };
+    etaData[ETA][EtaConstants.SCHIEBERPOS] = { strValue: newPosition };
     wifiAf83Data['diff'] = Number(Math.round(diff).toFixed(1));
 
     await Promise.all([
@@ -116,12 +121,12 @@ export class SetEta {
 
   private async updateSliderPosition(etaData: Record<string, any>, newPosition: string): Promise<void> {
     const scaledPosition = String(Number(newPosition) * 10);
-    const id = this.names2id[Constants.SCHIEBERPOS]['id'];
-    
-    await this.etaApi.setUserVar(id, scaledPosition, "0", "0");
-    await this.fetchEta.prepareAndFetchGetUserVar(Constants.SCHIEBERPOS, etaData);
+    const id = this.names2id[EtaConstants.SCHIEBERPOS]['id'];
 
-    const updatedPosition = Number(this.getEtaNameData(Constants.SCHIEBERPOS, etaData));
+    await this.etaApi.setUserVar(id, scaledPosition, "0", "0");
+    await this.fetchEta.prepareAndFetchGetUserVar(EtaConstants.SCHIEBERPOS, etaData);
+
+    const updatedPosition = Number(this.getEtaNameData(EtaConstants.SCHIEBERPOS, etaData));
     const status = Number(newPosition) === updatedPosition ? 'OK' : 'ERROR';
     console.log(`Setting slider ${status}! Position: ${updatedPosition}\nSetting slider done!\n`);
   }

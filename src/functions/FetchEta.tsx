@@ -2,25 +2,24 @@ import { DOMParser } from 'xmldom';
 import { EtaApi } from './EtaApi';
 import * as fs from 'fs/promises';
 
-import { Constants } from './Names2Id';
-import { setEtaData } from '../redux/etaSlice';
+import { EtaConstants, Names2Id } from './Names2Id';
 import { useDispatch } from 'react-redux';
+import { setIsLoading, storeData, storeError } from '../redux/etaSlice';
+import { Config, ConfigKeys } from './Config';
 
 export const ETA = 'ETA';
 
 // Neue Typdefinitionen
-type EtaConfig = Record<string, string>;
-type Names2Id = Record<string, Record<string, string>>;
 export type ParsedXmlData = Record<string, string>;
 export type EtaData = Record<string, Record<string, ParsedXmlData>>;
 
 export class FetchEta {
 
     private readonly etaApi: EtaApi;
-    private readonly config: EtaConfig;
+    private readonly config: Config;
     private readonly names2id: Names2Id;
 
-    constructor(config: EtaConfig, names2id: Names2Id) {
+    constructor(config: Config, names2id: Names2Id) {
         this.config = config;
         this.names2id = names2id;
         this.etaApi = new EtaApi(config.S_ETA);
@@ -33,13 +32,13 @@ export class FetchEta {
      * shortkey as the key and the data as the value.
      */
     public async fetchEtaData(): Promise<EtaData> {
-        const data: EtaData = { [ETA]: {} };
-        const shortkeys = Object.values(Constants);
+        const shortkeys = Object.values(EtaConstants);
+        const data: EtaData = { } as EtaData;
 
         await Promise.all(shortkeys.map(shortkey => this.prepareAndFetchGetUserVar(shortkey, data)));
 
         if (Object.keys(data[ETA]).length > 0) {
-            await this.writeData(this.config['F_ETA'], JSON.stringify(data[ETA]));
+            await this.writeData(data);
             console.log(data[ETA]);
         }
         return data;
@@ -99,20 +98,27 @@ export class FetchEta {
         }
     }
 
-    private async writeData(file: string, data: string): Promise<void> {
-        await fs.writeFile(file, data);
+    private async writeData(data: EtaData): Promise<void> {
+        const filePath = this.config[ConfigKeys.F_ETA];
+        const jsonData = JSON.stringify(data);
+        await fs.writeFile(filePath, jsonData);
     }
 }
 
-export function useEtaReader(config: EtaConfig, names2id: Names2Id ) {
+export function useEtaReadAndStore(config: Config, names2id: Names2Id) {
     const dispatch = useDispatch();
-    
-    const loadEta = async () => {
-        const loadEtaData = new FetchEta(config, names2id);
-        const eta = await loadEtaData.fetchEtaData();
-        dispatch(setEtaData(eta));
+
+    const loadAndStoreEta = async () => {
+        dispatch(setIsLoading(true));
+        try {
+            const loadEtaData = new FetchEta(config, names2id);
+            const eta = await loadEtaData.fetchEtaData();
+            dispatch(storeData(eta));
+        } catch (error: Error | any) {
+            dispatch(storeError(error.message));
+        }
     };
 
-    return loadEta ;
+    return loadAndStoreEta;
 }
 

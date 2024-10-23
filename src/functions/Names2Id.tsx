@@ -1,9 +1,9 @@
 import * as fs from 'fs';
-import { ConfigKeys } from './Config';
+import { Config, ConfigKeys } from './Config';
 import { useDispatch } from 'react-redux';
-import { setNames2IdData } from '../redux/names2IdSlice';
+import { setIsLoading, storeData, storeError } from '../redux/names2IdSlice';
 
-export enum Constants {
+export enum EtaConstants {
   HEIZKURVE = 'HK',
   SCHIEBERPOS = 'SP',
   AUSSENTEMP = 'AT',
@@ -17,49 +17,54 @@ export enum Constants {
   VORLAUFTEMP = 'VT',
 }
 
-export type Names2IdType = Record<string, { id: string; name: string }>;
+export type Names2Id = Record<string, { id: string; name: string }>;
 
-// defaultNames2id als separate Funktion
-const getDefaultNames2Id = (): Names2IdType => ({
-  [Constants.HEIZKURVE]: { id: "/120/10101/0/0/12111", name: "Heizkurve" },
-  [Constants.SCHIEBERPOS]: { id: "/120/10101/0/0/12240", name: "Schieber Position" },
-  [Constants.AUSSENTEMP]: { id: "/120/10101/0/0/12197", name: "Außentemperatur" },
-  [Constants.VORRAT]: { id: "/40/10201/0/0/12015", name: "Vorrat" },
-  [Constants.INHALT_PELLETS_BEHALTER]: { id: "/40/10021/0/0/12011", name: "Inhalt Pelletsbehälter" },
-  [Constants.SCHALTZUSTAND]: { id: "/120/10101/12113/0/1109", name: "Schaltzustand" },
-  [Constants.EIN_AUS_TASTE]: { id: "/120/10101/0/0/12080", name: "Ein/Aus Taste" },
-  [Constants.KESSELTEMP]: { id: "/40/10021/0/11109/0", name: "Kessel Temperatur" },
-  [Constants.HEIZENTASTE]: { id: "/120/10101/0/0/12125", name: "Heizen Taste" },
-  [Constants.KOMMENTASTE]: { id: "/120/10101/0/0/12218", name: "Kommen Taste" },
-  [Constants.VORLAUFTEMP]: { id: "/120/10101/0/0/12241", name: "Vorlauf Temperatur" },
-});
+// defaultNames2id 
+const defaultNames2Id: Names2Id = {
+  [EtaConstants.HEIZKURVE]: { id: "/120/10101/0/0/12111", name: "Heizkurve" },
+  [EtaConstants.SCHIEBERPOS]: { id: "/120/10101/0/0/12240", name: "Schieber Position" },
+  [EtaConstants.AUSSENTEMP]: { id: "/120/10101/0/0/12197", name: "Außentemperatur" },
+  [EtaConstants.VORRAT]: { id: "/40/10201/0/0/12015", name: "Vorrat" },
+  [EtaConstants.INHALT_PELLETS_BEHALTER]: { id: "/40/10021/0/0/12011", name: "Inhalt Pelletsbehälter" },
+  [EtaConstants.SCHALTZUSTAND]: { id: "/120/10101/12113/0/1109", name: "Schaltzustand" },
+  [EtaConstants.EIN_AUS_TASTE]: { id: "/120/10101/0/0/12080", name: "Ein/Aus Taste" },
+  [EtaConstants.KESSELTEMP]: { id: "/40/10021/0/11109/0", name: "Kessel Temperatur" },
+  [EtaConstants.HEIZENTASTE]: { id: "/120/10101/0/0/12125", name: "Heizen Taste" },
+  [EtaConstants.KOMMENTASTE]: { id: "/120/10101/0/0/12218", name: "Kommen Taste" },
+  [EtaConstants.VORLAUFTEMP]: { id: "/120/10101/0/0/12241", name: "Vorlauf Temperatur" },
+};
 
 export class Names2IdReader {
-  private config: Record<string, string>;
+  private config: Config;
 
-  constructor(config: Record<string, string>) {
+  constructor(config: Config) {
     this.config = config;
   }
 
-  public readNames2Id(): Names2IdType {
+  public readNames2Id(): Names2Id {
     const filePath = this.config[ConfigKeys.F_NAMES2ID];
     
     if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, JSON.stringify(getDefaultNames2Id()));
+      fs.writeFileSync(filePath, JSON.stringify(defaultNames2Id));
     }
     
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
   }
 }
 
-export const useLoadNames2Id = (config: Record<string, string>) => {
+export const useLoadNames2Id = (config: Config) => {
   const dispatch = useDispatch();
   
-  const loadNames2Id = async () => {
+  const loadAndStoreNames2Id = async () => {
+    dispatch(setIsLoading(true));
+    try {    
     const reader = new Names2IdReader(config);
     const names2IdData = await reader.readNames2Id();
-    dispatch(setNames2IdData(names2IdData));
+    dispatch(storeData(names2IdData));
+    } catch (error: Error | any) {
+      dispatch(storeError(error.message));
+    }
   };
 
-  return loadNames2Id;
+  return loadAndStoreNames2Id;
 };

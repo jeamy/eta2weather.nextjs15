@@ -1,33 +1,38 @@
 import { useDispatch } from 'react-redux';
 import { store } from '../redux';
-import { storeData } from '../redux/dataSlice';
+import { Data, setIsLoading, storeData, storeError } from '../redux/dataSlice';
 
-export function storeDataFunction(value: number): void {
-  store.dispatch(storeData(value));
+export function storeDataFunction(data: Data): void {
+  store.dispatch(storeData(data));
 }
 
 export class DataReader {
     private readonly fdata: string;
-
     constructor(fdata: string) {
         this.fdata = fdata;
     }
-
-    public async readDataFunction(fdata: string): Promise<number> {
+    public async readData(): Promise<Data> {
         // ... //
-        return  1;
+        const dataf = this.fdata;
+        return  {"key": "value"};
     }
       
 }
 
-export function useDataReader(fdata: string) {
+// Funktion, um Daten abzurufen und im Store zu speichern
+export const useDataReadAndStore = (fdata: string) => {
     const dispatch = useDispatch();
     
-    const loadData = async () => {
-        const dataReader = new DataReader(fdata);
-        const data = await dataReader.readDataFunction(fdata);
+    const loadAndStoreData = async () => {
+      dispatch(setIsLoading(true));
+      try {
+        const data = await new DataReader(fdata).readData();
         dispatch(storeData(data));
+      } catch (error: Error | any) {
+        dispatch(storeError(error.message));
+      }
+
     };
 
-    return { loadData };
-}
+    return loadAndStoreData;
+  };

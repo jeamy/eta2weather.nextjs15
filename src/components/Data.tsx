@@ -1,16 +1,26 @@
-import { useDataReader } from '@/functions/DataReader';
+import { useDataReadAndStore } from '@/functions/DataReader';
 import { RootState } from '../redux';
 import { useSelector } from 'react-redux';
 import { useEffect } from 'react';
 
-const DataInput: React.FC = () => {
-    const { loadData } = useDataReader("data.json");
+const Data: React.FC = () => {
+    const  loadAndStoreData  = useDataReadAndStore("data.json");
+
     const data = useSelector((state: RootState) => state.data);
+    const error = useSelector((state: any) => state.data.error);
+    const isLoading = useSelector((state: any) => state.data.isLoading);
 
     useEffect(() => {
-        loadData();
-    }, [loadData]);
+        loadAndStoreData();
+    }, [loadAndStoreData]);
 
+    if (isLoading) {
+        return <div>Loading...</div>;
+    }
+
+    if (error) {
+        return <div>Error: {error}</div>;
+    }
     return (
         <div>
             <h1>Data:</h1>
@@ -19,4 +29,5 @@ const DataInput: React.FC = () => {
     );
 }
 
-export default DataInput;
+export default Data;
+

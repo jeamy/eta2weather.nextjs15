@@ -1,19 +1,22 @@
 import { useSelector } from 'react-redux';
-import { RootState } from '@/redux/store';
+import { RootState } from '@/redux';
 import { useEffect } from 'react';
+import { ConfigState } from '@/redux/configSlice';
+import { useWifiReadAndStore } from '@/functions/FetchWifiAf83';
 
 const WifiAf83Data: React.FC = () => {
-  const wifiAF83Data = useSelector((state: RootState) => state.wifiAF83.data);
-  const loadWifi = useWifiAf83Reader();
+  const config: ConfigState = useSelector((state: RootState) => state.config);
+
+  const loadAndStoreWifi = useWifiReadAndStore(config.data);
 
   useEffect(() => {
-      loadWifi();
-  }, [loadWifi]);
+    loadAndStoreWifi();
+  }, [loadAndStoreWifi]);
 
   return (
     <div>
-      <h2>ETA-Daten:</h2>
-      <pre>{JSON.stringify(loadWifi, null, 2)}</pre>
+      <h2>Wifi-Daten:</h2>
+      <pre>{JSON.stringify(loadAndStoreWifi, null, 2)}</pre>
     </div>
   );
 };
