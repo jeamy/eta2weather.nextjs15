@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect } from 'react';
-import { useLoadNames2Id } from '../functions/Names2Id';
+import { useLoadNames2Id } from '../reader/functions/Names2Id';
 import { useSelector } from 'react-redux';
 import { RootState } from '../redux';
 import { ConfigState } from '@/redux/configSlice';

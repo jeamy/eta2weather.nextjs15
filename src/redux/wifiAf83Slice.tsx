@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { WifiAF83Data } from '../serverfunctions/FetchWifiAf83Server';
+import { WifiAF83Data } from '../reader/serverfunctions/FetchWifiAf83';
 import { LoadingState } from './interface';
 
 export type WifiAF83State = {

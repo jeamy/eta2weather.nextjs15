@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux';
-import { useEtaReadAndStore } from '../functions/FetchEta';
+import { useEtaReadAndStore } from '../reader/functions/FetchEta';
 import { ConfigState } from '@/redux/configSlice';
 import { Names2IdState } from '@/redux/names2IdSlice';
 const EtaData: React.FC = () => {

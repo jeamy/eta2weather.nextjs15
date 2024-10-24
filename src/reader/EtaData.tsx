@@ -1,11 +1,9 @@
-'use server';
-
 import { DOMParser } from 'xmldom';
-import { EtaApi } from '../functions/EtaApi';
+import { EtaApi } from './functions/EtaApi';
 import * as fs from 'fs';
 
-import { EtaConstants, Names2Id } from '../serverfunctions/Names2IdServer';
-import { Config, ConfigKeys } from '../serverfunctions/ConfigServer';
+import { EtaConstants, Names2Id } from './Names2Id';
+import { Config, ConfigKeys } from './Config';
 
 export const ETA = 'ETA';
 

@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { Config, ConfigKeys } from './ConfigServer';
+import { Config, ConfigKeys } from './Config';
 
 export enum EtaConstants {
   HEIZKURVE = 'HK',
@@ -39,7 +39,7 @@ export class Names2IdReader {
     this.config = config;
   }
 
-  public readNames2Id(): Names2Id {
+  public readNames2Id(): Promise<Names2Id> {
     const filePath = this.config[ConfigKeys.F_NAMES2ID];
     
     if (!fs.existsSync(filePath)) {

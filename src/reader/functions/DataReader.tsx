@@ -1,7 +1,7 @@
 'use client'
 import { useDispatch } from 'react-redux';
-import { setIsLoading, storeData, storeError } from '../redux/dataSlice';
-import { readData } from '../serverfunctions/DataReaderServer';
+import { setIsLoading, storeData, storeError } from '../../redux/dataSlice';
+import { readData } from '../serverfunctions/DataReader';
 
 // Funktion, um Daten abzurufen und im Store zu speichern
 export const useDataReadAndStore = (fdata: string) => {

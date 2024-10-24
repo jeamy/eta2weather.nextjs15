@@ -1,7 +1,8 @@
-import ConfigData from "@/components/ConfigData";
-import Data from "@/components/Data";
-import StoreProvider from "@/components/StoreProvider";
-import WifiAf83Data from "@/components/WifiAf83Data";
+import ConfigData from "../components/ConfigData";
+import Data from "../components/Data";
+import EtaData from "../components/EtaData";
+import StoreProvider from "../components/StoreProvider";
+import WifiAf83Data from "../components/WifiAf83Data";
 
 export default function Home() {
   return (
@@ -11,6 +12,7 @@ export default function Home() {
           <Data />
           <ConfigData />
           <WifiAf83Data />
+          <EtaData />
         </main>
         <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
           LINKS

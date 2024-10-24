@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/redux';
 import { useEffect } from 'react';
 import { ConfigState } from '@/redux/configSlice';
-import { useWifiReadAndStore } from '@/functions/FetchWifiAf83';
+import { useWifiReadAndStore } from '@/reader/functions/FetchWifiAf83';
 
 const WifiAf83Data: React.FC = () => {
   const config: ConfigState = useSelector((state: RootState) => state.config);

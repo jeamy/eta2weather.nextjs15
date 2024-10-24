@@ -1,17 +1,16 @@
 'use client';
 
-import { Config } from '../serverfunctions/ConfigServer';
+import { Config } from '../serverfunctions/Config';
 import { useDispatch } from 'react-redux';
-import { setIsLoading, storeData, storeError } from '../redux/names2IdSlice';
-import { Names2IdReader } from '@/serverfunctions/Names2IdServer';
+import { setIsLoading, storeData, storeError } from '../../redux/names2IdSlice';
+import { readNames2Id } from '../serverfunctions/Names2Id';
 
 export const useLoadNames2Id = (config: Config) => {
   const dispatch = useDispatch();
   
   const loadAndStoreNames2Id = async () => {
     dispatch(setIsLoading(true));
-    const reader = new Names2IdReader(config);
-    Promise.all([reader.readNames2Id()])
+    Promise.all([readNames2Id(config)])
       .then((response) => {
         dispatch(storeData(response[0]));
       })

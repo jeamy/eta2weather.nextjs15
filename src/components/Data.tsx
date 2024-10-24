@@ -1,12 +1,12 @@
 'use client';
 
-import { useDataReadAndStore } from '@/functions/DataReader';
+import { useDataReadAndStore } from '@/reader/functions/DataReader';
 import { RootState } from '../redux';
 import { useSelector } from 'react-redux';
 import { useEffect } from 'react';
 import { env } from 'process';
 
-const defaultConfigFile = env.DEFAULT_CONFIG_FILE || '../config/f_etacfg.json';
+const defaultConfigFile = env.DEFAULT_CONFIG_FILE || '@/config/f_etacfg.json';
 
 const Data: React.FC = () => {
     const  loadAndStoreData  = useDataReadAndStore(defaultConfigFile);

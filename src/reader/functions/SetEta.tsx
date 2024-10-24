@@ -1,11 +1,11 @@
-import { EtaConstants, Names2Id, Names2IdReader } from '../serverfunctions/Names2IdServer';
-import { Config, ConfigKeys, readConfig} from '../serverfunctions/ConfigServer';
-import { FetchWifiAf83 } from '../serverfunctions/FetchWifiAf83Server';
-import { FetchEta, ETA } from '../serverfunctions/FetchEtaServer';
+import { EtaConstants, Names2Id, Names2IdReader } from '../serverfunctions/Names2Id';
+import { Config, ConfigKeys, readConfig} from '../serverfunctions/Config';
+import { FetchWifiAf83 } from '../serverfunctions/FetchWifiAf83';
+import { FetchEta, ETA } from '../serverfunctions/FetchEta';
 import Diff from './Diff';
 import { EtaApi } from './EtaApi';
 import * as fs from 'fs';
-import { store } from "../redux";
+import { store } from "../../redux";
 
 type EtaValues = {
   einaus: string;

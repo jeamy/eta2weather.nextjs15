@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { EtaData } from '../serverfunctions/FetchEtaServer';
+import { EtaData } from '../reader/serverfunctions/FetchEta';
 import { LoadingState } from './interface';
 
 export type EtaState = {

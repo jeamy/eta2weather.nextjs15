@@ -1,17 +1,17 @@
 'use client'
 
-import { Config} from "../serverfunctions/ConfigServer";
+import { Config} from "../serverfunctions/Config";
 import { useDispatch } from "react-redux";
-import { setIsLoading, storeData, storeError } from "../redux/wifiAf83Slice";
-import { FetchWifiAf83 } from "../serverfunctions/FetchWifiAf83Server";
+import { setIsLoading, storeData, storeError } from "../../redux/wifiAf83Slice";
+import { fetchWifiAF83Data } from "../serverfunctions/FetchWifiAf83";
 
 export function useWifiReadAndStore(config: Config) {
     const dispatch = useDispatch();
 
     const loadAndStoreWifi = async () => {
         dispatch(setIsLoading(true));
-        const loadWifiData = new FetchWifiAf83(config);
-        Promise.all([loadWifiData.fetchWifiAF83Data()])
+        
+        Promise.all([fetchWifiAF83Data(config)])
         .then((response) => {
             dispatch(storeData(response[0]));   
         })  

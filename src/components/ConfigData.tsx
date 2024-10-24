@@ -2,11 +2,11 @@
 
 import React, { useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { useConfigReadAndStore } from '../functions/Config';
+import { useConfigReadAndStore } from '../reader/functions/Config';
 import { RootState } from '../redux'
 import { env } from 'process';
 
-const defaultConfigFile = env.DEFAULT_CONFIG_FILE || '../config/f_etacfg.json';
+const defaultConfigFile = env.DEFAULT_CONFIG_FILE || '@config/f_etacfg.json';
 
 const ConfigData: React.FC = () => {
     const loadAndStoreConfig = useConfigReadAndStore(defaultConfigFile);

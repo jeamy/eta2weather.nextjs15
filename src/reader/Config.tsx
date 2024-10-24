@@ -1,3 +1,4 @@
+
 'use server';
 
 import * as fs from 'fs';
@@ -24,13 +25,19 @@ export const defaultConfig: Config = {
     [ConfigKeys.F_NAMES2ID]: 'f_names2id.json'
 };
 
+export class ConfigReader {
+    private readonly fconfig: string;
 
-
-export async function readConfig(fconfig: string): Promise<Config> {
-    if (!fs.existsSync(fconfig)) {
-        fs.writeFileSync(fconfig, JSON.stringify(defaultConfig));
+    constructor(fconfig: string) {
+        this.fconfig = fconfig;
     }
-    const configFileContent = fs.readFileSync(fconfig, 'utf8');
-    const result = JSON.parse(configFileContent) as Config;
-    return result;
+
+    public async readConfig(): Promise<Config> {
+        if (!fs.existsSync(this.fconfig)) {
+            fs.writeFileSync(this.fconfig, JSON.stringify(defaultConfig));
+        }
+        const configFileContent = fs.readFileSync(this.fconfig, 'utf8');
+        const result = JSON.parse(configFileContent) as Config;
+        return result;
+    }
 }

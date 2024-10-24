@@ -1,8 +1,6 @@
-'use server';
-
 import * as fs from 'fs';
-import { Config, ConfigKeys } from "./ConfigServer";
-import WifiAf83Api from '../functions/WifiAf83Api';
+import { Config, ConfigKeys } from "./Config";
+import WifiAf83Api from './functions/WifiAf83Api';
 
 export const WIFIAF83 = 'WIFIAF83';
 
@@ -59,4 +57,3 @@ export class FetchWifiAf83 {
         }
     }
 }
-

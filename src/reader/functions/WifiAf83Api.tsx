@@ -1,4 +1,4 @@
-import EcoCon from "../../eco";
+import EcoCon from "../../../eco";
 
 class Wifiaf83Api {
   private readonly ecoCon: EcoCon;
