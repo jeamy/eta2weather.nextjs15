@@ -1,7 +1,8 @@
-import * as fs from 'fs/promises';
+'use server';
+
+import * as fs from 'fs';
 import { Config, ConfigKeys } from "./ConfigServer";
 import WifiAf83Api from '../functions/WifiAf83Api';
-
 
 export const WIFIAF83 = 'WIFIAF83';
 
@@ -17,24 +18,24 @@ export class FetchWifiAf83 {
 
     constructor(config: Config) {
         this.config = config;
-        this.wifiaf83Api = new WifiAf83Api(); 
+        this.wifiaf83Api = new WifiAf83Api();
     }
 
-    public async fetchWifiAF83Data(): Promise<WifiAF83Data>  {
-            const result = await this.wifiaf83Api.getRealtime();
-            if (result.error) {
-                throw new Error(result.error);
-            }
+    public async fetchWifiAF83Data(): Promise<WifiAF83Data> {
+        const result = await this.wifiaf83Api.getRealtime();
+        if (result.error) {
+            throw new Error(result.error);
+        }
 
-            const data = { } as WifiAF83Data;
-            data[WIFIAF83] = JSON.parse(result.result);
-            this.formatDateTime(data);
-            if(Object.keys(data[WIFIAF83]).length > 0) {
-                await this.writeData(data);
-                console.log(data[WIFIAF83]);
-            }
+        const data = {} as WifiAF83Data;
+        data[WIFIAF83] = JSON.parse(result.result);
+        this.formatDateTime(data);
+        if (Object.keys(data[WIFIAF83]).length > 0) {
+            await this.writeData(data);
+            console.log(data[WIFIAF83]);
+        }
 
-            return data;
+        return data;
     }
 
     private formatDateTime(data: WifiAF83Data): void {
@@ -53,7 +54,9 @@ export class FetchWifiAf83 {
     private async writeData(data: WifiAF83Data): Promise<void> {
         const filePath = this.config[ConfigKeys.F_WIFIAF83];
         const jsonData = JSON.stringify(data);
-        await fs.writeFile(filePath, jsonData);
+        if (!fs.existsSync(filePath)) {
+            fs.writeFileSync(filePath, jsonData);
+        }
     }
 }
 

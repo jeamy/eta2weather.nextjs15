@@ -1,6 +1,8 @@
+'use server';
+
 import { DOMParser } from 'xmldom';
 import { EtaApi } from '../functions/EtaApi';
-import * as fs from 'fs/promises';
+import * as fs from 'fs';
 
 import { EtaConstants, Names2Id } from '../serverfunctions/Names2IdServer';
 import { Config, ConfigKeys } from '../serverfunctions/ConfigServer';
@@ -99,6 +101,8 @@ export class FetchEta {
     private async writeData(data: EtaData): Promise<void> {
         const filePath = this.config[ConfigKeys.F_ETA];
         const jsonData = JSON.stringify(data);
-        await fs.writeFile(filePath, jsonData);
+        if (!fs.existsSync(filePath)) {
+            fs.writeFileSync(filePath, jsonData);
+        }
     }
 }
