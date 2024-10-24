@@ -1,7 +1,6 @@
 import * as fs from 'fs';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { setIsLoading, storeData, storeError } from '../redux/configSlice';
-import { RootState } from '@/redux';
 
 
 // Konstanten als Enum definieren
@@ -48,19 +47,18 @@ export function useConfigReadAndStore(fconfig: string) {
 
     const loadAndStoreConfig = async () => {
         dispatch(setIsLoading(true));
-        try {
-            const configReader = new ConfigReader(fconfig);
-            const config = await configReader.readConfig();
-            dispatch(storeData(config));
-        } catch (error: Error | any) {
-            dispatch(storeError(error.message));
-        }
+        const configReader = new ConfigReader(fconfig);
+
+        Promise.all([configReader.readConfig()])
+            .then((response) => {
+                dispatch(storeData(response[0]));
+            })
+            .catch((error) => {
+                dispatch(storeError(error.message));
+            })
+            .finally(() => dispatch(setIsLoading(false)));
     };
 
     return loadAndStoreConfig;
 }
 
-export const useGetConfigFromStore = () => {
-    const config = useSelector((state: RootState) => state.config.data);
-    return config;
-};

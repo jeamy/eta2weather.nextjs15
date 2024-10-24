@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Config, defaultConfig } from '../functions/Config';
 import { LoadingState } from './interface';
+import { get } from 'http';
 
 export type ConfigState = {
     data: Config;
@@ -29,9 +30,16 @@ const configSlice = createSlice({
         },
         setIsLoading: (state, action: PayloadAction<boolean>) => {
             state.loadingState.isLoading = action.payload;
-        }
+        },
     },
 });
+
+export const getConfig = (state: ConfigState) => {
+    if (state.data) {
+      return state.data;
+    }
+    return defaultConfig;
+};
 
 export const { storeData, storeError, setIsLoading } = configSlice.actions;
 export default configSlice.reducer;

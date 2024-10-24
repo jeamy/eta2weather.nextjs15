@@ -5,7 +5,7 @@ import { FetchEta, ETA } from './FetchEta';
 import Diff from './Diff';
 import { EtaApi } from './EtaApi';
 import * as fs from 'fs';
-import  {useGetConfigFromStore}  from '../functions/Config';
+import { store } from "../redux";
 
 type EtaValues = {
   einaus: string;
@@ -28,7 +28,7 @@ export class SetEta {
   private fetchEta: FetchEta;
 
   constructor() {
-    this.config = useGetConfigFromStore();
+    this.config = store.getState().config.data;
     this.etaApi = new EtaApi();
     this.fetchEta = new FetchEta(this.config, {});
   }
@@ -99,7 +99,7 @@ export class SetEta {
     const twi = indoor.temperature.value;
     const twa = outdoor.temperature.value;
     const { T_SOLL, T_DELTA } = this.config;
-    const diff = Math.min(T_SOLL + T_DELTA - twi, 5.0);
+    const diff = Math.min(Number(T_SOLL) + Number(T_DELTA) - twi, 5.0);
     return { diff: Number(diff.toFixed(1)), twa, twi };
   }
 

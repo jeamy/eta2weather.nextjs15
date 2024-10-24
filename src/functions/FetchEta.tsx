@@ -33,7 +33,7 @@ export class FetchEta {
      */
     public async fetchEtaData(): Promise<EtaData> {
         const shortkeys = Object.values(EtaConstants);
-        const data: EtaData = { } as EtaData;
+        const data: EtaData = {} as EtaData;
 
         await Promise.all(shortkeys.map(shortkey => this.prepareAndFetchGetUserVar(shortkey, data)));
 
@@ -110,13 +110,15 @@ export function useEtaReadAndStore(config: Config, names2id: Names2Id) {
 
     const loadAndStoreEta = async () => {
         dispatch(setIsLoading(true));
-        try {
-            const loadEtaData = new FetchEta(config, names2id);
-            const eta = await loadEtaData.fetchEtaData();
-            dispatch(storeData(eta));
-        } catch (error: Error | any) {
+        const loadEtaData = new FetchEta(config, names2id);
+        Promise.all([loadEtaData.fetchEtaData()])
+        .then((response) => {
+            dispatch(storeData(response[0]));
+        })
+        .catch((error) => {
             dispatch(storeError(error.message));
-        }
+        })
+        .finally(() => dispatch(setIsLoading(false)));
     };
 
     return loadAndStoreEta;

@@ -7,7 +7,7 @@ import { env } from 'process';
 const defaultConfigFile = env.DEFAULT_CONFIG_FILE || '../config/f_etacfg.json';
 
 const ConfigData: React.FC = async () => {
-    const loadAndStoreConfig  = useConfigReadAndStore(defaultConfigFile);
+    const loadAndStoreConfig = useConfigReadAndStore(defaultConfigFile);
     const config = useSelector((state: RootState) => state.config);
 
     useEffect(() => {

@@ -57,14 +57,17 @@ export const useLoadNames2Id = (config: Config) => {
   
   const loadAndStoreNames2Id = async () => {
     dispatch(setIsLoading(true));
-    try {    
     const reader = new Names2IdReader(config);
-    const names2IdData = await reader.readNames2Id();
-    dispatch(storeData(names2IdData));
-    } catch (error: Error | any) {
-      dispatch(storeError(error.message));
-    }
+    Promise.all([reader.readNames2Id()])
+      .then((response) => {
+        dispatch(storeData(response[0]));
+      })
+      .catch((error) => {
+        dispatch(storeError(error.message));
+      })
+      .finally(() => dispatch(setIsLoading(false)));
   };
 
   return loadAndStoreNames2Id;
 };
+
