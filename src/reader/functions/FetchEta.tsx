@@ -1,9 +1,7 @@
-'use client'
-
 import { useDispatch } from 'react-redux';
 import { setIsLoading, storeData, storeError } from '../../redux/etaSlice';
-import { Config } from '../serverfunctions/Config';
-import { Names2Id } from '../serverfunctions/Names2Id';
+import { Config } from '../Config';
+import { Names2Id } from '../Names2Id';
 import { fetchEtaData } from '../serverfunctions/FetchEta';
 
 export function useEtaReadAndStore(config: Config, names2id: Names2Id) {

@@ -1,4 +1,3 @@
-'use client'
 import { useDispatch } from 'react-redux';
 import { setIsLoading, storeData, storeError } from '../../redux/dataSlice';
 import { readData } from '../serverfunctions/DataReader';

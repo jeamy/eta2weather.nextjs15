@@ -1,6 +1,4 @@
-'use client'
-
-import { Config} from "../serverfunctions/Config";
+import { Config} from "../Config";
 import { useDispatch } from "react-redux";
 import { setIsLoading, storeData, storeError } from "../../redux/wifiAf83Slice";
 import { fetchWifiAF83Data } from "../serverfunctions/FetchWifiAf83";

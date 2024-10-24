@@ -1,6 +1,4 @@
-'use client';
-
-import { Config } from '../serverfunctions/Config';
+import { Config } from '../Config';
 import { useDispatch } from 'react-redux';
 import { setIsLoading, storeData, storeError } from '../../redux/names2IdSlice';
 import { readNames2Id } from '../serverfunctions/Names2Id';
