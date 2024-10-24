@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Names2Id } from '../functions/Names2Id';
+import { Names2Id } from '../serverfunctions/Names2IdServer';
 import { LoadingState } from './interface';
 
 export type Names2IdState = {

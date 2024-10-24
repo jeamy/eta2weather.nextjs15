@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Config, defaultConfig } from '../functions/Config';
+import { Config, defaultConfig } from '../serverfunctions/ConfigServer';
 import { LoadingState } from './interface';
 import { get } from 'http';
 

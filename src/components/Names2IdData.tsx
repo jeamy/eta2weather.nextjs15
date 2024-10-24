@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useEffect } from 'react';
 import { useLoadNames2Id } from '../functions/Names2Id';
 import { useSelector } from 'react-redux';

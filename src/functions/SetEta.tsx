@@ -1,7 +1,7 @@
-import { EtaConstants, Names2Id, Names2IdReader } from './Names2Id';
-import { Config, ConfigKeys, ConfigReader, useConfigReadAndStore } from './Config';
-import { FetchWifiAf83 } from './FetchWifiAf83';
-import { FetchEta, ETA } from './FetchEta';
+import { EtaConstants, Names2Id, Names2IdReader } from '../serverfunctions/Names2IdServer';
+import { Config, ConfigKeys, readConfig} from '../serverfunctions/ConfigServer';
+import { FetchWifiAf83 } from '../serverfunctions/FetchWifiAf83Server';
+import { FetchEta, ETA } from '../serverfunctions/FetchEtaServer';
 import Diff from './Diff';
 import { EtaApi } from './EtaApi';
 import * as fs from 'fs';
@@ -64,9 +64,7 @@ export class SetEta {
 
   private async initializeData(): Promise<void> {
      
-
-    const configReader = new ConfigReader(ConfigKeys.F_ETA);
-    this.config = await configReader.readConfig();
+    this.config = await readConfig(ConfigKeys.F_ETA);
 
     this.names2id = new Names2IdReader(this.config).readNames2Id();
   }

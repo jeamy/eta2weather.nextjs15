@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useConfigReadAndStore } from '../functions/Config';
@@ -6,7 +8,7 @@ import { env } from 'process';
 
 const defaultConfigFile = env.DEFAULT_CONFIG_FILE || '../config/f_etacfg.json';
 
-const ConfigData: React.FC = async () => {
+const ConfigData: React.FC = () => {
     const loadAndStoreConfig = useConfigReadAndStore(defaultConfigFile);
     const config = useSelector((state: RootState) => state.config);
 
@@ -17,7 +19,7 @@ const ConfigData: React.FC = async () => {
     return (
         <div>
             <h1>Konfiguration:</h1>
-            <pre>{JSON.stringify(config, null, 2)}</pre>
+            <pre>{JSON.stringify(config.data, null, 2)}</pre>
         </div>
     );
 }
