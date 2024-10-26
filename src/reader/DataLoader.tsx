@@ -1,15 +1,16 @@
-import { makeStore } from '../redux';
-import { storeData } from '../redux/configSlice';
-import { readConfig } from './serverfunctions/Config';
+import { useAppDispatch, useAppStore } from '@/redux/hooks';
 import { useConfigReadAndStore } from './functions/Config';
+import { useEtaReadAndStore } from './functions/FetchEta';
 
 export default async function DataLoader() {
-  const store = makeStore();
-  useConfigReadAndStore(store, process.env.DEFAULT_CONFIG_FILE || '@config/f_etacfg.json');
+  const store = useAppStore();
+  const dispatch = useAppDispatch();
+  
+  useConfigReadAndStore(dispatch, process.env.DEFAULT_CONFIG_FILE || '@config/f_etacfg.json');
+  useEtaReadAndStore(dispatch, store.getState().config.data, store.getState().names2Id.data);
   
   //const configData = await readConfig(process.env.DEFAULT_CONFIG_FILE || '@config/f_etacfg.json');
   //store.dispatch(storeData(configData));
 
-  // Wir geben hier nichts zurück, da wir nur den Store aktualisieren
   return store;
 }

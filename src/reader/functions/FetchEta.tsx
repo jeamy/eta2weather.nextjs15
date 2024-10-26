@@ -1,16 +1,16 @@
-import { useDispatch } from 'react-redux';
 import { setIsLoading, storeData, storeError } from '../../redux/etaSlice';
-import { Config } from '../Config';
 import { Names2Id } from '../Names2Id';
-import { fetchEtaData } from '../serverfunctions/FetchEta';
+import { Config } from './types-constants/ConfigConstants';
+import { fetchEtaData } from './server/EtaData';
+import { AppDispatch } from '@/redux';
 
-export function useEtaReadAndStore(config: Config, names2id: Names2Id) {
-    const dispatch = useDispatch();
+export function useEtaReadAndStore(dispatch: AppDispatch, config: Config, names2id: Names2Id) {
 
     const loadAndStoreEta = async () => {
         dispatch(setIsLoading(true));
         Promise.all([fetchEtaData(config, names2id)])
         .then((response) => {
+            console.log(response[0]);
             dispatch(storeData(response[0]));
         })
         .catch((error) => {

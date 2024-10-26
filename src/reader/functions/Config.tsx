@@ -1,18 +1,20 @@
+import { AppDispatch } from '@/redux';
 import { setIsLoading, storeData, storeError } from '../../redux/configSlice';
-import { readConfig } from '../serverfunctions/Config';
+import { readConfig } from './server/Config';
 
-export function useConfigReadAndStore(store: any, fconfig: string) {
+export async function useConfigReadAndStore(dispatch: AppDispatch, fconfig: string) {
 
     const loadAndStoreConfig = async () => {
-        store.dispatch(setIsLoading(true));
+        dispatch(setIsLoading(true));
         Promise.all([readConfig(fconfig)])
             .then((response) => {
-                store.dispatch(storeData(response[0]));
+                console.log(response[0]);
+                dispatch(storeData(response[0]));
             })
             .catch((error) => {
-                store.dispatch(storeError(error.message));
+                dispatch(storeError(error.message));
             })
-            .finally(() => store.dispatch(setIsLoading(false)));
+            .finally(() => dispatch(setIsLoading(false)));
     };
 
     return loadAndStoreConfig;

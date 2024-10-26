@@ -1,10 +1,9 @@
-import { Config } from '../Config';
-import { useDispatch } from 'react-redux';
 import { setIsLoading, storeData, storeError } from '../../redux/names2IdSlice';
-import { readNames2Id } from '../serverfunctions/Names2Id';
+import { Config } from 'tailwindcss';
+import { readNames2Id } from '../Names2Id';
+import { AppDispatch } from '@/redux';
 
-export const useLoadNames2Id = (config: Config) => {
-  const dispatch = useDispatch();
+export const useLoadNames2Id = (dispatch: AppDispatch, config: Config) => {
   
   const loadAndStoreNames2Id = async () => {
     dispatch(setIsLoading(true));

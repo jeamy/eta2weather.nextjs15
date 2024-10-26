@@ -1,11 +1,9 @@
-import { Config} from "../Config";
-import { useDispatch } from "react-redux";
 import { setIsLoading, storeData, storeError } from "../../redux/wifiAf83Slice";
-import { fetchWifiAF83Data } from "../serverfunctions/FetchWifiAf83";
+import { AppDispatch } from "@/redux";
+import { Config } from "./types-constants/ConfigConstants";
+import { fetchWifiAF83Data } from "../WifiAf83";
 
-export function useWifiReadAndStore(config: Config) {
-    const dispatch = useDispatch();
-
+export function useWifiReadAndStore(dispatch: AppDispatch, config: Config) {
     const loadAndStoreWifi = async () => {
         dispatch(setIsLoading(true));
         

@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Config, defaultConfig } from '../reader/Config';
+import { Config, defaultConfig } from '../reader/functions/types-constants/ConfigConstants';
 import { LoadingState } from './interface';
 
 export type ConfigState = {

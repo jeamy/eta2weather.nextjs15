@@ -1,6 +1,6 @@
 import { useDispatch } from 'react-redux';
 import { setIsLoading, storeData, storeError } from '../../redux/dataSlice';
-import { readData } from '../serverfunctions/DataReader';
+import { readData } from './server/Data';
 
 // Funktion, um Daten abzurufen und im Store zu speichern
 export const useDataReadAndStore = (fdata: string) => {
@@ -21,3 +21,4 @@ export const useDataReadAndStore = (fdata: string) => {
     };
     return loadAndStoreData;
   };
+

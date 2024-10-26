@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import { Config, ConfigKeys } from './Config';
+import { promises as fs } from 'fs';
+import { Config, ConfigKeys } from './functions/server/Config';
 
 export enum EtaConstants {
   HEIZKURVE = 'HK',
@@ -32,20 +32,15 @@ const defaultNames2Id: Names2Id = {
   [EtaConstants.VORLAUFTEMP]: { id: "/120/10101/0/0/12241", name: "Vorlauf Temperatur" },
 };
 
-export class Names2IdReader {
-  private config: Config;
-
-  constructor(config: Config) {
-    this.config = config;
+export const readNames2Id = async (config: Config): Promise<Names2Id> => {
+  const filePath = config[ConfigKeys.F_NAMES2ID];
+  
+  try {
+    await fs.access(filePath);
+  } catch (error) {
+    await fs.writeFile(filePath, JSON.stringify(defaultNames2Id));
   }
-
-  public readNames2Id(): Promise<Names2Id> {
-    const filePath = this.config[ConfigKeys.F_NAMES2ID];
-    
-    if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, JSON.stringify(defaultNames2Id));
-    }
-    
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  }
-}
+  
+  const data = await fs.readFile(filePath, 'utf8');
+  return JSON.parse(data);
+};
