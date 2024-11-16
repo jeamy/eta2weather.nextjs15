@@ -1,6 +1,5 @@
 'use server';
 
-import { Config, ConfigKeys } from './types-constants/ConfigConstants';
 import { WifiAf83Api } from './WifiAf83Api';
 
 interface WifiAf83Response {
@@ -10,7 +9,7 @@ interface WifiAf83Response {
     diff?: number;
 }
 
-export const fetchWifiAf83Data = async (config: Config): Promise<WifiAf83Response> => {
+export const fetchWifiAf83Data = async (): Promise<WifiAf83Response> => {
   const wifiApi = new WifiAf83Api();
 
     try {
@@ -31,7 +30,7 @@ export const fetchWifiAf83Data = async (config: Config): Promise<WifiAf83Respons
             pressure: parseFloat(data.pressure) || 0,
             diff: parseFloat(data.diff) || 0
         };
-        
+
         console.log('Transformed WifiAf83 data:', result);
 
         return result;

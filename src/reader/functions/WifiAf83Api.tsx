@@ -24,17 +24,17 @@ export class WifiAf83Api {
     });
   }
 
-  public async getRealtime(): Promise<any> {
-    try {
-      const response = await fetch(`${this.baseUrl}?${this.params}`);
-      if (!response.ok) {
-        throw new Error(`HTTP-Fehler! Status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Fehler beim Abrufen der Echtzeit-Daten:', error);
-      throw error;
-    }
+  public getRealtime(): Promise<any> {
+    return fetch(`${this.baseUrl}?${this.params}`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP-Fehler! Status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .catch(error => {
+        console.error('Fehler beim Abrufen der Echtzeit-Daten:', error);
+        throw error;
+      });
   }
 }
-

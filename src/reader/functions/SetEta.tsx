@@ -62,7 +62,7 @@ export class SetEta {
   private async fetchData(dispatch: AppDispatch): Promise<[Record<string, any>, any]> {
     return Promise.all([
       fetchEtaData(this.config, this.names2id),
-      fetchWifiAf83Data(this.config)
+      fetchWifiAf83Data()
     ]);
   }
 

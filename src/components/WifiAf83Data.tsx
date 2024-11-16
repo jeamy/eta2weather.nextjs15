@@ -51,7 +51,7 @@ const WifiAf83Data: React.FC = () => {
           throw new Error('Failed to fetch WiFi data');
         }
 
-        const { data, config: updatedConfig } = await response.json() as ApiResponse;
+        const { data } = await response.json() as ApiResponse;
         
         // Add time and datestring to match WifiAF83Data type
         const enrichedData: WifiAf83Response = {
@@ -62,11 +62,6 @@ const WifiAf83Data: React.FC = () => {
 
         setWifiData(enrichedData);
         dispatch(storeData(enrichedData));
-
-        // Update config in Redux if provided
-        if (updatedConfig) {
-          dispatch(storeConfigData(updatedConfig));
-        }
       } catch (error) {
         console.error('Error fetching WiFi data:', error);
         dispatch(storeError((error as Error).message));
