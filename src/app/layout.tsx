@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import DataLoader from "@/reader/DataLoader";
 import StoreProvider from "@/components/StoreProvider";
 
 const geistSans = localFont({
@@ -23,8 +22,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  
-  await DataLoader();
 
   return (
     <html lang="de">

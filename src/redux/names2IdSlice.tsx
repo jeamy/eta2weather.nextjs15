@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Names2Id } from '../reader/serverfunctions/Names2Id';
+import { Names2Id } from '../reader/Names2Id';
 import { LoadingState } from './interface';
+import { updateLoadingState } from './loadingStateUtils';
 
 export type Names2IdState = {
   data: Names2Id;
@@ -21,18 +22,16 @@ const names2IdSlice = createSlice({
   reducers: {
     storeData: (state, action: PayloadAction<Names2Id>) => {
       state.data = action.payload;
-      state.loadingState.isLoading = false;
+      updateLoadingState(state, false);
     },
     storeError: (state, action: PayloadAction<string>) => {
-      state.loadingState.error = action.payload;
-      state.loadingState.isLoading = false;
+      updateLoadingState(state, false, action.payload);
     },
     setIsLoading: (state, action: PayloadAction<boolean>) => {
-      state.loadingState.isLoading = action.payload;
+      updateLoadingState(state, action.payload);
     }
   },
 });
 
 export const { storeData, storeError, setIsLoading } = names2IdSlice.actions;
 export default names2IdSlice.reducer;
-

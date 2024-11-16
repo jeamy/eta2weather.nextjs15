@@ -1,11 +1,13 @@
-import { EtaConstants, Names2Id, Names2IdReader } from '../serverfunctions/Names2Id';
-import { Config, ConfigKeys, readConfig} from '../serverfunctions/Config';
-import { FetchWifiAf83 } from '../serverfunctions/FetchWifiAf83';
-import { FetchEta, ETA } from '../serverfunctions/FetchEta';
 import Diff from './Diff';
 import { EtaApi } from './EtaApi';
 import * as fs from 'fs';
-import { store } from "../../redux";
+import { Config, ConfigKeys } from './types-constants/ConfigConstants';
+import { EtaConstants, Names2Id } from './types-constants/Names2IDconstants';
+import { ETA } from './types-constants/EtaConstants';
+import { fetchEtaData } from './EtaData';
+import { fetchWifiAf83Data } from './WifiAf83Data';
+import { prepareAndFetchGetUserVar } from './EtaData';
+import { AppDispatch } from '../../redux/index';
 
 type EtaValues = {
   einaus: string;
@@ -25,18 +27,15 @@ export class SetEta {
   private config: Config = {} as Config;
   private names2id: Names2Id = {} as Names2Id;
   private etaApi: EtaApi;
-  private fetchEta: FetchEta;
 
   constructor() {
-    this.config = store.getState().config.data;
     this.etaApi = new EtaApi();
-    this.fetchEta = new FetchEta(this.config, {});
   }
 
-  public async setEta(): Promise<string> {
+  public async setEta(dispatch: AppDispatch): Promise<string> {
     try {
       await this.initializeData();
-      const [etaData, wifiAf83Data] = await this.fetchData();
+      const [etaData, wifiAf83Data] = await this.fetchData(dispatch);
 
       if (!wifiAf83Data) throw new Error("Fetching WifiAF83 failed.");
 
@@ -64,15 +63,12 @@ export class SetEta {
 
   private async initializeData(): Promise<void> {
      
-    this.config = await readConfig(ConfigKeys.F_ETA);
-
-    this.names2id = new Names2IdReader(this.config).readNames2Id();
   }
 
-  private async fetchData(): Promise<[Record<string, any>, any]> {
+  private async fetchData(dispatch: AppDispatch): Promise<[Record<string, any>, any]> {
     return Promise.all([
-      new FetchEta(this.config, this.names2id).fetchEtaData(),
-      new FetchWifiAf83(this.config).fetchWifiAF83Data()
+      fetchEtaData(this.config, this.names2id, dispatch),
+      fetchWifiAf83Data(this.config, dispatch)
     ]);
   }
 
@@ -122,7 +118,7 @@ export class SetEta {
     const id = this.names2id[EtaConstants.SCHIEBERPOS]['id'];
 
     await this.etaApi.setUserVar(id, scaledPosition, "0", "0");
-    await this.fetchEta.prepareAndFetchGetUserVar(EtaConstants.SCHIEBERPOS, etaData);
+    await prepareAndFetchGetUserVar(EtaConstants.SCHIEBERPOS, etaData, this.names2id, this.etaApi);
 
     const updatedPosition = Number(this.getEtaNameData(EtaConstants.SCHIEBERPOS, etaData));
     const status = Number(newPosition) === updatedPosition ? 'OK' : 'ERROR';

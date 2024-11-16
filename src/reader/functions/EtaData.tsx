@@ -1,17 +1,16 @@
-
 'use server';
 
 import { DOMParser } from 'xmldom';
-import { EtaApi } from '../EtaApi';
+import { EtaApi } from './EtaApi';
 import { promises as fs } from 'fs';
+import { EtaConstants, Names2Id } from './types-constants/Names2IDconstants';
+import { Config, ConfigKeys } from './types-constants/ConfigConstants';
+import { ETA, EtaData, ParsedXmlData } from './types-constants/EtaConstants';
+import { storeData } from '../../redux/etaSlice';
+import { AppDispatch } from '../../redux/index';
 
-import { EtaConstants, Names2Id } from '../../Names2Id';
-import { Config, ConfigKeys } from '../types-constants/ConfigConstants';
-import { ETA, EtaData, ParsedXmlData } from '../types-constants/EtaConstants';
-
-
-export const fetchEtaData = async (config: Config, names2id: Names2Id): Promise<EtaData> => {
-    const etaApi = new EtaApi(config.S_ETA);
+export const fetchEtaData = async (config: Config, names2id: Names2Id, dispatch: AppDispatch): Promise<EtaData> => {
+    const etaApi = new EtaApi(ConfigKeys.T_SOLL);
     const shortkeys = Object.values(EtaConstants);
     const data: EtaData = {} as EtaData;
 
@@ -19,6 +18,7 @@ export const fetchEtaData = async (config: Config, names2id: Names2Id): Promise<
 
     if (Object.keys(data[ETA]).length > 0) {
         await writeData(data, config);
+        dispatch(storeData(data));
         console.log(data[ETA]);
     }
     return data;
@@ -40,7 +40,7 @@ const parseXML = (content: string, shortkey: string, names2id: Names2Id): Parsed
     return result;
 };
 
-const prepareAndFetchGetUserVar = async (shortkey: string, data: EtaData, names2id: Names2Id, etaApi: EtaApi): Promise<void> => {
+export const prepareAndFetchGetUserVar = async (shortkey: string, data: EtaData, names2id: Names2Id, etaApi: EtaApi): Promise<void> => {
     try {
         const id = names2id[shortkey]?.['id'];
         if (!id) {
@@ -64,9 +64,8 @@ const writeData = async (data: EtaData, config: Config): Promise<void> => {
     const jsonData = JSON.stringify(data);
 
     try {
-        await fs.access(filePath);
-    } catch (error) {
         await fs.writeFile(filePath, jsonData);
+    } catch (error) {
+        console.error('Error writing data to file:', error);
     }
-
 };

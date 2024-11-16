@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { LoadingState } from './interface';
+import { updateLoadingState } from './loadingStateUtils';
 
 export type Data = {
   [key: string]: string;
@@ -24,18 +25,16 @@ const dataSlice = createSlice({
   reducers: {
     storeData: (state, action: PayloadAction<Data>) => {
       state.data = action.payload;
-      state.loadingState.isLoading = false;
+      updateLoadingState(state, false);
     },
     storeError: (state, action: PayloadAction<string>) => {
-      state.loadingState.error = action.payload;
-      state.loadingState.isLoading = false;
+      updateLoadingState(state, false, action.payload);
     },
     setIsLoading: (state, action: PayloadAction<boolean>) => {
-      state.loadingState.isLoading = action.payload;
+      updateLoadingState(state, action.payload);
     },
   },
 });
 
 export const { storeData, storeError, setIsLoading } = dataSlice.actions;
 export default dataSlice.reducer;
-

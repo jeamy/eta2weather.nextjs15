@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { LoadingState } from './interface';
 import { EtaData } from '@/reader/functions/types-constants/EtaConstants';
+import { updateLoadingState } from './loadingStateUtils';
 
 export type EtaState = {
   data: EtaData,
@@ -21,18 +22,16 @@ const etaSlice = createSlice({
   reducers: {
     storeData: (state, action: PayloadAction<EtaData>) => {
       state.data = action.payload;
-      state.loadingState.isLoading = false;
+      updateLoadingState(state, false);
     },
     storeError: (state, action: PayloadAction<string>) => {
-      state.loadingState.error = action.payload;
-      state.loadingState.isLoading = false;
+      updateLoadingState(state, false, action.payload);
     },
     setIsLoading: (state, action: PayloadAction<boolean>) => {
-      state.loadingState.isLoading = action.payload;
+      updateLoadingState(state, action.payload);
     }
   },
 });
 
 export const { storeData, storeError, setIsLoading } = etaSlice.actions;
 export default etaSlice.reducer;
-

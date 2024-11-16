@@ -1,6 +1,6 @@
 import EcoCon from "../../../eco";
 
-class Wifiaf83Api {
+export class WifiAf83Api {
   private readonly ecoCon: EcoCon;
   private readonly baseUrl: string;
   private readonly params: URLSearchParams;
@@ -38,4 +38,3 @@ class Wifiaf83Api {
   }
 }
 
-export default Wifiaf83Api;

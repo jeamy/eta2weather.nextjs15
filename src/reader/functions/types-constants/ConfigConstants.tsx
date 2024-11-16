@@ -3,13 +3,13 @@ export type Config = Record<ConfigKeys, string>;
 
 // Konstanten als Enum definieren
 export enum ConfigKeys {
-    T_SOLL = 'T_SOLL',
-    T_DELTA = 'T_DELTA',
-    F_ETA = 'F_ETA',
-    S_ETA = 'S_ETA',
-    F_WIFIAF83 = 'F_WIFIAF83',
-    F_NAMES2ID = 'F_NAMES2ID',
-    T_UPDATE_TIMER = 'T_UPDATE_TIMER'
+    T_SOLL = 't_soll',
+    T_DELTA = 't_delta',
+    F_ETA = 'f_eta',
+    S_ETA = 's_eta',
+    F_WIFIAF83 = 'f_wifiaf83',
+    F_NAMES2ID = 'f_names2id',
+    T_UPDATE_TIMER = 't_update_timer'
 }
 
 export const defaultConfig: Config = {
