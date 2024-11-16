@@ -1,9 +1,9 @@
 {
-    "t_soll": "21",
-    "t_delta": "0",
-    "s_eta": "192.168.8.100:8080",
-    "f_eta": "f_eta.json",
-    "f_wifiaf83": "f_wifiaf89.json",
-    "f_names2id": "f_names2id.json",
-    "t_update_timer": "10000"
+  "t_soll": "18",
+  "t_delta": "0",
+  "s_eta": "192.168.8.100:8080",
+  "f_eta": "f_eta.json",
+  "f_wifiaf83": "f_wifiaf89.json",
+  "f_names2id": "f_names2id.json",
+  "t_update_timer": "10000"
 }

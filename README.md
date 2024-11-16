@@ -58,11 +58,35 @@ eta2weather.nextjs15/
 ## Setup and Installation
 
 1. Clone the repository
-2. Install dependencies:
+2. Create `.env` file from example:
+   ```bash
+   cp .env.example .env
+   ```
+   Update the server address in `.env`:
+   ```bash
+   DEFAULT_CONFIG_FILE='./config/f_etacfg.json'
+   DEFAULT_SERVER='192.x.x.x:8080'  # Replace with your server address
+   ```
+3. Configure Ecowitt API (if using weather station):
+   ```bash
+   cp eco.example.tsx eco.tsx
+   ```
+   Update with your Ecowitt credentials:
+   ```typescript
+   config: {
+     applicationKey: "XXX", // From Ecowitt API Settings
+     apiKey: "XXX",        // Generated API Key
+     mac: "XXX",           // Device MAC Address
+     server: "api.ecowitt.net"
+   }
+   ```
+   See `eco.example.tsx` for detailed instructions on obtaining API credentials.
+
+4. Install dependencies:
    ```bash
    npm install
    ```
-3. Run the development server:
+5. Run the development server:
    ```bash
    npm run dev
    ```
@@ -71,7 +95,7 @@ eta2weather.nextjs15/
 
 ### API Endpoints
 
-- `/api/config`: Configuration data
+- `/api/config/config`: Configuration data
 - `/api/eta`: ETA system data
 - `/api/wifi`: Weather and temperature data
 
