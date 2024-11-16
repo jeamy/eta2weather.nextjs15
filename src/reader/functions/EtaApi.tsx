@@ -21,6 +21,7 @@ export class EtaApi {
 
     private async fetchApi(endpoint: string, method: 'GET' | 'POST', body?: Record<string, string>): Promise<ApiResponse> {
         const url = `http://${this.server}${endpoint}`;
+        console.log(`Sending ${method} request to ${url}`);
         try {
             const response = await fetch(url, {
                 method,

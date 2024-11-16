@@ -21,7 +21,12 @@ export default function Home() {
         </div>
       </main>
       <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        LINKS
+        <p className="text-sm text-muted-foreground">
+          created by{" "}
+          <a
+            href="https://github.com/jeamy"
+          >jeamy</a>
+        </p>
       </footer>
     </div>
   );

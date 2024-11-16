@@ -51,7 +51,7 @@ const WifiAf83Data: React.FC = () => {
   useEffect(() => {
     const loadAndStoreWifi = async () => {
       try {
-        const response = await fetch('/api/wifi');
+        const response = await fetch('/api/wifiaf83/read');
         const data: WifiResponse = await response.json();
         setWifiData(data);
         // Store the data directly since it already has the required properties

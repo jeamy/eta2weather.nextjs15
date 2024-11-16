@@ -95,9 +95,25 @@ eta2weather.nextjs15/
 
 ### API Endpoints
 
-- `/api/config/config`: Configuration data
-- `/api/eta`: ETA system data
-- `/api/wifi`: Weather and temperature data
+#### Read Endpoints
+- `/api/config/read`: Retrieves the current configuration data.
+- `/api/eta/read`: Retrieves the ETA system data.
+- `/api/wifiaf83/read`: Retrieves the weather and temperature data.
+- `/api/names2id/read`: Retrieves the names to ID mapping data.
+
+#### Update Endpoints
+- `/api/config/update`: Updates the configuration values.
+  ```typescript
+  // POST request body
+  {
+    "key": "t_soll" | "t_delta" | "t_update_timer" | "s_eta" | "f_eta" | "f_wifiaf83" | "f_names2id",
+    "value": string
+  }
+  ```
+  Validates:
+  - Temperature values (10-25°C for t_soll, -5-5°C for t_delta)
+  - Update timer (0-10 minutes, stored in milliseconds)
+  - Server address (IPv4 with optional port)
 
 ### Component Structure
 

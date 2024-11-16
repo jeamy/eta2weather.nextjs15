@@ -34,7 +34,6 @@ export class SetEta {
 
   public async setEta(dispatch: AppDispatch): Promise<string> {
     try {
-      await this.initializeData();
       const [etaData, wifiAf83Data] = await this.fetchData(dispatch);
 
       if (!wifiAf83Data) throw new Error("Fetching WifiAF83 failed.");
@@ -59,10 +58,6 @@ export class SetEta {
     } catch (error) {
       return this.handleError(error);
     }
-  }
-
-  private async initializeData(): Promise<void> {
-     
   }
 
   private async fetchData(dispatch: AppDispatch): Promise<[Record<string, any>, any]> {
@@ -92,8 +87,8 @@ export class SetEta {
     const { indoor, outdoor } = wifiAf83Data.data;
     const twi = indoor.temperature.value;
     const twa = outdoor.temperature.value;
-    const { T_SOLL, T_DELTA } = this.config;
-    const diff = Math.min(Number(T_SOLL) + Number(T_DELTA) - twi, 5.0);
+    const { t_soll, t_delta } = this.config;
+    const diff = Math.min(Number(t_soll) + Number(t_delta) - twi, 5.0);
     return { diff: Number(diff.toFixed(1)), twa, twi };
   }
 
@@ -146,14 +141,14 @@ export class SetEta {
   private logData(etaValues: EtaValues, tempDiff: TempDiff, newPosition: string): void {
     const { tea, tes } = etaValues;
     const { twa, twi } = tempDiff;
-    const { T_SOLL, T_DELTA } = this.config;
+    const { t_soll, t_delta } = this.config;
 
     console.log(`
       Außentemperatur ETA: ${tea}
       Außentemperatur: ${twa}
       Innentemperatur: ${twi}
-      Solltemperatur: ${T_SOLL}
-      Deltatemperatur: ${T_DELTA}
+      Solltemperatur: ${t_soll}
+      Deltatemperatur: ${t_delta}
       Schieber Position: ${tes}
       Schieber Position neu: ${newPosition}
     `);

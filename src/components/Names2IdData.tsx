@@ -16,7 +16,7 @@ const Names2IdData: React.FC = () => {
   useEffect(() => {
     const loadAndStoreNames2Id = async () => {
       try {
-        const response = await fetch('/api/names2id');
+        const response = await fetch('/api/names2id/read');
         const data = await response.json();
         setNames2IdData(data);
         dispatch(storeData(data));
