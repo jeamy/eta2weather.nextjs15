@@ -2,17 +2,13 @@
 
 import { DOMParser } from 'xmldom';
 import { EtaApi } from './EtaApi';
-import { promises as fs } from 'fs';
 import { EtaConstants, Names2Id } from './types-constants/Names2IDconstants';
 import { Config, ConfigKeys } from './types-constants/ConfigConstants';
-import { ETA, EtaData, ParsedXmlData } from './types-constants/EtaConstants';
-import { storeData } from '../../redux/etaSlice';
-import { AppDispatch } from '../../redux/index';
+import { EtaData, ParsedXmlData } from './types-constants/EtaConstants';
 
 export const fetchEtaData = async (
     config: Config, 
-    names2id: Names2Id, 
-    dispatch?: AppDispatch
+    names2id: Names2Id
 ): Promise<EtaData> => {
     const etaApi = new EtaApi(config[ConfigKeys.S_ETA]);
     const shortkeys = Object.values(EtaConstants);
@@ -20,17 +16,11 @@ export const fetchEtaData = async (
 
     await Promise.all(shortkeys.map(shortkey => prepareAndFetchGetUserVar(shortkey, data, names2id, etaApi)));
 
-    if (Object.keys(data).length > 0) {
-        await writeData(data, config);
-        if (dispatch) {
-            dispatch(storeData(data));
-        }
-    }
     return data;
 };
 
 const parseXML = (content: string, shortkey: string, names2id: Names2Id): ParsedXmlData => {
-    console.log(`Parsing ${shortkey} Content:`, content);
+    // console.log(`Parsing ${shortkey} Content:`, content);
     
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(content, 'text/xml');
@@ -64,7 +54,7 @@ const parseXML = (content: string, shortkey: string, names2id: Names2Id): Parsed
         });
     }
 
-    console.log(`Parsed ${shortkey} data:`, result);
+    // console.log(`Parsed ${shortkey} data:`, result);
     return result;
 };
 
@@ -92,13 +82,3 @@ export const prepareAndFetchGetUserVar = async (shortkey: string, data: EtaData,
     }
 };
 
-const writeData = async (data: EtaData, config: Config): Promise<void> => {
-    const filePath = config[ConfigKeys.F_ETA];
-    const jsonData = JSON.stringify(data);
-
-    try {
-        await fs.writeFile(filePath, jsonData);
-    } catch (error) {
-        console.error('Error writing data to file:', error);
-    }
-};

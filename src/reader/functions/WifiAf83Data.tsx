@@ -1,27 +1,42 @@
-import { promises as fs } from 'fs';
-import { storeData } from '../../redux/wifiAf83Slice';
-import { AppDispatch } from '../../redux/index';
+'use server';
+
 import { Config, ConfigKeys } from './types-constants/ConfigConstants';
-import { WifiAF83Data } from './types-constants/WifiAf83';
 import { WifiAf83Api } from './WifiAf83Api';
 
-export const fetchWifiAf83Data = async (config: Config, dispatch: AppDispatch): Promise<WifiAF83Data> => {
-  const wifiAf83Api = new WifiAf83Api();
-  const data: WifiAF83Data = await wifiAf83Api.getRealtime();
+interface WifiAf83Response {
+    temperature?: number;
+    humidity?: number;
+    pressure?: number;
+    diff?: number;
+}
 
-  await writeData(data, config);
-  dispatch(storeData(data));
+export const fetchWifiAf83Data = async (config: Config): Promise<WifiAf83Response> => {
+  const wifiApi = new WifiAf83Api();
 
-  return data;
-};
+    try {
+        const response = await wifiApi.getRealtime();
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch WifiAf83 data: ${response.statusText}`);
+        }
 
-const writeData = async (data: WifiAF83Data, config: Config): Promise<void> => {
-  const filePath = config[ConfigKeys.F_WIFIAF83];
-  const jsonData = JSON.stringify(data);
+        const data = await response.json();
 
-  try {
-    await fs.writeFile(filePath, jsonData);
-  } catch (error) {
-    console.error('Error writing WifiAf83 data to file:', error);
-  }
+        console.log('WifiAf83 data:', data);
+
+        // Transform and validate the data
+        const result: WifiAf83Response = {
+            temperature: parseFloat(data.temperature) || 0,
+            humidity: parseFloat(data.humidity) || 0,
+            pressure: parseFloat(data.pressure) || 0,
+            diff: parseFloat(data.diff) || 0
+        };
+        
+        console.log('Transformed WifiAf83 data:', result);
+
+        return result;
+    } catch (error) {
+        console.error('Error fetching WifiAf83 data:', error);
+        return {};
+    }
 };

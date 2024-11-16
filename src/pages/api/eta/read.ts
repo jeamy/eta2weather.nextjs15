@@ -27,7 +27,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     // Update config file with any changes
     await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
-    console.log("ETA ", etaData);
     // Return both ETA data and updated config
     res.status(200).json({
       data: etaData,

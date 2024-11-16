@@ -7,66 +7,86 @@ import { ConfigState } from '@/redux/configSlice';
 import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
 import { storeData, storeError } from '@/redux/wifiAf83Slice';
+import { storeData as storeConfigData } from '@/redux/configSlice';
 import { WifiAF83Data } from '@/reader/functions/types-constants/WifiAf83';
 
-interface Temperature {
-  time: string;
-  unit: string;
-  value: string;
-}
-
-interface WifiResponse {
-  code: number;
-  msg: string;
+interface WifiAf83Response {
+  temperature?: number;
+  humidity?: number;
+  pressure?: number;
+  diff?: number;
   time: number;
-  data: {
-    outdoor: {
-      temperature: Temperature;
-    };
-    indoor: {
-      temperature: Temperature;
-    };
-  };
   datestring: string;
-  diff: string;
 }
 
-const formatDate = (timestamp: number): string => {
-  return new Date(timestamp * 1000).toLocaleString('de-DE', {
+interface ApiResponse {
+  data: WifiAf83Response;
+  config?: ConfigState['data'];
+}
+
+const formatDateTime = (timestamp: number): string => {
+  return new Date(timestamp).toLocaleString('de-DE', {
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
     weekday: 'long',
-    year: 'numeric',
-    month: 'numeric',
     day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
+    month: 'long',
+    year: 'numeric',
   });
 };
 
 const WifiAf83Data: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
-  const config: ConfigState = useSelector((state: RootState) => state.config);
-  const [wifiData, setWifiData] = useState<WifiResponse | null>(null);
+  const config = useSelector((state: RootState) => state.config);
+  const [wifiData, setWifiData] = useState<WifiAf83Response | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadAndStoreWifi = async () => {
       try {
+        setIsLoading(true);
         const response = await fetch('/api/wifiaf83/read');
-        const data: WifiResponse = await response.json();
-        setWifiData(data);
-        // Store the data directly since it already has the required properties
-        dispatch(storeData(data));
+        if (!response.ok) {
+          throw new Error('Failed to fetch WiFi data');
+        }
+
+        const { data, config: updatedConfig } = await response.json() as ApiResponse;
+        
+        // Add time and datestring to match WifiAF83Data type
+        const enrichedData: WifiAf83Response = {
+          ...data,
+          time: Date.now(),
+          datestring: formatDateTime(Date.now())
+        };
+
+        setWifiData(enrichedData);
+        dispatch(storeData(enrichedData));
+
+        // Update config in Redux if provided
+        if (updatedConfig) {
+          dispatch(storeConfigData(updatedConfig));
+        }
       } catch (error) {
-        const typedError = error as Error;
-        console.error('Error fetching WiFi data:', typedError);
-        dispatch(storeError(typedError.message));
+        console.error('Error fetching WiFi data:', error);
+        dispatch(storeError((error as Error).message));
+      } finally {
+        setIsLoading(false);
       }
     };
-    loadAndStoreWifi();
-  }, [dispatch]);
 
-  if (!wifiData) {
-    return <p>Loading...</p>;
+    // Initial load
+    loadAndStoreWifi();
+
+    // Set up interval for periodic updates
+    const interval = setInterval(loadAndStoreWifi, parseInt(config.data.t_update_timer) || 60000);
+
+    // Cleanup interval on unmount
+    return () => clearInterval(interval);
+  }, [dispatch, config.data.t_update_timer]);
+
+  if (isLoading || !wifiData) {
+    return <div>Loading...</div>;
   }
 
   return (
@@ -74,24 +94,24 @@ const WifiAf83Data: React.FC = () => {
       <h1 className="text-2xl py-5">WiFi AF83 Daten:</h1>
       <div className="space-y-2">
         <div>
-          <h3 className="font-semibold">Outdoor</h3>
-          <p>
-            Temperatur: {wifiData.data.outdoor.temperature.value.replace('*', '')} {wifiData.data.outdoor.temperature.unit}
-          </p>
+          <h3 className="font-semibold">Messwerte</h3>
+          {wifiData.temperature !== undefined && (
+            <p>Temperatur: {wifiData.temperature.toFixed(1)} °C</p>
+          )}
+          {wifiData.humidity !== undefined && (
+            <p>Luftfeuchtigkeit: {wifiData.humidity.toFixed(1)} %</p>
+          )}
+          {wifiData.pressure !== undefined && (
+            <p>Luftdruck: {wifiData.pressure.toFixed(1)} hPa</p>
+          )}
         </div>
-        <div>
-          <h3 className="font-semibold">Indoor</h3>
-          <p>
-            Temperatur: {wifiData.data.indoor.temperature.value.replace('*', '')} {wifiData.data.indoor.temperature.unit}
-          </p>
-        </div>
+        {wifiData.diff !== undefined && (
+          <div className="pt-2 border-t border-gray-200">
+            <p>Diff: {wifiData.diff.toFixed(1)}</p>
+          </div>
+        )}
         <div className="pt-2 border-t border-gray-200">
-          <p>
-            Datum: {formatDate(wifiData.time)}
-          </p>
-          <p>
-            Diff: {wifiData.diff}
-          </p>
+          <p>Datum: {wifiData.datestring}</p>
         </div>
       </div>
     </div>

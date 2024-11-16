@@ -3,7 +3,6 @@ import { EtaApi } from './EtaApi';
 import * as fs from 'fs';
 import { Config, ConfigKeys } from './types-constants/ConfigConstants';
 import { EtaConstants, Names2Id } from './types-constants/Names2IDconstants';
-import { ETA } from './types-constants/EtaConstants';
 import { fetchEtaData } from './EtaData';
 import { fetchWifiAf83Data } from './WifiAf83Data';
 import { prepareAndFetchGetUserVar } from './EtaData';
@@ -62,8 +61,8 @@ export class SetEta {
 
   private async fetchData(dispatch: AppDispatch): Promise<[Record<string, any>, any]> {
     return Promise.all([
-      fetchEtaData(this.config, this.names2id, dispatch),
-      fetchWifiAf83Data(this.config, dispatch)
+      fetchEtaData(this.config, this.names2id),
+      fetchWifiAf83Data(this.config)
     ]);
   }
 
@@ -99,7 +98,7 @@ export class SetEta {
   }
 
   private async updateData(etaData: Record<string, any>, wifiAf83Data: any, newPosition: string, diff: number): Promise<void> {
-    etaData[ETA][EtaConstants.SCHIEBERPOS] = { strValue: newPosition };
+    etaData[EtaConstants.SCHIEBERPOS] = { strValue: newPosition };
     wifiAf83Data['diff'] = Number(Math.round(diff).toFixed(1));
 
     await Promise.all([
