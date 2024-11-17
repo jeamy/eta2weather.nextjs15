@@ -1,6 +1,8 @@
 import Diff from "@/reader/functions/Diff";
 import { ConfigState } from "@/redux/configSlice";
 import { WifiAF83State } from "@/redux/wifiAf83Slice";
+import { EtaApi } from '@/reader/functions/EtaApi';
+import { EtaConstants } from "@/reader/functions/types-constants/Names2IDconstants";
 
 type EtaValues = {
     einaus: string;
@@ -56,4 +58,46 @@ export function calculateTemperatureDiff(config: ConfigState, wifiAf83Data: Wifi
     const diff = Math.min(tSollNum + tDeltaNum - twi, 5.0);
     console.log(`Diff calculation: ${tSollNum} + ${tDeltaNum} - ${twi} = ${diff}`);
     return { diff: Number(diff.toFixed(1)), twa, twi };
+}
+
+export interface EtaApiInterface {
+    setUserVar: (id: string, value: string, flags: string, index: string) => Promise<void>;
+}
+
+export async function updateSliderPosition(
+    newPosition: string,
+    currentPosition: number,
+    names2id: Record<string, { id: string }>,
+    etaApi: EtaApi
+): Promise<{ success: boolean; position: number }> {
+    if (Number(newPosition) === currentPosition) {
+        return { success: true, position: currentPosition };
+    }
+
+    const id = names2id[EtaConstants.SCHIEBERPOS]?.['id'];
+    if (!id) {
+        throw new Error('Slider position ID not found');
+    }
+
+    const scaledPosition = String(Number(newPosition) * 10);
+    console.log(`Setting slider position from ${currentPosition} to ${newPosition} (scaled: ${scaledPosition})`);
+    
+    // Set the new position
+    await etaApi.setUserVar(id, scaledPosition, "0", "0");
+
+    // Verify the position was set correctly
+    const verifyResponse = await etaApi.getUserVar(id);
+    if (!verifyResponse.result) {
+        throw new Error('Failed to verify slider position update');
+    }
+
+    const updatedPosition = Number(verifyResponse.result) / 10;
+    console.log(`Verified slider position: ${updatedPosition}`);
+
+    const success = Math.abs(Number(newPosition) - updatedPosition) <= 0.1;
+    if (!success) {
+        console.warn(`Slider position verification failed. Expected: ${newPosition}, Got: ${updatedPosition}`);
+    }
+
+    return { success, position: updatedPosition };
 }

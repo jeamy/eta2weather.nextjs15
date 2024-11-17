@@ -1,11 +1,11 @@
 {
-  "t_soll": "21",
-  "t_delta": "0.5",
-  "t_slider": "19",
+  "t_soll": "20",
+  "t_delta": "0",
+  "t_slider": "0.0",
   "s_eta": "192.168.8.100:8080",
   "f_eta": "f_eta.json",
   "f_wifiaf83": "f_wifiaf89.json",
   "f_names2id": "f_names2id.json",
-  "t_update_timer": "180000",
-  "diff": "1.3"
+  "t_update_timer": "30000",
+  "diff": "2"
 }

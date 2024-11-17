@@ -13,7 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // Read current config
     const data = await fs.readFile(configFilePath, 'utf-8');
-    console.log('Raw config file content:', data);
+//    console.log('Raw config file content:', data);
     
     let config: Config;
     

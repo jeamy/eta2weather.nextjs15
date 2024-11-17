@@ -50,6 +50,7 @@ export class EtaApi {
     }
 
     public async setUserVar(id: string, value: string, begin: string, end: string): Promise<ApiResponse> {
+        console.log(`Sending POST request to /user/var/${id} with value: ${value}, begin: ${begin}, end: ${end}`);
         return this.fetchApi(`/user/var/${id}`, 'POST', { value, begin, end });
     }
 }
