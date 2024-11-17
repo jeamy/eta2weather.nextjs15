@@ -7,10 +7,12 @@ import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
 import { storeData, storeError, setIsLoading } from '@/redux/configSlice';
+import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 
 const ConfigData: React.FC = () => {
     const dispatch: AppDispatch = useAppDispatch();
     const config = useSelector((state: RootState) => state.config);
+    const etaState = useSelector((state: RootState) => state.eta);
     const [isEditing, setIsEditing] = useState<ConfigKeys | null>(null);
     const [editValue, setEditValue] = useState('');
 
@@ -319,7 +321,26 @@ const ConfigData: React.FC = () => {
                     <tr>
                         <td className="border border-gray-300 px-4 py-2 w-[250px]">Empfohlene Schieber Position</td>
                         <td className="border border-gray-300 px-4 py-2 text-right w-[150px] font-mono">
-                            {parseFloat(config.data[ConfigKeys.T_SLIDER] || '0').toFixed(1)} %
+                            {(() => {
+                                const recommendedPos = Math.round(parseFloat(config.data[ConfigKeys.T_SLIDER] || '0'));
+                                const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
+                                const currentPos = etaSP ? parseFloat(etaSP.strValue) : recommendedPos;
+                                
+                                const colorClass = recommendedPos > currentPos 
+                                    ? 'text-green-600' 
+                                    : recommendedPos < currentPos 
+                                        ? 'text-red-600' 
+                                        : 'text-gray-900';
+                                
+                                return (
+                                    <>
+                                        <span className={`font-bold ${colorClass}`}>
+                                            {recommendedPos}
+                                        </span>
+                                        <span className="ml-1 text-gray-600">%</span>
+                                    </>
+                                );
+                            })()}
                         </td>
                     </tr>
                     <tr>

@@ -123,7 +123,7 @@ const EtaData: React.FC = () => {
   return (
     <div className="flex flex-col items-start">
       <h1 className="text-2xl py-5">ETA-Daten:</h1>
-      <table className="border-collapse w-[400px]">
+      <table className="border-collapse border border-gray-300 w-[400px]">
         <tbody>
           {Object.entries(displayData)
             .filter(([_, value]) => value.strValue && value.strValue.trim() !== '')
@@ -134,17 +134,16 @@ const EtaData: React.FC = () => {
               return aOrder - bOrder;
             })
             .map(([key, value]) => (
-              <tr key={key} className="border border-gray-200">
-                <td className="px-4 py-2 flex justify-between">
-                  <div className="w-[250px]">
-                    <span className="font-mono">{value.short}</span>
-                    <span className="mx-2">|</span>
-                    <span>{value.long}: </span>
-                  </div>
-                  <div className="w-[150px] text-right">
-                    <span className="font-semibold font-mono">{value.strValue}</span>
-                    <span className="ml-1 text-gray-600">{value.unit}</span>
-                  </div>
+              <tr key={key} className="border-b border-gray-200">
+                <td className="px-4 py-2 w-[100px] border-r border-gray-200">
+                  <span className="font-mono">{value.short}</span>
+                </td>
+                <td className="px-4 py-2 w-[200px] border-r border-gray-200">
+                  <span>{value.long}</span>
+                </td>
+                <td className="px-4 py-2 w-[100px] text-right">
+                  <span className="font-mono">{value.strValue}</span>
+                  <span className="ml-1 text-gray-600">{value.unit}</span>
                 </td>
               </tr>
             ))}

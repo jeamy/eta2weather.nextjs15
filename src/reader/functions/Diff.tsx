@@ -1,4 +1,3 @@
-
 class Diff {
     /**
      * Normalisiert einen Wert innerhalb eines Bereichs auf einen Wert zwischen 0 und 1.
@@ -14,12 +13,18 @@ class Diff {
         const range: number = end - start;
         const neg: number = Math.sign(val);
         const absVal: number = Math.abs(val);
-    
+        
+        let result: number;
         if (neg < 0) {
-            return this.normalizeData(Math.log(absVal + 1), 0, Math.log(max + 1)) * neg * range;
+            result = this.normalizeData(Math.log(absVal + 1), 0, Math.log(max + 1)) * neg * range;
         } else {
-            return this.normalizeData(Math.pow(absVal, pow), 0, Math.pow(max, pow)) * neg * range;
+            result = this.normalizeData(Math.pow(absVal, pow), 0, Math.pow(max, pow)) * neg * range;
         }
+
+        result = Math.min(Math.max(result, -end), end);
+       
+        // Round to 0 decimal places
+        return Math.round(result);
     }
 }
 

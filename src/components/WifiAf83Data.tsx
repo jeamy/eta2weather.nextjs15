@@ -37,13 +37,30 @@ const WifiAf83Data: React.FC = () => {
   const config = useSelector((state: RootState) => state.config);
   const etaState = useSelector((state: RootState) => state.eta);
   const [wifiData, setWifiData] = useState<WifiAF83Data | null>(null);
-  const [isLoading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const isFirstLoad = useRef(true);
   const lastApiCall = useRef<number>(0);
   const lastTSoll = useRef(config.data.t_soll);
   const lastTDelta = useRef(config.data.t_delta);
 
-  const saveConfigValue = async (key: ConfigKeys, value: string) => {
+  const getEtaValue = useCallback((shortKey: string, etaData: Record<string, any> | null): string => {
+    const stateData = etaData ? etaData[defaultNames2Id[shortKey].id] : etaState.data[defaultNames2Id[shortKey].id];
+    if (!stateData) {
+      console.warn(`Missing ETA state data for ${shortKey} (${defaultNames2Id[shortKey].id})`);
+      return "Aus";
+    }
+    
+    // Get the actual value from the parsed XML data
+    const value = stateData.strValue;
+    if (!value) {
+      console.warn(`Missing strValue in ETA state data for ${shortKey}`);
+      return "Aus";
+    }
+    
+    return value;
+  }, [etaState.data]);
+
+  const saveConfigValue = useCallback(async (key: ConfigKeys, value: string) => {
     try {
       const response = await fetch('/api/config/update', {
         method: 'POST',
@@ -59,7 +76,7 @@ const WifiAf83Data: React.FC = () => {
     } catch (error) {
       console.error('Error saving config:', error);
     }
-  };
+  }, []);
 
   const loadAndStoreEta = useCallback(async () => {
     try {
@@ -75,6 +92,50 @@ const WifiAf83Data: React.FC = () => {
       return null;
     }
   }, [dispatch]);
+
+  const loadAndStoreWifi = useCallback(async () => {
+    const now = Date.now();
+    if (now - lastApiCall.current < MIN_API_INTERVAL) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      lastApiCall.current = now;
+
+      const response = await fetch('/api/wifiaf83/read');
+      if (!response.ok) {
+        throw new Error('Failed to fetch WifiAF83 data');
+      }
+
+      const { data } = await response.json() as ApiResponse;
+
+      const transformedData: WifiAF83Data = {
+        time: Number(data.time),
+        datestring: data.datestring,
+        temperature: Number(data.temperature),
+        indoorTemperature: Number(data.indoorTemperature)
+      };
+
+      setWifiData(transformedData);
+      dispatch({ type: 'wifiAf83/storeData', payload: transformedData });
+
+      // Update config with diff if present
+      if (data.diff !== undefined) {
+        const numericDiff = Number(data.diff);
+        const updatedConfig = {
+          ...config.data,
+          [ConfigKeys.DIFF]: numericDiff.toString()
+        };
+        dispatch(storeData(updatedConfig));
+      }
+    } catch (error) {
+      console.error('Error fetching WifiAf83 data:', error);
+      dispatch({ type: 'wifiAf83/storeError', payload: (error as Error).message });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [dispatch, config.data, setIsLoading]);
 
   // Calculate diff only on initial data load and visibility change
   useEffect(() => {
@@ -105,34 +166,16 @@ const WifiAf83Data: React.FC = () => {
         const freshEtaData = await loadAndStoreEta();
         
         // Calculate new slider position using fresh ETA state values
-        const getEtaValue = (shortKey: string): string => {
-          const stateData = freshEtaData ? freshEtaData[defaultNames2Id[shortKey].id] : etaState.data[defaultNames2Id[shortKey].id];
-          if (!stateData) {
-            console.warn(`Missing ETA state data for ${shortKey} (${defaultNames2Id[shortKey].id})`);
-            return "Aus";
-          }
-          
-          // Get the actual value from the parsed XML data
-          const value = stateData.strValue;
-          if (!value) {
-            console.warn(`Missing strValue in ETA state data for ${shortKey}`);
-            return "Aus";
-          }
-          
-          console.log(`ETA value for ${shortKey}:`, { stateData, value });
-          return value;
-        };
-
         const etaValues = {
-          einaus: getEtaValue(EtaConstants.EIN_AUS_TASTE),
-          schaltzustand: getEtaValue(EtaConstants.SCHALTZUSTAND),
-          kommenttaste: getEtaValue(EtaConstants.KOMMENTASTE),
-          tes: parseFloat(getEtaValue(EtaConstants.SCHIEBERPOS)),
-          tea: parseFloat(getEtaValue(EtaConstants.AUSSENTEMP))
+          einaus: getEtaValue(EtaConstants.EIN_AUS_TASTE, freshEtaData),
+          schaltzustand: getEtaValue(EtaConstants.SCHALTZUSTAND, freshEtaData),
+          kommenttaste: getEtaValue(EtaConstants.KOMMENTASTE, freshEtaData),
+          tes: parseFloat(getEtaValue(EtaConstants.SCHIEBERPOS, freshEtaData)),
+          tea: parseFloat(getEtaValue(EtaConstants.AUSSENTEMP, freshEtaData))
         };
 
-        console.log('Raw ETA state:', freshEtaData || etaState.data);
-        console.log('ETA state values:', etaValues);
+//        console.log('Raw ETA state:', freshEtaData || etaState.data);
+//        console.log('ETA state values:', etaValues);
         
         const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
         console.log('Calculated new slider position:', newSliderPosition);
@@ -166,7 +209,8 @@ const WifiAf83Data: React.FC = () => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [wifiData, etaState.data, config, isLoading, dispatch, loadAndStoreEta]);
+  }, [wifiData, etaState.data, config, isLoading, saveConfigValue,
+    dispatch, loadAndStoreEta, getEtaValue]);
 
   // Update diff when t_soll or t_delta changes
   useEffect(() => {
@@ -195,34 +239,16 @@ const WifiAf83Data: React.FC = () => {
           const freshEtaData = await loadAndStoreEta();
           
           // Calculate new slider position using fresh ETA state values
-          const getEtaValue = (shortKey: string): string => {
-            const stateData = freshEtaData ? freshEtaData[defaultNames2Id[shortKey].id] : etaState.data[defaultNames2Id[shortKey].id];
-            if (!stateData) {
-              console.warn(`Missing ETA state data for ${shortKey} (${defaultNames2Id[shortKey].id})`);
-              return "Aus";
-            }
-            
-            // Get the actual value from the parsed XML data
-            const value = stateData.strValue;
-            if (!value) {
-              console.warn(`Missing strValue in ETA state data for ${shortKey}`);
-              return "Aus";
-            }
-            
-            console.log(`ETA value for ${shortKey}:`, { stateData, value });
-            return value;
-          };
-
           const etaValues = {
-            einaus: getEtaValue(EtaConstants.EIN_AUS_TASTE),
-            schaltzustand: getEtaValue(EtaConstants.SCHALTZUSTAND),
-            kommenttaste: getEtaValue(EtaConstants.KOMMENTASTE),
-            tes: parseFloat(getEtaValue(EtaConstants.SCHIEBERPOS)),
-            tea: parseFloat(getEtaValue(EtaConstants.AUSSENTEMP))
+            einaus: getEtaValue(EtaConstants.EIN_AUS_TASTE, freshEtaData),
+            schaltzustand: getEtaValue(EtaConstants.SCHALTZUSTAND, freshEtaData),
+            kommenttaste: getEtaValue(EtaConstants.KOMMENTASTE, freshEtaData),
+            tes: parseFloat(getEtaValue(EtaConstants.SCHIEBERPOS, freshEtaData)),
+            tea: parseFloat(getEtaValue(EtaConstants.AUSSENTEMP, freshEtaData))
           };
 
-          console.log('Raw ETA state:', freshEtaData || etaState.data);
-          console.log('ETA state values:', etaValues);
+//          console.log('Raw ETA state:', freshEtaData || etaState.data);
+//          console.log('ETA state values:', etaValues);
           
           const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
           console.log('Calculated new slider position:', newSliderPosition);
@@ -250,57 +276,8 @@ const WifiAf83Data: React.FC = () => {
     };
 
     calculateAndUpdateDiff();
-  }, [config.data.t_soll, config.data.t_delta, wifiData, etaState.data, config, isLoading, dispatch, loadAndStoreEta]);
-
-  const loadAndStoreWifi = useCallback(async () => {
-    const now = Date.now();
-    if (now - lastApiCall.current < MIN_API_INTERVAL) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      dispatch({ type: 'wifiAf83/setLoading', payload: true });
-      lastApiCall.current = now;
-      
-      const response = await fetch('/api/wifiaf83/read');
-      if (!response.ok) {
-        throw new Error('Failed to fetch WiFi data');
-      }
-
-      const { data } = await response.json() as ApiResponse;
-      
-      if (!data || typeof data.temperature === 'undefined' || typeof data.indoorTemperature === 'undefined') {
-        throw new Error('Invalid temperature data structure');
-      }
-
-      const transformedData: WifiAF83Data = {
-        time: Number(data.time),
-        datestring: data.datestring,
-        temperature: Number(data.temperature),
-        indoorTemperature: Number(data.indoorTemperature)
-      };
-
-      setWifiData(transformedData);
-      dispatch({ type: 'wifiAf83/storeData', payload: transformedData });
-
-      // Update config with diff if present
-      if (data.diff !== undefined) {
-        const numericDiff = Number(data.diff);
-        const updatedConfig = {
-          ...config.data,
-          [ConfigKeys.DIFF]: numericDiff.toString()
-        };
-        dispatch(storeData(updatedConfig));
-      }
-    } catch (error) {
-      console.error('Error fetching WifiAf83 data:', error);
-      dispatch({ type: 'wifiAf83/storeError', payload: (error as Error).message });
-    } finally {
-      setLoading(false);
-      dispatch({ type: 'wifiAf83/setLoading', payload: false });
-    }
-  }, [dispatch]);
+  }, [config.data.t_soll, config.data.t_delta, wifiData, saveConfigValue, 
+    etaState.data, config, isLoading, dispatch, loadAndStoreEta, getEtaValue]);
 
   // Initial load and timer setup
   useEffect(() => {
@@ -325,46 +302,47 @@ const WifiAf83Data: React.FC = () => {
   return (
     <div className="flex flex-col items-start">
       <h1 className="text-2xl py-5">WiFi AF83 Daten:</h1>
-      <div className="space-y-2">
-        <div className="w-[400px]">
-          <h3 className="font-semibold">Messwerte</h3>
-          {wifiData.temperature !== undefined && (
-            <div className="flex justify-between items-center px-4 py-2">
-              <span>Außentemperatur:</span>
-              <div className="text-right">
-                <span className="font-mono font-semibold">{wifiData.temperature.toFixed(1)}</span>
+      <table className="border-collapse border border-gray-300 w-[400px]">
+        <tbody>
+          <tr className="border-b border-gray-200">
+            <td className="px-4 py-2 w-[100px] border-r border-gray-200">Außentemperatur</td>
+            <td className="px-4 py-2 w-[200px] text-right">
+              <span className="font-mono">{wifiData.temperature.toFixed(1)}</span>
+              <span className="ml-1 text-gray-600">°C</span>
+            </td>
+          </tr>
+          <tr className="border-b border-gray-200">
+            <td className="px-4 py-2 w-[100px] border-r border-gray-200">Innentemperatur</td>
+            <td className="px-4 py-2 w-[200px] text-right">
+              <span className="font-mono">{wifiData.indoorTemperature.toFixed(1)}</span>
+              <span className="ml-1 text-gray-600">°C</span>
+            </td>
+          </tr>
+          {config.data[ConfigKeys.DIFF] && (
+            <tr className="border-b border-gray-200">
+              <td className="px-4 py-2 w-[100px] border-r border-gray-200">Diff Soll/Innentemperatur</td>
+              <td className="px-4 py-2 w-[200px] text-right">
+                <span className={`font-mono ${
+                  Number(config.data[ConfigKeys.DIFF]) > 0 
+                    ? 'text-green-600' 
+                    : Number(config.data[ConfigKeys.DIFF]) < 0 
+                      ? 'text-red-600' 
+                      : 'text-gray-900'
+                }`}>
+                  {Number(config.data[ConfigKeys.DIFF]).toFixed(1)}
+                </span>
                 <span className="ml-1 text-gray-600">°C</span>
-              </div>
-            </div>
+              </td>
+            </tr>
           )}
-          {wifiData && (
-            <div className="flex justify-between items-center px-4 py-2">
-              <span>Innentemperatur:</span>
-              <div className="text-right">
-                <span className="font-mono font-semibold">{wifiData.indoorTemperature.toFixed(1)}</span>
-              </div>
-            </div>
-          )}
-        </div>
-        {config.data[ConfigKeys.DIFF] && (
-          <div className="w-[400px] pt-2 border-t border-gray-200">
-            <div className="flex justify-between items-center px-4 py-2">
-              <span>Diff Soll/Innentemperatur:</span>
-              <div className="text-right">
-                <span className="font-mono font-semibold">{Number(config.data[ConfigKeys.DIFF]).toFixed(1)}</span>
-              </div>
-            </div>
-          </div>
-        )}
-        <div className="w-[400px] pt-2 border-t border-gray-200">
-          <div className="flex justify-between items-center px-4 py-2">
-            <span>Datum:</span>
-            <div className="text-right">
+          <tr className="border-b border-gray-200">
+            <td className="px-4 py-2 w-[100px] border-r border-gray-200">Datum</td>
+            <td className="px-4 py-2 w-[200px] text-right">
               <span className="font-mono">{formatDateTime(wifiData.time)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 };

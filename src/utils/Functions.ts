@@ -18,12 +18,12 @@ type TempDiff = {
 
 export function calculateNewSliderPosition({ einaus, schaltzustand, kommenttaste }: EtaValues, diff: number): string {
     
-    console.log(`
-      Einaus: ${einaus}
-      Schaltzustand: ${schaltzustand}
-      Kommenttaste: ${kommenttaste}
-      Diff: ${diff}
-    `);
+//    console.log(`
+//      Einaus: ${einaus}
+//      Schaltzustand: ${schaltzustand}
+//      Kommenttaste: ${kommenttaste}
+//      Diff: ${diff}
+//    `);
     return (einaus === "Aus" || (schaltzustand === "Aus" && kommenttaste === "Aus"))
         ? "0.0"
         : new Diff().getDiff(diff, 1.25, 5.0, 0.0, 100.0).toString();
