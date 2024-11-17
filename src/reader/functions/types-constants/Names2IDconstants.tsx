@@ -11,6 +11,7 @@ export enum EtaConstants {
     HEIZENTASTE = 'HT',
     KOMMENTASTE = 'KT',
     VORLAUFTEMP = 'VT',
+    EINAUS = "EINAUS",
   }
   
   export type Names2Id = Record<string, { id: string; name: string }>;

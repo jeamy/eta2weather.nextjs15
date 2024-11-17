@@ -120,136 +120,28 @@ const WifiAf83Data: React.FC = () => {
       setWifiData(transformedData);
       dispatch({ type: 'wifiAf83/storeData', payload: transformedData });
 
-      // Update config with diff if present
-      if (data.diff !== undefined) {
-        const numericDiff = Number(data.diff);
-        const updatedConfig = {
-          ...config.data,
-          [ConfigKeys.DIFF]: numericDiff.toString()
-        };
-        dispatch(storeData(updatedConfig));
-      }
-    } catch (error) {
-      console.error('Error fetching WifiAf83 data:', error);
-      dispatch({ type: 'wifiAf83/storeError', payload: (error as Error).message });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [dispatch, config.data, setIsLoading]);
-
-  // Calculate diff only on initial data load and visibility change
-  useEffect(() => {
-    const calculateAndUpdateDiff = async () => {
-      if (!wifiData || !etaState.data || isLoading) {
-        return;
-      }
-
-      // Only calculate on initial data load
-      if (!isFirstLoad.current) {
-        return;
-      }
-      isFirstLoad.current = false;
-
-      const tempDiff = calculateTemperatureDiff(config, {
-        data: wifiData,
-        loadingState: {
-          isLoading: false,
-          error: null
-        }
-      });
-
-      if (tempDiff.diff !== null) {
-        const numericDiff = tempDiff.diff;
-        const newDiffValue = numericDiff.toString();
-        
-        // Get fresh ETA data before calculating slider position
-        const freshEtaData = await loadAndStoreEta();
-        
-        // Calculate new slider position using fresh ETA state values
-        const etaValues = {
-          einaus: getEtaValue(EtaConstants.EIN_AUS_TASTE, freshEtaData),
-          schaltzustand: getEtaValue(EtaConstants.SCHALTZUSTAND, freshEtaData),
-          kommenttaste: getEtaValue(EtaConstants.KOMMENTASTE, freshEtaData),
-          tes: parseFloat(getEtaValue(EtaConstants.SCHIEBERPOS, freshEtaData)),
-          tea: parseFloat(getEtaValue(EtaConstants.AUSSENTEMP, freshEtaData))
-        };
-
-//        console.log('Raw ETA state:', freshEtaData || etaState.data);
-//        console.log('ETA state values:', etaValues);
-        
-        const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
-        console.log('Calculated new slider position:', newSliderPosition);
-        
-        // Update local state with both diff and slider position
-        dispatch(storeData({
-          ...config.data,
-          [ConfigKeys.DIFF]: newDiffValue,
-          [ConfigKeys.T_SLIDER]: newSliderPosition
-        }));
-
-        // Save changes to file
-        saveConfigValue(ConfigKeys.DIFF, newDiffValue);
-        saveConfigValue(ConfigKeys.T_SLIDER, newSliderPosition);
-      }
-    };
-
-    calculateAndUpdateDiff();
-
-    // Calculate on visibility change
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log('Page became visible, recalculating diff');
-        // Reset isFirstLoad to allow calculation on visibility change
-        isFirstLoad.current = true;
-        calculateAndUpdateDiff();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [wifiData, etaState.data, config, isLoading, saveConfigValue,
-    dispatch, loadAndStoreEta, getEtaValue]);
-
-  // Update diff when t_soll or t_delta changes
-  useEffect(() => {
-    const calculateAndUpdateDiff = async () => {
-      if (!wifiData || !etaState.data || isLoading) {
-        return;
-      }
-
-      const tSollChanged = config.data.t_soll !== lastTSoll.current;
-      const tDeltaChanged = config.data.t_delta !== lastTDelta.current;
-
-      if (tSollChanged || tDeltaChanged) {
-        const tempDiff = calculateTemperatureDiff(config, {
-          data: wifiData,
+      // Calculate temperature difference and update slider position
+      if (etaState.data) {
+        const { diff: numericDiff } = calculateTemperatureDiff(config, { 
+          data: transformedData,
           loadingState: {
             isLoading: false,
             error: null
           }
         });
-
-        if (tempDiff.diff !== null) {
-          const numericDiff = tempDiff.diff;
+        
+        if (numericDiff !== null) {
           const newDiffValue = numericDiff.toString();
-          
-          // Get fresh ETA data before calculating slider position
-          const freshEtaData = await loadAndStoreEta();
-          
-          // Calculate new slider position using fresh ETA state values
+
           const etaValues = {
-            einaus: getEtaValue(EtaConstants.EIN_AUS_TASTE, freshEtaData),
-            schaltzustand: getEtaValue(EtaConstants.SCHALTZUSTAND, freshEtaData),
-            kommenttaste: getEtaValue(EtaConstants.KOMMENTASTE, freshEtaData),
-            tes: parseFloat(getEtaValue(EtaConstants.SCHIEBERPOS, freshEtaData)),
-            tea: parseFloat(getEtaValue(EtaConstants.AUSSENTEMP, freshEtaData))
+            einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
+            schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
+            kommenttaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
+            tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
+            tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
           };
 
-//          console.log('Raw ETA state:', freshEtaData || etaState.data);
-//          console.log('ETA state values:', etaValues);
-          
+          console.log('etaValues:', etaValues);
           const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
           console.log('Calculated new slider position:', newSliderPosition);
           
@@ -259,32 +151,21 @@ const WifiAf83Data: React.FC = () => {
             [ConfigKeys.DIFF]: newDiffValue,
             [ConfigKeys.T_SLIDER]: newSliderPosition
           }));
-
-          // Save changes to file
-          if (tSollChanged) {
-            saveConfigValue(ConfigKeys.T_SOLL, config.data.t_soll);
-          }
-          if (tDeltaChanged) {
-            saveConfigValue(ConfigKeys.T_DELTA, config.data.t_delta);
-          }
-          saveConfigValue(ConfigKeys.DIFF, newDiffValue);
-          saveConfigValue(ConfigKeys.T_SLIDER, newSliderPosition);
+        } else {
+          console.warn('Temperature difference calculation returned null');
         }
-        lastTSoll.current = config.data.t_soll;
-        lastTDelta.current = config.data.t_delta;
       }
-    };
-
-    calculateAndUpdateDiff();
-  }, [config.data.t_soll, config.data.t_delta, wifiData, saveConfigValue, 
-    etaState.data, config, isLoading, dispatch, loadAndStoreEta, getEtaValue]);
+    } catch (error) {
+      console.error('Error fetching WifiAF83 data:', error);
+      dispatch({ type: 'wifiAf83/storeError', payload: (error as Error).message });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [dispatch, config, etaState.data, setIsLoading]);
 
   // Initial load and timer setup
   useEffect(() => {
-    if (isFirstLoad.current) {
-      loadAndStoreWifi();
-      isFirstLoad.current = false;
-    }
+    loadAndStoreWifi();
 
     const updateTimer = Math.max(
       parseInt(config.data.t_update_timer) || DEFAULT_UPDATE_TIMER,
@@ -294,6 +175,19 @@ const WifiAf83Data: React.FC = () => {
     const interval = setInterval(loadAndStoreWifi, updateTimer);
     return () => clearInterval(interval);
   }, [loadAndStoreWifi, config.data.t_update_timer]);
+
+  // Handle visibility change
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Page became visible, recalculating diff');
+        loadAndStoreWifi();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [loadAndStoreWifi]);
 
   if (isLoading || !wifiData) {
     return <div>Loading...</div>;
