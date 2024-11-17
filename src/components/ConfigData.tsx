@@ -317,6 +317,12 @@ const ConfigData: React.FC = () => {
                         )}
                     </tr>
                     <tr>
+                        <td className="border border-gray-300 px-4 py-2 w-[250px]">Empfohlene Schieber Position</td>
+                        <td className="border border-gray-300 px-4 py-2 text-right w-[150px] font-mono">
+                            {parseFloat(config.data[ConfigKeys.T_SLIDER] || '0').toFixed(1)} %
+                        </td>
+                    </tr>
+                    <tr>
                         <td className="border border-gray-300 px-4 py-2 w-[250px]">Eta Server</td>
                         {renderEditableText(ConfigKeys.S_ETA, 'Eta Server', validateIpWithPort)}
                     </tr>

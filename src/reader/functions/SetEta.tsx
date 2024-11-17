@@ -11,7 +11,7 @@ import { DEFAULT_UPDATE_TIMER } from './types-constants/TimerConstants';
 
 type EtaValues = {
   einaus: string;
-  schalt: string;
+  schaltzustand: string;
   kommenttaste: string;
   tes: number;
   tea: number;
@@ -71,7 +71,7 @@ export class SetEta {
     const getValue = (name: string) => this.getEtaNameData(name, etaData);
     return {
       einaus: getValue(EtaConstants.EIN_AUS_TASTE),
-      schalt: getValue(EtaConstants.SCHALTZUSTAND),
+      schaltzustand: getValue(EtaConstants.SCHALTZUSTAND),
       kommenttaste: getValue(EtaConstants.KOMMENTASTE),
       tes: Number(getValue(EtaConstants.SCHIEBERPOS)),
       tea: Number(getValue(EtaConstants.AUSSENTEMP))
@@ -92,8 +92,8 @@ export class SetEta {
     return { diff: Number(diff.toFixed(1)), twa, twi };
   }
 
-  private calculateNewSliderPosition({ einaus, schalt, kommenttaste }: EtaValues, diff: number): string {
-    return (einaus === "Aus" || (schalt === "Aus" && kommenttaste === "Aus"))
+  private calculateNewSliderPosition({ einaus, schaltzustand, kommenttaste }: EtaValues, diff: number): string {
+    return (einaus === "Aus" || (schaltzustand === "Aus" && kommenttaste === "Aus"))
       ? "0.0"
       : new Diff().getDiff(diff, 1.25, 5.0, 0.0, 100.0).toString();
   }

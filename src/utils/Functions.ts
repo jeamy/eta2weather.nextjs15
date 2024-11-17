@@ -4,7 +4,7 @@ import { WifiAF83State } from "@/redux/wifiAf83Slice";
 
 type EtaValues = {
     einaus: string;
-    schalt: string;
+    schaltzustand: string;
     kommenttaste: string;
     tes: number;
     tea: number;
@@ -16,8 +16,15 @@ type TempDiff = {
     twi: number;
 };
 
-export function calculateNewSliderPosition({ einaus, schalt, kommenttaste }: EtaValues, diff: number): string {
-    return (einaus === "Aus" || (schalt === "Aus" && kommenttaste === "Aus"))
+export function calculateNewSliderPosition({ einaus, schaltzustand, kommenttaste }: EtaValues, diff: number): string {
+    
+    console.log(`
+      Einaus: ${einaus}
+      Schaltzustand: ${schaltzustand}
+      Kommenttaste: ${kommenttaste}
+      Diff: ${diff}
+    `);
+    return (einaus === "Aus" || (schaltzustand === "Aus" && kommenttaste === "Aus"))
         ? "0.0"
         : new Diff().getDiff(diff, 1.25, 5.0, 0.0, 100.0).toString();
 }

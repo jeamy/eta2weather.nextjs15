@@ -13,13 +13,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // Read current config
     const data = await fs.readFile(configFilePath, 'utf-8');
+    console.log('Raw config file content:', data);
+    
     let config: Config;
     
     try {
-      config = JSON.parse(data.trim());
-    } catch (parseError) {
-      console.error('Error parsing config file:', parseError);
-      return res.status(500).json({ error: 'Invalid config file format' });
+      // Remove any trailing commas and normalize the JSON
+      const cleanData = data.trim()
+        .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+        .replace(/}\s*}/g, '}') // Remove multiple closing braces
+        .replace(/\n\s*\n/g, '\n'); // Remove empty lines
+      
+      console.log('Cleaned config file content:', cleanData);
+      
+      try {
+        config = JSON.parse(cleanData);
+      } catch (jsonError) {
+        console.error('JSON parse error:', jsonError);
+        return res.status(500).json({ 
+          error: 'JSON Parse Error', 
+          message: jsonError instanceof Error ? jsonError.message : 'Unknown JSON error',
+          rawData: data,
+          cleanedData: cleanData
+        });
+      }
+    } catch (cleanError) {
+      console.error('Error cleaning config data:', cleanError);
+      return res.status(500).json({ 
+        error: 'Data Cleaning Error',
+        message: cleanError instanceof Error ? cleanError.message : 'Unknown cleaning error',
+        rawData: data
+      });
     }
 
     // Update the specified key
@@ -40,12 +64,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       [key]: value
     };
 
-    // Write updated config back to file
-    await fs.writeFile(configFilePath, JSON.stringify(config, null, 2), 'utf-8');
+    // Write updated config back to file with proper formatting
+    const updatedJson = JSON.stringify(config, null, 2) + '\n';
+    await fs.writeFile(configFilePath, updatedJson, 'utf-8');
 
     res.status(200).json(config);
   } catch (error) {
     console.error('Error updating config:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ 
+      error: 'Internal Server Error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      type: error instanceof Error ? error.constructor.name : typeof error
+    });
   }
 }
