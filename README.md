@@ -91,6 +91,14 @@ eta2weather.nextjs15/
    npm run dev
    ```
 
+## API Documentation
+
+### Ecowitt API
+The weather station data is retrieved using the Ecowitt API v3. For detailed information about the API endpoints and parameters, refer to the [official Ecowitt API documentation](https://doc.ecowitt.net/web/#/apiv3en?page_id=17).
+
+### ETA API
+The heating system data is managed through the ETA RESTful API. For comprehensive documentation about the available endpoints and their usage, see the [ETA RESTful API documentation](https://www.meineta.at/javax.faces.resource/downloads/ETA-RESTful-v1.2.pdf.xhtml?ln=default&v=0).
+
 ## Development
 
 ### API Endpoints
@@ -102,18 +110,45 @@ eta2weather.nextjs15/
 - `/api/names2id/read`: Retrieves the names to ID mapping data.
 
 #### Update Endpoints
-- `/api/config/update`: Updates the configuration values.
+- `/api/config/update`: Updates configuration values
   ```typescript
-  // POST request body
+  // POST request
   {
-    "key": "t_soll" | "t_delta" | "t_update_timer" | "s_eta" | "f_eta" | "f_wifiaf83" | "f_names2id",
-    "value": string
+    "key": string,   // One of the ConfigKeys values
+    "value": string  // New value for the config key
   }
   ```
-  Validates:
-  - Temperature values (10-25°C for t_soll, -5-5°C for t_delta)
-  - Update timer (0-10 minutes, stored in milliseconds)
-  - Server address (IPv4 with optional port)
+
+  Available config keys:
+  - `t_soll`: Target temperature (default: "22")
+  - `t_delta`: Temperature delta (default: "0")
+  - `t_slider`: Slider position (default: "0.0")
+  - `f_eta`: ETA configuration file (default: "f_eta.json")
+  - `s_eta`: ETA server address (default: "192.168.8.100:8080")
+  - `f_wifiaf83`: WiFi sensor config file (default: "f_wifiaf89.json")
+  - `f_names2id`: Names to ID mapping file (default: "f_names2id.json")
+  - `t_update_timer`: Update interval in ms (default: "300000")
+  - `diff`: Temperature difference (default: "0")
+
+  Response:
+  ```typescript
+  // Success (200 OK)
+  {
+    ...updatedConfig // Full updated configuration object
+  }
+
+  // Error (400 Bad Request)
+  {
+    "error": "Invalid config key" | "Value must be a string"
+  }
+
+  // Error (500 Internal Server Error)
+  {
+    "error": "Internal Server Error",
+    "message": string,
+    "type": string
+  }
+  ```
 
 ### Component Structure
 
