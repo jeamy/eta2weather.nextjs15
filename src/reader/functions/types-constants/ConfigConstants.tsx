@@ -10,7 +10,8 @@ export enum ConfigKeys {
     S_ETA = 's_eta',
     F_WIFIAF83 = 'f_wifiaf83',
     F_NAMES2ID = 'f_names2id',
-    T_UPDATE_TIMER = 't_update_timer'
+    T_UPDATE_TIMER = 't_update_timer',
+    DIFF = 'diff'
 }
 
 export const defaultConfig: Config = {
@@ -21,5 +22,6 @@ export const defaultConfig: Config = {
     [ConfigKeys.S_ETA]: '192.168.8.100:8080',
     [ConfigKeys.F_WIFIAF83]: 'f_wifiaf89.json',
     [ConfigKeys.F_NAMES2ID]: 'f_names2id.json',
-    [ConfigKeys.T_UPDATE_TIMER]: '300000'
+    [ConfigKeys.T_UPDATE_TIMER]: '300000',
+    [ConfigKeys.DIFF]: '0'
 };

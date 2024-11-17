@@ -9,9 +9,13 @@ import { useAppDispatch } from '@/redux/hooks';
 import { WifiAF83Data } from '@/reader/functions/types-constants/WifiAf83';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
 import { calculateTemperatureDiff } from '@/utils/Functions';
+import { storeData } from '@/redux/configSlice';
+import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 
 interface ApiResponse {
-  data: WifiAF83Data;
+  data: WifiAF83Data & {
+    diff?: string;
+  };
   config?: ConfigState['data'];
 }
 
@@ -38,6 +42,24 @@ const WifiAf83Data: React.FC = () => {
   const lastTSoll = useRef(config.data.t_soll);
   const lastTDelta = useRef(config.data.t_delta);
 
+  const saveConfigValue = async (key: ConfigKeys, value: string) => {
+    try {
+      const response = await fetch('/api/config/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ key, value }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save config');
+      }
+    } catch (error) {
+      console.error('Error saving config:', error);
+    }
+  };
+
   // Calculate diff only on initial data load and visibility change
   useEffect(() => {
     const calculateAndUpdateDiff = () => {
@@ -61,18 +83,10 @@ const WifiAf83Data: React.FC = () => {
 
       if (tempDiff.diff !== null) {
         const numericDiff = tempDiff.diff;
-        setWifiData((prev): WifiAF83Data => {
-          if (!prev) {
-            return {
-              ...wifiData!,
-              diff: numericDiff
-            } as WifiAF83Data;
-          }
-          return {
-            ...prev,
-            diff: numericDiff
-          };
-        });
+        dispatch(storeData({
+          ...config.data,
+          [ConfigKeys.DIFF]: numericDiff.toString()
+        }));
       }
     };
 
@@ -92,7 +106,7 @@ const WifiAf83Data: React.FC = () => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [wifiData, etaState.data, config, isLoading]);
+  }, [wifiData, etaState.data, config, isLoading, dispatch]);
 
   // Update diff when t_soll or t_delta changes
   useEffect(() => {
@@ -104,7 +118,6 @@ const WifiAf83Data: React.FC = () => {
     const tDeltaChanged = config.data.t_delta !== lastTDelta.current;
 
     if (tSollChanged || tDeltaChanged) {
-      console.log('t_soll or t_delta changed, calculating new diff');
       const tempDiff = calculateTemperatureDiff(config, {
         data: wifiData,
         loadingState: {
@@ -115,23 +128,27 @@ const WifiAf83Data: React.FC = () => {
 
       if (tempDiff.diff !== null) {
         const numericDiff = tempDiff.diff;
-        setWifiData((prev): WifiAF83Data => {
-          if (!prev) {
-            return {
-              ...wifiData!,
-              diff: numericDiff
-            } as WifiAF83Data;
-          }
-          return {
-            ...prev,
-            diff: numericDiff
-          };
-        });
+        const newDiffValue = numericDiff.toString();
+        
+        // Update local state
+        dispatch(storeData({
+          ...config.data,
+          [ConfigKeys.DIFF]: newDiffValue
+        }));
+
+        // Save changes to file
+        if (tSollChanged) {
+          saveConfigValue(ConfigKeys.T_SOLL, config.data.t_soll);
+        }
+        if (tDeltaChanged) {
+          saveConfigValue(ConfigKeys.T_DELTA, config.data.t_delta);
+        }
+        saveConfigValue(ConfigKeys.DIFF, newDiffValue);
       }
       lastTSoll.current = config.data.t_soll;
       lastTDelta.current = config.data.t_delta;
     }
-  }, [config.data.t_soll, config.data.t_delta, wifiData, etaState.data, config, isLoading]);
+  }, [config.data.t_soll, config.data.t_delta, wifiData, etaState.data, config, isLoading, dispatch]);
 
   const loadAndStoreWifi = useCallback(async () => {
     const now = Date.now();
@@ -159,13 +176,21 @@ const WifiAf83Data: React.FC = () => {
         time: Number(data.time),
         datestring: data.datestring,
         temperature: Number(data.temperature),
-        indoorTemperature: Number(data.indoorTemperature),
-        diff: Number(data.diff || 0)
+        indoorTemperature: Number(data.indoorTemperature)
       };
 
       setWifiData(transformedData);
       dispatch({ type: 'wifiAf83/storeData', payload: transformedData });
 
+      // Update config with diff if present
+      if (data.diff !== undefined) {
+        const numericDiff = Number(data.diff);
+        const updatedConfig = {
+          ...config.data,
+          [ConfigKeys.DIFF]: numericDiff.toString()
+        };
+        dispatch(storeData(updatedConfig));
+      }
     } catch (error) {
       console.error('Error fetching WifiAf83 data:', error);
       dispatch({ type: 'wifiAf83/storeError', payload: (error as Error).message });
@@ -210,7 +235,7 @@ const WifiAf83Data: React.FC = () => {
               </div>
             </div>
           )}
-          {wifiData.indoorTemperature !== undefined && (
+          {wifiData && (
             <div className="flex justify-between items-center px-4 py-2">
               <span>Innentemperatur:</span>
               <div className="text-right">
@@ -219,12 +244,12 @@ const WifiAf83Data: React.FC = () => {
             </div>
           )}
         </div>
-        {wifiData.diff !== undefined && (
+        {config.data[ConfigKeys.DIFF] && (
           <div className="w-[400px] pt-2 border-t border-gray-200">
             <div className="flex justify-between items-center px-4 py-2">
               <span>Diff Soll/Innentemperatur:</span>
               <div className="text-right">
-                <span className="font-mono font-semibold">{wifiData.diff.toFixed(1)}</span>
+                <span className="font-mono font-semibold">{Number(config.data[ConfigKeys.DIFF]).toFixed(1)}</span>
               </div>
             </div>
           </div>

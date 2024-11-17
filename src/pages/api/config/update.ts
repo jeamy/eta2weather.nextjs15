@@ -13,7 +13,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // Read current config
     const data = await fs.readFile(configFilePath, 'utf-8');
-    let config: Config = JSON.parse(data);
+    let config: Config;
+    
+    try {
+      config = JSON.parse(data.trim());
+    } catch (parseError) {
+      console.error('Error parsing config file:', parseError);
+      return res.status(500).json({ error: 'Invalid config file format' });
+    }
 
     // Update the specified key
     const { key, value } = req.body;
@@ -21,6 +28,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Validate key and value
     if (!Object.values(ConfigKeys).includes(key)) {
       return res.status(400).json({ error: 'Invalid config key' });
+    }
+
+    if (typeof value !== 'string') {
+      return res.status(400).json({ error: 'Value must be a string' });
     }
 
     // Create new config object with the updated value

@@ -72,8 +72,7 @@ export const fetchWifiAf83Data = async (): Promise<WifiAF83Data> => {
             time: parseInt(data.time) * 1000, // Convert to milliseconds
             datestring: data.datestring,
             temperature,
-            indoorTemperature,
-            diff: parseFloat(data.diff) || 0
+            indoorTemperature
         };
 
         console.log('Transformed WifiAf83 data:', result);

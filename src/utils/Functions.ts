@@ -22,7 +22,7 @@ export function calculateNewSliderPosition({ einaus, schalt, kommenttaste }: Eta
         : new Diff().getDiff(diff, 1.25, 5.0, 0.0, 100.0).toString();
 }
 
-export function calculateTemperatureDiff(config: ConfigState, wifiAf83Data: WifiAF83State): TempDiff {
+export function calculateTemperatureDiff(config: ConfigState, wifiAf83Data: WifiAF83State): { diff: number | null; twa: number; twi: number } {
 //    console.log('calculatingTemperature diff...', wifiAf83Data);
 
     const twi = wifiAf83Data.data.indoorTemperature;

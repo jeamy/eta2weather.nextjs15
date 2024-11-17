@@ -90,7 +90,8 @@ const ConfigData: React.FC = () => {
         }
     ) => {
         const isEditingThis = isEditing === key;
-        const rawValue = config.data[key]?.replace('*', '') || '';
+        const configValue = config.data[key] || '';
+        const rawValue = typeof configValue === 'string' ? configValue.replace('*', '') : '';
         const value = valueConverter ? valueConverter.fromStorage(rawValue) : rawValue;
 
         const handleEditStart = () => {
@@ -190,7 +191,8 @@ const ConfigData: React.FC = () => {
 
     const renderEditableText = (key: ConfigKeys, label: string, validator?: (value: string) => boolean) => {
         const isEditingThis = isEditing === key;
-        const value = config.data[key]?.replace('*', '') || '';
+        const configValue = config.data[key] || '';
+        const value = typeof configValue === 'string' ? configValue.replace('*', '') : '';
 
         const handleEditStart = () => {
             setEditValue(value);
