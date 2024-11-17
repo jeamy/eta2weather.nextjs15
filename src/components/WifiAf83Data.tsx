@@ -11,7 +11,7 @@ import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types
 import { calculateTemperatureDiff, calculateNewSliderPosition } from '@/utils/Functions';
 import { storeData } from '@/redux/configSlice';
 import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
-import { EtaConstants } from '@/reader/functions/types-constants/Names2IDconstants';
+import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 
 interface ApiResponse {
   data: WifiAF83Data & {
@@ -105,13 +105,22 @@ const WifiAf83Data: React.FC = () => {
         const freshEtaData = await loadAndStoreEta();
         
         // Calculate new slider position using fresh ETA state values
-        const getEtaValue = (name: string): string => {
-          const stateData = freshEtaData ? freshEtaData[name] : etaState.data[name];
-          if (!stateData || !stateData.value) {
-            console.warn(`Missing ETA state value for ${name}`);
+        const getEtaValue = (shortKey: string): string => {
+          const stateData = freshEtaData ? freshEtaData[defaultNames2Id[shortKey].id] : etaState.data[defaultNames2Id[shortKey].id];
+          if (!stateData) {
+            console.warn(`Missing ETA state data for ${shortKey} (${defaultNames2Id[shortKey].id})`);
             return "Aus";
           }
-          return stateData.value;
+          
+          // Get the actual value from the parsed XML data
+          const value = stateData.strValue;
+          if (!value) {
+            console.warn(`Missing strValue in ETA state data for ${shortKey}`);
+            return "Aus";
+          }
+          
+          console.log(`ETA value for ${shortKey}:`, { stateData, value });
+          return value;
         };
 
         const etaValues = {
@@ -186,13 +195,22 @@ const WifiAf83Data: React.FC = () => {
           const freshEtaData = await loadAndStoreEta();
           
           // Calculate new slider position using fresh ETA state values
-          const getEtaValue = (name: string): string => {
-            const stateData = freshEtaData ? freshEtaData[name] : etaState.data[name];
-            if (!stateData || !stateData.value) {
-              console.warn(`Missing ETA state value for ${name}`);
+          const getEtaValue = (shortKey: string): string => {
+            const stateData = freshEtaData ? freshEtaData[defaultNames2Id[shortKey].id] : etaState.data[defaultNames2Id[shortKey].id];
+            if (!stateData) {
+              console.warn(`Missing ETA state data for ${shortKey} (${defaultNames2Id[shortKey].id})`);
               return "Aus";
             }
-            return stateData.value;
+            
+            // Get the actual value from the parsed XML data
+            const value = stateData.strValue;
+            if (!value) {
+              console.warn(`Missing strValue in ETA state data for ${shortKey}`);
+              return "Aus";
+            }
+            
+            console.log(`ETA value for ${shortKey}:`, { stateData, value });
+            return value;
           };
 
           const etaValues = {
