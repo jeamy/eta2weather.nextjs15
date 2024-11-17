@@ -25,16 +25,28 @@ interface ApiResponse {
   config?: ConfigState['data'];
 }
 
+const MIN_API_INTERVAL = 5000; // Minimum 5 seconds between API calls
+
 const EtaData: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
   const config = useSelector((state: RootState) => state.config);
   const [displayData, setDisplayData] = useState<Record<string, DisplayEtaValue> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const isFirstLoad = useRef(true);
+  const intervalId = useRef<NodeJS.Timeout | null>(null);
+  const lastApiCall = useRef<number>(0);
 
   const loadAndStoreEta = useCallback(async () => {
+    const now = Date.now();
+    if (now - lastApiCall.current < MIN_API_INTERVAL) {
+      console.log('Skipping API call - too frequent');
+      return;
+    }
+
     try {
       setIsLoading(true);
+      lastApiCall.current = now;
+
       const response = await fetch('/api/eta/read');
       if (!response.ok) {
         throw new Error('Failed to fetch ETA data');
@@ -69,35 +81,36 @@ const EtaData: React.FC = () => {
     }
   }, [dispatch]);
 
+  // Initial load effect
   useEffect(() => {
-    // Skip if not first load and no timer change
-    if (!isFirstLoad.current) {
-      return;
+    if (isFirstLoad.current) {
+      loadAndStoreEta();
+      isFirstLoad.current = false;
     }
+  }, [loadAndStoreEta]);
 
-    let isMounted = true;
-    let intervalId: NodeJS.Timeout | null = null;
-
-    const fetchData = async () => {
-      if (!isMounted) return;
-      await loadAndStoreEta();
-    };
-
-    // Initial load
-    fetchData();
-    isFirstLoad.current = false;
-
-    // Set up interval for periodic updates with default fallback
+  // Timer effect
+  useEffect(() => {
     const updateTimer = parseInt(config.data.t_update_timer) || DEFAULT_UPDATE_TIMER;
+    
     if (updateTimer > 0) {
-      intervalId = setInterval(fetchData, updateTimer);
+      // Ensure timer is not less than minimum interval
+      const safeTimer = Math.max(updateTimer, MIN_API_INTERVAL);
+      
+      // Clear existing interval if any
+      if (intervalId.current) {
+        clearInterval(intervalId.current);
+      }
+      
+      // Set new interval
+      intervalId.current = setInterval(loadAndStoreEta, safeTimer);
     }
 
     // Cleanup function
     return () => {
-      isMounted = false;
-      if (intervalId) {
-        clearInterval(intervalId);
+      if (intervalId.current) {
+        clearInterval(intervalId.current);
+        intervalId.current = null;
       }
     };
   }, [loadAndStoreEta, config.data.t_update_timer]);
