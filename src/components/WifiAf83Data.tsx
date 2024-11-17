@@ -8,12 +8,10 @@ import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
 import { WifiAF83Data } from '@/reader/functions/types-constants/WifiAf83';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
-import { calculateTemperatureDiff, calculateNewSliderPosition, updateSliderPosition } from '@/utils/Functions';
+import { calculateTemperatureDiff, calculateNewSliderPosition } from '@/utils/Functions';
 import { storeData } from '@/redux/configSlice';
 import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
-import { EtaApi } from '@/reader/functions/EtaApi';
-import { storeData as storeEtaData } from '@/redux/etaSlice';
 
 interface ApiResponse {
   data: WifiAF83Data & {
@@ -44,25 +42,6 @@ const WifiAf83Data: React.FC = () => {
   const lastApiCall = useRef<number>(0);
   const lastTSoll = useRef(config.data.t_soll);
   const lastTDelta = useRef(config.data.t_delta);
-  const etaApi = useRef(new EtaApi());
-
-  const updateSliderPositionAndEtaData = useCallback(async (newPosition: string, currentPosition: number) => {
-    if (Math.abs(Number(newPosition) - currentPosition) > 1) {
-      try {
-        const result = await updateSliderPosition(newPosition, currentPosition, defaultNames2Id, etaApi.current);
-        if (result.success) {
-          // Immediately update ETA data in Redux store
-          const response = await fetch('/api/eta/read');
-          if (response.ok) {
-            const { data } = await response.json();
-            dispatch(storeEtaData(data));
-          }
-        }
-      } catch (error) {
-        console.error('Failed to update slider position:', error);
-      }
-    }
-  }, [dispatch]);
 
   const getEtaValue = useCallback((shortKey: string, etaData: Record<string, any> | null): string => {
     const stateData = etaData ? etaData[defaultNames2Id[shortKey].id] : etaState.data[defaultNames2Id[shortKey].id];
@@ -183,20 +162,23 @@ const WifiAf83Data: React.FC = () => {
         const numericDiff = tempDiff.diff;
         const newDiffValue = numericDiff.toString();
         
-        // Calculate new slider position using current ETA state values
+        // Get fresh ETA data before calculating slider position
+        const freshEtaData = await loadAndStoreEta();
+        
+        // Calculate new slider position using fresh ETA state values
         const etaValues = {
-          einaus: getEtaValue(EtaConstants.EIN_AUS_TASTE, etaState.data),
-          schaltzustand: getEtaValue(EtaConstants.SCHALTZUSTAND, etaState.data),
-          kommenttaste: getEtaValue(EtaConstants.KOMMENTASTE, etaState.data),
-          tes: parseFloat(getEtaValue(EtaConstants.SCHIEBERPOS, etaState.data)),
-          tea: parseFloat(getEtaValue(EtaConstants.AUSSENTEMP, etaState.data))
+          einaus: getEtaValue(EtaConstants.EIN_AUS_TASTE, freshEtaData),
+          schaltzustand: getEtaValue(EtaConstants.SCHALTZUSTAND, freshEtaData),
+          kommenttaste: getEtaValue(EtaConstants.KOMMENTASTE, freshEtaData),
+          tes: parseFloat(getEtaValue(EtaConstants.SCHIEBERPOS, freshEtaData)),
+          tea: parseFloat(getEtaValue(EtaConstants.AUSSENTEMP, freshEtaData))
         };
+
+//        console.log('Raw ETA state:', freshEtaData || etaState.data);
+//        console.log('ETA state values:', etaValues);
         
         const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
         console.log('Calculated new slider position:', newSliderPosition);
-        
-        // Update slider position in ETA if changed
-        await updateSliderPositionAndEtaData(newSliderPosition, etaValues.tes);
         
         // Update local state with both diff and slider position
         dispatch(storeData({
@@ -228,7 +210,7 @@ const WifiAf83Data: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [wifiData, etaState.data, config, isLoading, saveConfigValue,
-    dispatch, getEtaValue, updateSliderPositionAndEtaData]);
+    dispatch, loadAndStoreEta, getEtaValue]);
 
   // Update diff when t_soll or t_delta changes
   useEffect(() => {
@@ -253,20 +235,23 @@ const WifiAf83Data: React.FC = () => {
           const numericDiff = tempDiff.diff;
           const newDiffValue = numericDiff.toString();
           
-          // Calculate new slider position using current ETA state values
+          // Get fresh ETA data before calculating slider position
+          const freshEtaData = await loadAndStoreEta();
+          
+          // Calculate new slider position using fresh ETA state values
           const etaValues = {
-            einaus: getEtaValue(EtaConstants.EIN_AUS_TASTE, etaState.data),
-            schaltzustand: getEtaValue(EtaConstants.SCHALTZUSTAND, etaState.data),
-            kommenttaste: getEtaValue(EtaConstants.KOMMENTASTE, etaState.data),
-            tes: parseFloat(getEtaValue(EtaConstants.SCHIEBERPOS, etaState.data)),
-            tea: parseFloat(getEtaValue(EtaConstants.AUSSENTEMP, etaState.data))
+            einaus: getEtaValue(EtaConstants.EIN_AUS_TASTE, freshEtaData),
+            schaltzustand: getEtaValue(EtaConstants.SCHALTZUSTAND, freshEtaData),
+            kommenttaste: getEtaValue(EtaConstants.KOMMENTASTE, freshEtaData),
+            tes: parseFloat(getEtaValue(EtaConstants.SCHIEBERPOS, freshEtaData)),
+            tea: parseFloat(getEtaValue(EtaConstants.AUSSENTEMP, freshEtaData))
           };
+
+//          console.log('Raw ETA state:', freshEtaData || etaState.data);
+//          console.log('ETA state values:', etaValues);
           
           const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
-          console.log('Calculated new slider position:', newSliderPosition, " old:", etaValues.tes);
-          
-          // Update slider position in ETA if changed
-          await updateSliderPositionAndEtaData(newSliderPosition, etaValues.tes);
+          console.log('Calculated new slider position:', newSliderPosition);
           
           // Update local state with both diff and slider position
           dispatch(storeData({
@@ -292,7 +277,7 @@ const WifiAf83Data: React.FC = () => {
 
     calculateAndUpdateDiff();
   }, [config.data.t_soll, config.data.t_delta, wifiData, saveConfigValue, 
-    etaState.data, config, isLoading, dispatch, getEtaValue, updateSliderPositionAndEtaData]);
+    etaState.data, config, isLoading, dispatch, loadAndStoreEta, getEtaValue]);
 
   // Initial load and timer setup
   useEffect(() => {
