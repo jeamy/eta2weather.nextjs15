@@ -6,19 +6,14 @@ import { RootState } from '@/redux';
 import { ConfigState } from '@/redux/configSlice';
 import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
-import { storeData, storeError } from '@/redux/wifiAf83Slice';
-import { storeData as storeConfigData } from '@/redux/configSlice';
 import { WifiAF83Data } from '@/reader/functions/types-constants/WifiAf83';
-import { DEFAULT_UPDATE_TIMER } from '@/reader/functions/types-constants/TimerConstants';
-
-// Constants
+import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
+import { calculateTemperatureDiff } from '@/utils/Functions';
 
 interface ApiResponse {
   data: WifiAF83Data;
   config?: ConfigState['data'];
 }
-
-const MIN_API_INTERVAL = 5000; // Minimum 5 seconds between API calls
 
 const formatDateTime = (timestamp: number): string => {
   return new Date(timestamp).toLocaleString('de-DE', {
@@ -35,30 +30,118 @@ const formatDateTime = (timestamp: number): string => {
 const WifiAf83Data: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
   const config = useSelector((state: RootState) => state.config);
+  const etaState = useSelector((state: RootState) => state.eta);
   const [wifiData, setWifiData] = useState<WifiAF83Data | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setLoading] = useState(true);
   const isFirstLoad = useRef(true);
-  const intervalId = useRef<NodeJS.Timeout | null>(null);
-  const lastTSoll = useRef(config.data.t_soll);
   const lastApiCall = useRef<number>(0);
+  const lastTSoll = useRef(config.data.t_soll);
+  const lastTDelta = useRef(config.data.t_delta);
 
-  const calculateDiff = useCallback((indoorTemp: number, tSoll: string) => {
-    const tSollNum = parseFloat(tSoll);
-    if (!isNaN(tSollNum) && !isNaN(indoorTemp)) {
-      return tSollNum - indoorTemp;
+  // Calculate diff only on initial data load and visibility change
+  useEffect(() => {
+    const calculateAndUpdateDiff = () => {
+      if (!wifiData || !etaState.data || isLoading) {
+        return;
+      }
+
+      // Only calculate on initial data load
+      if (!isFirstLoad.current) {
+        return;
+      }
+      isFirstLoad.current = false;
+
+      const tempDiff = calculateTemperatureDiff(config, {
+        data: wifiData,
+        loadingState: {
+          isLoading: false,
+          error: null
+        }
+      });
+
+      if (tempDiff.diff !== null) {
+        const numericDiff = tempDiff.diff;
+        setWifiData((prev): WifiAF83Data => {
+          if (!prev) {
+            return {
+              ...wifiData!,
+              diff: numericDiff
+            } as WifiAF83Data;
+          }
+          return {
+            ...prev,
+            diff: numericDiff
+          };
+        });
+      }
+    };
+
+    calculateAndUpdateDiff();
+
+    // Calculate on visibility change
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Page became visible, recalculating diff');
+        // Reset isFirstLoad to allow calculation on visibility change
+        isFirstLoad.current = true;
+        calculateAndUpdateDiff();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [wifiData, etaState.data, config, isLoading]);
+
+  // Update diff when t_soll or t_delta changes
+  useEffect(() => {
+    if (!wifiData || !etaState.data || isLoading) {
+      return;
     }
-    return 0;
-  }, []);
+
+    const tSollChanged = config.data.t_soll !== lastTSoll.current;
+    const tDeltaChanged = config.data.t_delta !== lastTDelta.current;
+
+    if (tSollChanged || tDeltaChanged) {
+      console.log('t_soll or t_delta changed, calculating new diff');
+      const tempDiff = calculateTemperatureDiff(config, {
+        data: wifiData,
+        loadingState: {
+          isLoading: false,
+          error: null
+        }
+      });
+
+      if (tempDiff.diff !== null) {
+        const numericDiff = tempDiff.diff;
+        setWifiData((prev): WifiAF83Data => {
+          if (!prev) {
+            return {
+              ...wifiData!,
+              diff: numericDiff
+            } as WifiAF83Data;
+          }
+          return {
+            ...prev,
+            diff: numericDiff
+          };
+        });
+      }
+      lastTSoll.current = config.data.t_soll;
+      lastTDelta.current = config.data.t_delta;
+    }
+  }, [config.data.t_soll, config.data.t_delta, wifiData, etaState.data, config, isLoading]);
 
   const loadAndStoreWifi = useCallback(async () => {
     const now = Date.now();
     if (now - lastApiCall.current < MIN_API_INTERVAL) {
-      console.log('Skipping API call - too frequent');
       return;
     }
 
     try {
-      setIsLoading(true);
+      setLoading(true);
+      dispatch({ type: 'wifiAf83/setLoading', payload: true });
       lastApiCall.current = now;
       
       const response = await fetch('/api/wifiaf83/read');
@@ -68,69 +151,45 @@ const WifiAf83Data: React.FC = () => {
 
       const { data } = await response.json() as ApiResponse;
       
-      // Calculate diff with indoor temperature
-      if (data.indoorTemperature !== undefined) {
-        data.diff = calculateDiff(data.indoorTemperature, config.data.t_soll);
+      if (!data || typeof data.temperature === 'undefined' || typeof data.indoorTemperature === 'undefined') {
+        throw new Error('Invalid temperature data structure');
       }
 
-      setWifiData(data);
-      dispatch(storeData(data));
+      const transformedData: WifiAF83Data = {
+        time: Number(data.time),
+        datestring: data.datestring,
+        temperature: Number(data.temperature),
+        indoorTemperature: Number(data.indoorTemperature),
+        diff: Number(data.diff || 0)
+      };
+
+      setWifiData(transformedData);
+      dispatch({ type: 'wifiAf83/storeData', payload: transformedData });
+
     } catch (error) {
       console.error('Error fetching WifiAf83 data:', error);
-      dispatch(storeError((error as Error).message));
+      dispatch({ type: 'wifiAf83/storeError', payload: (error as Error).message });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
+      dispatch({ type: 'wifiAf83/setLoading', payload: false });
     }
-  }, [dispatch, calculateDiff, config.data.t_soll]);
+  }, [dispatch]);
 
-  // Initial load effect
+  // Initial load and timer setup
   useEffect(() => {
     if (isFirstLoad.current) {
       loadAndStoreWifi();
       isFirstLoad.current = false;
     }
-  }, [loadAndStoreWifi]);
 
-  // Timer effect
-  useEffect(() => {
-    const updateTimer = parseInt(config.data.t_update_timer) || DEFAULT_UPDATE_TIMER;
+    const updateTimer = Math.max(
+      parseInt(config.data.t_update_timer) || DEFAULT_UPDATE_TIMER,
+      MIN_API_INTERVAL
+    );
     
-    if (updateTimer > 0) {
-      // Ensure timer is not less than minimum interval
-      const safeTimer = Math.max(updateTimer, MIN_API_INTERVAL);
-      
-      // Clear existing interval if any
-      if (intervalId.current) {
-        clearInterval(intervalId.current);
-      }
-      
-      // Set new interval
-      intervalId.current = setInterval(loadAndStoreWifi, safeTimer);
-    }
-
-    // Cleanup function
-    return () => {
-      if (intervalId.current) {
-        clearInterval(intervalId.current);
-        intervalId.current = null;
-      }
-    };
+    const interval = setInterval(loadAndStoreWifi, updateTimer);
+    return () => clearInterval(interval);
   }, [loadAndStoreWifi, config.data.t_update_timer]);
-
-  // Update config t_delta when T_SOLL changes
-  useEffect(() => {
-    if (config.data.t_soll !== lastTSoll.current && wifiData?.indoorTemperature !== undefined) {
-      const newDiff = calculateDiff(wifiData.indoorTemperature, config.data.t_soll);
-      
-      // Update config with new diff
-      dispatch(storeConfigData({
-        ...config.data,
-        t_delta: newDiff.toFixed(1)
-      }));
-      
-      lastTSoll.current = config.data.t_soll;
-    }
-  }, [config.data.t_soll, wifiData?.indoorTemperature, calculateDiff, config.data, dispatch]);
 
   if (isLoading || !wifiData) {
     return <div>Loading...</div>;
@@ -156,7 +215,6 @@ const WifiAf83Data: React.FC = () => {
               <span>Innentemperatur:</span>
               <div className="text-right">
                 <span className="font-mono font-semibold">{wifiData.indoorTemperature.toFixed(1)}</span>
-                <span className="ml-1 text-gray-600">°C</span>
               </div>
             </div>
           )}

@@ -1,37 +1,63 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { LoadingState } from './interface';
-import { updateLoadingState } from './loadingStateUtils';
 import { WifiAF83Data } from '@/reader/functions/types-constants/WifiAf83';
 
 export type WifiAF83State = {
-    data: WifiAF83Data,
-    loadingState: LoadingState
+    data: WifiAF83Data;
+    loadingState: LoadingState;
 }
 
 const initialState: WifiAF83State = {
-    data: {} as WifiAF83Data,
+    data: {
+        time: 0,
+        datestring: '',
+        temperature: 0,
+        indoorTemperature: 0,
+        diff: 0
+    },
     loadingState: {
         error: null,
         isLoading: false
     }
 };
 
-const wifiAf83Slice = createSlice({
+export const wifiAf83Slice = createSlice({
     name: 'wifiAf83',
     initialState,
     reducers: {
-        storeData: (state, action: PayloadAction<WifiAF83Data>) => {
-            state.data = action.payload;
-            updateLoadingState(state, false);
+        storeData(state, action: PayloadAction<WifiAF83Data>) {
+            console.log('Storing WifiAf83 data:', action.payload);
+            
+            // Ensure numeric values
+            const temperature = Number(action.payload.temperature);
+            const indoorTemperature = Number(action.payload.indoorTemperature);
+            const diff = Number(action.payload.diff);
+            
+            if (isNaN(temperature) || isNaN(indoorTemperature)) {
+                throw new Error('Invalid temperature values');
+            }
+            
+            state.data = {
+                ...action.payload,
+                temperature,
+                indoorTemperature,
+                diff: isNaN(diff) ? 0 : diff
+            };
+            state.loadingState.isLoading = false;
+            state.loadingState.error = null;
         },
-        storeError: (state, action: PayloadAction<string>) => {
-            updateLoadingState(state, false, action.payload);
+        storeError(state, action: PayloadAction<string>) {
+            state.loadingState.isLoading = false;
+            state.loadingState.error = action.payload;
         },
-        setIsLoading: (state, action: PayloadAction<boolean>) => {
-            updateLoadingState(state, action.payload);
+        setLoading(state, action: PayloadAction<boolean>) {
+            state.loadingState.isLoading = action.payload;
+            if (action.payload) {
+                state.loadingState.error = null;
+            }
         }
-    },
+    }
 });
 
-export const { storeData, storeError, setIsLoading } = wifiAf83Slice.actions;
+export const { storeData, storeError, setLoading } = wifiAf83Slice.actions;
 export default wifiAf83Slice.reducer;

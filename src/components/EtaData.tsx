@@ -102,7 +102,8 @@ const EtaData: React.FC = () => {
         clearInterval(intervalId.current);
       }
       
-      // Set new interval
+      // Set new interval with safe timer value
+//      console.log(`Setting update timer to ${safeTimer}ms`);
       intervalId.current = setInterval(loadAndStoreEta, safeTimer);
     }
 

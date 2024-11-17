@@ -1,10 +1,11 @@
-
 export const WIFIAF83 = 'WIFIAF83';
 
 export interface WifiAF83Data {
     time: number;
     datestring: string;
-    [key: string]: any;
+    temperature: number;
+    indoorTemperature: number;
+    diff: number;
 }
 
 const formatDateTime = (data: WifiAF83Data): void => {
@@ -19,4 +20,3 @@ const formatDateTime = (data: WifiAF83Data): void => {
         year: 'numeric',
     });
 };
-

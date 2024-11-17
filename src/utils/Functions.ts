@@ -23,20 +23,30 @@ export function calculateNewSliderPosition({ einaus, schalt, kommenttaste }: Eta
 }
 
 export function calculateTemperatureDiff(config: ConfigState, wifiAf83Data: WifiAF83State): TempDiff {
+//    console.log('calculatingTemperature diff...', wifiAf83Data);
 
-    const { indoor, outdoor } = wifiAf83Data.data;
-    const twi = indoor.temperature.value;
-    const twa = outdoor.temperature.value;
+    const twi = wifiAf83Data.data.indoorTemperature;
+    const twa = wifiAf83Data.data.temperature ?? 0;
     const { t_soll, t_delta } = config.data;
 
+/*    
     console.log(`
-      Außentemperatur ETA: ${twi}
       Außentemperatur: ${twa}
       Innentemperatur: ${twi}
       Solltemperatur: ${t_soll}
       Deltatemperatur: ${t_delta}
     `);
+*/
 
-    const diff = Math.min(Number(t_soll) + Number(t_delta) - twi, 5.0);
+    const tSollNum = Number(t_soll);
+    const tDeltaNum = Number(t_delta);
+
+    if (isNaN(tSollNum) || isNaN(tDeltaNum) || isNaN(twi)) {
+        console.error('Invalid temperature values:', { t_soll, t_delta, twi });
+        return { diff: null, twa, twi };
+    }
+
+    const diff = Math.min(tSollNum + tDeltaNum - twi, 5.0);
+    console.log(`Diff calculation: ${tSollNum} + ${tDeltaNum} - ${twi} = ${diff}`);
     return { diff: Number(diff.toFixed(1)), twa, twi };
 }
