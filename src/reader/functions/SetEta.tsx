@@ -7,6 +7,7 @@ import { fetchEtaData } from './EtaData';
 import { fetchWifiAf83Data } from './WifiAf83Data';
 import { prepareAndFetchGetUserVar } from './EtaData';
 import { AppDispatch } from '../../redux/index';
+import { DEFAULT_UPDATE_TIMER } from './types-constants/TimerConstants';
 
 type EtaValues = {
   einaus: string;
@@ -151,5 +152,16 @@ export class SetEta {
       Schieber Position: ${tes}
       Schieber Position neu: ${newPosition}
     `);
+  }
+
+  private startPolling(dispatch: AppDispatch): void {
+    // Initial fetch
+    this.fetchData(dispatch);
+
+    // Set up interval for periodic updates with default fallback
+    const updateTimer = parseInt(this.config.t_update_timer) || DEFAULT_UPDATE_TIMER;
+    if (updateTimer > 0) {
+      setInterval(() => this.fetchData(dispatch), updateTimer);
+    }
   }
 }

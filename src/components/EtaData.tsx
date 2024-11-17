@@ -1,6 +1,6 @@
-'use client'
+'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux';
 import { ConfigState } from '@/redux/configSlice';
@@ -9,6 +9,9 @@ import { useAppDispatch } from '@/redux/hooks';
 import { storeData as storeEtaData, storeError } from '@/redux/etaSlice';
 import { storeData as storeConfigData } from '@/redux/configSlice';
 import { EtaData as EtaDataType, ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
+import { DEFAULT_UPDATE_TIMER } from '@/reader/functions/types-constants/TimerConstants';
+
+// Constants
 
 interface DisplayEtaValue {
   short: string;
@@ -26,53 +29,80 @@ const EtaData: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
   const config = useSelector((state: RootState) => state.config);
   const [displayData, setDisplayData] = useState<Record<string, DisplayEtaValue> | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const isFirstLoad = useRef(true);
+
+  const loadAndStoreEta = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/eta/read');
+      if (!response.ok) {
+        throw new Error('Failed to fetch ETA data');
+      }
+
+      const { data, config: updatedConfig } = await response.json() as ApiResponse;
+      
+      // Transform the data for display
+      const transformed = Object.entries(data).reduce((acc, [key, value]) => {
+        const parsedValue = value as unknown as ParsedXmlData;
+        acc[key] = {
+          short: parsedValue.short || key,
+          long: parsedValue.long || key,
+          strValue: parsedValue.strValue || parsedValue.toString(),
+          unit: parsedValue.unit || ''
+        };
+        return acc;
+      }, {} as Record<string, DisplayEtaValue>);
+
+      setDisplayData(transformed);
+      dispatch(storeEtaData(data));
+
+      // Update config in Redux if provided
+      if (updatedConfig) {
+        dispatch(storeConfigData(updatedConfig));
+      }
+    } catch (error) {
+      console.error('Error fetching ETA data:', error);
+      dispatch(storeError((error as Error).message));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [dispatch]);
 
   useEffect(() => {
-    const loadAndStoreEta = async () => {
-      try {
-        const response = await fetch('/api/eta/read');
-        if (!response.ok) {
-          throw new Error('Failed to fetch ETA data');
-        }
+    // Skip if not first load and no timer change
+    if (!isFirstLoad.current) {
+      return;
+    }
 
-        const { data, config: updatedConfig } = await response.json() as ApiResponse;
-        
-        // Transform the data for display
-        const transformed = Object.entries(data).reduce((acc, [key, value]) => {
-          const parsedValue = value as unknown as ParsedXmlData;
-          acc[key] = {
-            short: parsedValue.short || key,
-            long: parsedValue.long || key,
-            strValue: parsedValue.strValue || parsedValue.toString(),
-            unit: parsedValue.unit || ''
-          };
-          return acc;
-        }, {} as Record<string, DisplayEtaValue>);
+    let isMounted = true;
+    let intervalId: NodeJS.Timeout | null = null;
 
-        setDisplayData(transformed);
-        dispatch(storeEtaData(data));
-
-        // Update config in Redux if provided
-        if (updatedConfig) {
-          dispatch(storeConfigData(updatedConfig));
-        }
-      } catch (error) {
-        console.error('Error fetching ETA data:', error);
-        dispatch(storeError((error as Error).message));
-      }
+    const fetchData = async () => {
+      if (!isMounted) return;
+      await loadAndStoreEta();
     };
 
     // Initial load
-    loadAndStoreEta();
+    fetchData();
+    isFirstLoad.current = false;
 
-    // Set up interval for periodic updates
-    const interval = setInterval(loadAndStoreEta, parseInt(config.data.t_update_timer) || 60000);
+    // Set up interval for periodic updates with default fallback
+    const updateTimer = parseInt(config.data.t_update_timer) || DEFAULT_UPDATE_TIMER;
+    if (updateTimer > 0) {
+      intervalId = setInterval(fetchData, updateTimer);
+    }
 
-    // Cleanup interval on unmount
-    return () => clearInterval(interval);
-  }, [dispatch, config.data.t_update_timer]);
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [loadAndStoreEta, config.data.t_update_timer]);
 
-  if (!displayData) {
+  if (isLoading || !displayData) {
     return <div>Loading...</div>;
   }
 

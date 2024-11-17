@@ -1,41 +1,62 @@
 'use server';
 
 import { WifiAf83Api } from './WifiAf83Api';
+import { WifiAF83Data } from './types-constants/WifiAf83';
 
-interface WifiAf83Response {
-    temperature?: number;
-    humidity?: number;
-    pressure?: number;
-    diff?: number;
+interface Temperature {
+    time: string;
+    unit: string;
+    value: string;
 }
 
-export const fetchWifiAf83Data = async (): Promise<WifiAf83Response> => {
-  const wifiApi = new WifiAf83Api();
+interface WifiAf83ApiResponse {
+    code: number;
+    msg: string;
+    time: string;
+    data: {
+        outdoor: {
+            temperature: Temperature;
+        };
+        indoor: {
+            temperature: Temperature;
+        };
+    };
+    datestring: string;
+    diff: string;
+}
+
+export const fetchWifiAf83Data = async (): Promise<WifiAF83Data> => {
+    const wifiApi = new WifiAf83Api();
 
     try {
         const response = await wifiApi.getRealtime();
-        
-        if (!response.ok) {
-            throw new Error(`Failed to fetch WifiAf83 data: ${response.statusText}`);
+        console.log('WifiAf83 raw data:', response);
+
+        if (!response || response.code !== 0) {
+            throw new Error(`Failed to fetch WifiAf83 data: ${response?.msg || 'Unknown error'}`);
         }
 
-        const data = await response.json();
-
-        console.log('WifiAf83 data:', data);
+        const data = response as WifiAf83ApiResponse;
 
         // Transform and validate the data
-        const result: WifiAf83Response = {
-            temperature: parseFloat(data.temperature) || 0,
-            humidity: parseFloat(data.humidity) || 0,
-            pressure: parseFloat(data.pressure) || 0,
+        const result: WifiAF83Data = {
+            time: parseInt(data.time) * 1000, // Convert to milliseconds
+            datestring: data.datestring,
+            temperature: parseFloat(data.data.outdoor.temperature.value) || 0,
+            indoorTemperature: parseFloat(data.data.indoor.temperature.value) || 0,
             diff: parseFloat(data.diff) || 0
         };
 
-        console.log('Transformed WifiAf83 data:', result);
-
+        // console.log('Transformed WifiAf83 data:', result);
         return result;
     } catch (error) {
         console.error('Error fetching WifiAf83 data:', error);
-        return {};
+        return {
+            time: Date.now(),
+            datestring: new Date().toLocaleString('de-DE'),
+            temperature: 0,
+            indoorTemperature: 0,
+            diff: 0
+        };
     }
 };

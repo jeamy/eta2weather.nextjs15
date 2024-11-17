@@ -12,8 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // Fetch WifiAf83 data
     const wifiAf83Data = await fetchWifiAf83Data();
-    console.log('WifiAf83 data:', wifiAf83Data);
-    // Return both WifiAf83 data and config
+    // console.log('WifiAf83 data:', wifiAf83Data);
     res.status(200).json({
       data: wifiAf83Data,
     });
