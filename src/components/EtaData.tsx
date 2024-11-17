@@ -141,7 +141,7 @@ const EtaData: React.FC = () => {
                 <td className="px-4 py-2 w-[200px] border-r border-gray-200">
                   <span>{value.long}</span>
                 </td>
-                <td className="px-4 py-2 w-[100px] text-right">
+                <td className="px-4 py-2 w-[100px]">
                   <span className="font-mono">{value.strValue}</span>
                   <span className="ml-1 text-gray-600">{value.unit}</span>
                 </td>
