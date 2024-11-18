@@ -22,7 +22,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const names2idData = await fs.readFile(names2idPath, 'utf-8');
     const names2id: Names2Id = JSON.parse(names2idData);
 
-    // Fetch ETA data without dispatch
     const etaData: EtaData = await fetchEtaData(config, names2id);
     
     // Update config file with any changes

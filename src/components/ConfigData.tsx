@@ -8,6 +8,9 @@ import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
 import { storeData, storeError, setIsLoading } from '@/redux/configSlice';
 import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
+import { updateSliderPosition } from '@/utils/Functions';
+import { EtaApi } from '@/reader/functions/EtaApi';
+
 
 const ConfigData: React.FC = () => {
     const dispatch: AppDispatch = useAppDispatch();
@@ -16,23 +19,53 @@ const ConfigData: React.FC = () => {
     const [isEditing, setIsEditing] = useState<ConfigKeys | null>(null);
     const [editValue, setEditValue] = useState('');
 
+    const sliderValue = config.data[ConfigKeys.T_SLIDER];
+
     useEffect(() => {
-        const loadConfigData = async () => {
-            dispatch(setIsLoading(true)); // Start loading
-            try {
-                const response = await fetch('/api/config/read');
-                const data = await response.json();
-                dispatch(storeData(data));
-            } catch (error) {
-                const typedError = error as Error; // Assert error as Error type
-                console.error('Error fetching config data:', typedError);
-                dispatch(storeError(typedError.message));
-            } finally {
-                dispatch(setIsLoading(false)); // End loading
-            }
-        };
-        loadConfigData();
-    }, [dispatch]);
+        // Only load config if not already initialized
+        if (!config.isInitialized) {
+            const loadConfigData = async () => {
+                if (!config.loadingState.isLoading) {  // Prevent multiple simultaneous loads
+                    dispatch(setIsLoading(true));
+                    try {
+                        const response = await fetch('/api/config/read');
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch config');
+                        }
+                        const data = await response.json();
+                        dispatch(storeData(data));
+                    } catch (error) {
+                        const typedError = error as Error;
+                        console.error('Error fetching config data:', typedError);
+                        dispatch(storeError(typedError.message));
+                    } finally {
+                        dispatch(setIsLoading(false)); // End loading
+                    }
+                }
+            };
+            loadConfigData();
+        }
+    }, [config.isInitialized, config.loadingState.isLoading, dispatch]);
+
+    useEffect(() => {
+        const recommendedPos = Math.round(parseFloat(sliderValue || '0'));
+        const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
+        const currentPos = etaSP ? parseFloat(etaSP.strValue) : recommendedPos;
+
+//        console.log(`sliderValue: ${sliderValue}, recommendedPos: ${recommendedPos}, currentPos: ${currentPos}`);
+
+        if (etaSP && recommendedPos !== currentPos) {
+            const etaApi = new EtaApi(config.data[ConfigKeys.S_ETA]);
+            updateSliderPosition(
+                recommendedPos,
+                currentPos,
+                defaultNames2Id,
+                etaApi,
+            ).catch(error => {
+                console.error('Error updating slider position:', error);
+            });
+        }
+    }, [sliderValue, etaState.data, config.data, dispatch]);
 
     if (config.loadingState.isLoading) {
         return <div>Loading...</div>;
@@ -153,7 +186,7 @@ const ConfigData: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={handleSaveValue}
-                                className="text-green-600 text-sm hover:text-green-800"
+                                className="text-red-600 text-sm hover:text-red-800"
                                 aria-label="Save changes"
                             >
                                 ✓
@@ -161,7 +194,7 @@ const ConfigData: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={handleCancel}
-                                className="text-red-600 text-sm hover:text-red-800"
+                                className="text-green-600 text-sm hover:text-green-800"
                                 aria-label="Cancel changes"
                             >
                                 ✗
@@ -252,7 +285,7 @@ const ConfigData: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={handleSaveValue}
-                                className="text-green-600 text-sm hover:text-green-800"
+                                className="text-red-600 text-sm hover:text-red-800"
                                 aria-label="Save changes"
                             >
                                 ✓
@@ -260,7 +293,7 @@ const ConfigData: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={handleCancel}
-                                className="text-red-600 text-sm hover:text-red-800"
+                                className="text-blue-600 text-sm hover:text-blue-800"
                                 aria-label="Cancel changes"
                             >
                                 ✗
@@ -322,7 +355,7 @@ const ConfigData: React.FC = () => {
                         <td className="border border-gray-300 px-4 py-2 w-[250px]">Empfohlene Schieber Position</td>
                         <td className="border border-gray-300 px-4 py-2 text-right w-[150px] font-mono">
                             {(() => {
-                                const recommendedPos = Math.round(parseFloat(config.data[ConfigKeys.T_SLIDER] || '0'));
+                                const recommendedPos = Math.round(parseFloat(sliderValue || '0'));
                                 const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
                                 const currentPos = etaSP ? parseFloat(etaSP.strValue) : recommendedPos;
                                 

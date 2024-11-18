@@ -26,7 +26,7 @@ export const wifiAf83Slice = createSlice({
     initialState,
     reducers: {
         storeData(state, action: PayloadAction<WifiAF83Data>) {
-            console.log('Storing WifiAf83 data:', action.payload);
+//            console.log('Storing WifiAf83 data:', action.payload);
             
             // Ensure numeric values
             const temperature = Number(action.payload.temperature);

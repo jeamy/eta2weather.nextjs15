@@ -47,51 +47,36 @@ const WifiAf83Data: React.FC = () => {
     const stateData = etaData ? etaData[defaultNames2Id[shortKey].id] : etaState.data[defaultNames2Id[shortKey].id];
     if (!stateData) {
       console.warn(`Missing ETA state data for ${shortKey} (${defaultNames2Id[shortKey].id})`);
-      return "Aus";
+      return '0';
     }
-    
-    // Get the actual value from the parsed XML data
-    const value = stateData.strValue;
-    if (!value) {
-      console.warn(`Missing strValue in ETA state data for ${shortKey}`);
-      return "Aus";
-    }
-    
-    return value;
+    return stateData.strValue || '0';
   }, [etaState.data]);
 
-  const saveConfigValue = useCallback(async (key: ConfigKeys, value: string) => {
+  const saveConfigValue = useCallback(async (key: ConfigKeys, value: string | number) => {
     try {
       const response = await fetch('/api/config/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ key, value }),
+        body: JSON.stringify({
+          key,
+          value: value.toString()
+        }),
       });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to save config');
+        const errorText = await response.text();
+        throw new Error(`Failed to save config value for ${key}: ${errorText}`);
       }
+
+      const result = await response.json();
+//      console.log('Saved config value:', result);
     } catch (error) {
-      console.error('Error saving config:', error);
+      console.error('Error saving config value:', error);
+      throw error; // Re-throw to let the caller handle the error
     }
   }, []);
-
-  const loadAndStoreEta = useCallback(async () => {
-    try {
-      const response = await fetch('/api/eta/read');
-      if (!response.ok) {
-        throw new Error('Failed to fetch ETA data');
-      }
-      const { data } = await response.json();
-      dispatch({ type: 'eta/storeData', payload: data });
-      return data;
-    } catch (error) {
-      console.error('Error fetching ETA data:', error);
-      return null;
-    }
-  }, [dispatch]);
 
   const loadAndStoreWifi = useCallback(async () => {
     const now = Date.now();
@@ -114,58 +99,90 @@ const WifiAf83Data: React.FC = () => {
         time: Number(data.time),
         datestring: data.datestring,
         temperature: Number(data.temperature),
-        indoorTemperature: Number(data.indoorTemperature)
+        indoorTemperature: Number(data.indoorTemperature),
+        diff: 0 // Initialize with 0
       };
 
       setWifiData(transformedData);
       dispatch({ type: 'wifiAf83/storeData', payload: transformedData });
-
-      // Calculate temperature difference and update slider position
-      if (etaState.data) {
-        const { diff: numericDiff } = calculateTemperatureDiff(config, { 
-          data: transformedData,
-          loadingState: {
-            isLoading: false,
-            error: null
-          }
-        });
-        
-        if (numericDiff !== null) {
-          const newDiffValue = numericDiff.toString();
-
-          const etaValues = {
-            einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
-            schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
-            kommenttaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
-            tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
-            tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
-          };
-
-          console.log('etaValues:', etaValues);
-          const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
-          console.log('Calculated new slider position:', newSliderPosition);
-          
-          // Update local state with both diff and slider position
-          dispatch(storeData({
-            ...config.data,
-            [ConfigKeys.DIFF]: newDiffValue,
-            [ConfigKeys.T_SLIDER]: newSliderPosition
-          }));
-        } else {
-          console.warn('Temperature difference calculation returned null');
-        }
-      }
     } catch (error) {
       console.error('Error fetching WifiAF83 data:', error);
       dispatch({ type: 'wifiAf83/storeError', payload: (error as Error).message });
     } finally {
       setIsLoading(false);
     }
-  }, [dispatch, config, etaState.data, setIsLoading]);
+  }, [dispatch, setIsLoading]);
+
+  const updateTemperatureDiff = useCallback(async () => {
+    if (!config.isInitialized || !wifiData || !etaState.data) {
+      return;
+    }
+
+    const { diff: numericDiff } = calculateTemperatureDiff(config, { 
+      data: wifiData,
+      loadingState: {
+        isLoading: false,
+        error: null
+      }
+    });
+    
+    if (numericDiff !== null) {
+      const newDiffValue = numericDiff.toString();
+      // Only update if the diff value has changed
+      if (newDiffValue !== config.data[ConfigKeys.DIFF]) {
+        const etaValues = {
+          einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
+          schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
+          kommenttaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
+          tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
+          tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
+        };
+
+        console.log('etaValues:', etaValues);
+        const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
+        console.log('Calculated new slider position:', newSliderPosition);
+        
+        // Update local state with both diff and slider position
+        dispatch(storeData({
+          ...config.data,
+          [ConfigKeys.DIFF]: newDiffValue,
+          [ConfigKeys.T_SLIDER]: newSliderPosition
+        }));
+      }
+    } else {
+      console.warn('Temperature difference calculation returned null');
+    }
+  }, [config, wifiData, etaState.data, dispatch]);
+
+  // Monitor t_soll and t_delta changes
+  useEffect(() => {
+    const tSollChanged = config.data.t_soll !== lastTSoll.current;
+    const tDeltaChanged = config.data.t_delta !== lastTDelta.current;
+    
+    if (tSollChanged || tDeltaChanged) {
+      // Update refs
+      lastTSoll.current = config.data.t_soll;
+      lastTDelta.current = config.data.t_delta;
+      
+      // Save to config file
+      if (tSollChanged) {
+        saveConfigValue(ConfigKeys.T_SOLL, config.data.t_soll);
+      }
+      if (tDeltaChanged) {
+        saveConfigValue(ConfigKeys.T_DELTA, config.data.t_delta);
+      }
+      
+      // Trigger recalculation of temperature difference and slider position
+      loadAndStoreWifi();
+    }
+  }, [config.data.t_soll, config.data.t_delta, saveConfigValue, loadAndStoreWifi]);
 
   // Initial load and timer setup
   useEffect(() => {
-    loadAndStoreWifi();
+    if (isFirstLoad.current) {
+      loadAndStoreWifi();
+      isFirstLoad.current = false;
+    }
 
     const updateTimer = Math.max(
       parseInt(config.data.t_update_timer) || DEFAULT_UPDATE_TIMER,
@@ -188,6 +205,28 @@ const WifiAf83Data: React.FC = () => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [loadAndStoreWifi]);
+
+  // Update temperature diff when data changes
+  useEffect(() => {
+    if (config.isInitialized && wifiData && etaState.data) {
+      updateTemperatureDiff();
+    }
+  }, [config.isInitialized, wifiData, etaState.data, updateTemperatureDiff]);
+
+  const loadAndStoreEta = useCallback(async () => {
+    try {
+      const response = await fetch('/api/eta/read');
+      if (!response.ok) {
+        throw new Error('Failed to fetch ETA data');
+      }
+      const { data } = await response.json();
+      dispatch({ type: 'eta/storeData', payload: data });
+      return data;
+    } catch (error) {
+      console.error('Error fetching ETA data:', error);
+      return null;
+    }
+  }, [dispatch]);
 
   if (isLoading || !wifiData) {
     return <div>Loading...</div>;
@@ -218,9 +257,9 @@ const WifiAf83Data: React.FC = () => {
               <td className="px-4 py-2 w-[200px] text-right">
                 <span className={`font-mono ${
                   Number(config.data[ConfigKeys.DIFF]) > 0 
-                    ? 'text-green-600' 
+                    ? 'text-red-600' 
                     : Number(config.data[ConfigKeys.DIFF]) < 0 
-                      ? 'text-red-600' 
+                      ? 'text-blue-600' 
                       : 'text-gray-900'
                 }`}>
                   {Number(config.data[ConfigKeys.DIFF]).toFixed(1)}
@@ -236,7 +275,7 @@ const WifiAf83Data: React.FC = () => {
             </td>
           </tr>
         </tbody>
-      </table>
+      </table>  
     </div>
   );
 };

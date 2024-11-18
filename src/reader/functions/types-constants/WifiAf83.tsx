@@ -1,10 +1,11 @@
 export const WIFIAF83 = 'WIFIAF83';
 
-export type WifiAF83Data = {
+export interface WifiAF83Data {
     time: number;
     datestring: string;
     temperature: number;
     indoorTemperature: number;
+    diff?: number;
 }
 
 const formatDateTime = (data: WifiAF83Data): void => {

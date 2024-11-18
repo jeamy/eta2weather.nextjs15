@@ -6,14 +6,16 @@ import { updateLoadingState } from './loadingStateUtils';
 export type ConfigState = {
     data: Config;
     loadingState: LoadingState;
+    isInitialized: boolean;
 }
 
 const initialState: ConfigState = {
-    data: defaultConfig,
+    data: {} as Config,  // Start with empty config
     loadingState: {
         error: null,
-        isLoading: false
-    }
+        isLoading: true  // Start in loading state
+    },
+    isInitialized: false
 };
 
 const configSlice = createSlice({
@@ -22,9 +24,14 @@ const configSlice = createSlice({
     reducers: {
         storeData: (state, action: PayloadAction<Config>) => {
             state.data = action.payload;
+            state.isInitialized = true;
             updateLoadingState(state, false);
         },
         storeError: (state, action: PayloadAction<string>) => {
+            if (!state.isInitialized) {
+                state.data = defaultConfig;  // Only use default if not initialized
+                state.isInitialized = true;
+            }
             updateLoadingState(state, false, action.payload);
         },
         setIsLoading: (state, action: PayloadAction<boolean>) => {

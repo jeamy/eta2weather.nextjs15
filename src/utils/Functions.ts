@@ -2,7 +2,8 @@ import Diff from "@/reader/functions/Diff";
 import { ConfigState } from "@/redux/configSlice";
 import { WifiAF83State } from "@/redux/wifiAf83Slice";
 import { EtaApi } from '@/reader/functions/EtaApi';
-import { EtaConstants } from "@/reader/functions/types-constants/Names2IDconstants";
+import { EtaConstants, Names2Id } from "@/reader/functions/types-constants/Names2IDconstants";
+import { parseXML } from "@/reader/functions/EtaData";
 
 type EtaValues = {
     einaus: string;
@@ -19,33 +20,33 @@ type TempDiff = {
 };
 
 export function calculateNewSliderPosition({ einaus, schaltzustand, kommenttaste }: EtaValues, diff: number): string {
-    
-//    console.log(`
-//      Einaus: ${einaus}
-//      Schaltzustand: ${schaltzustand}
-//      Kommenttaste: ${kommenttaste}
-//      Diff: ${diff}
-//    `);
+
+    //    console.log(`
+    //      Einaus: ${einaus}
+    //      Schaltzustand: ${schaltzustand}
+    //      Kommenttaste: ${kommenttaste}
+    //      Diff: ${diff}
+    //    `);
     return (einaus === "Aus" || (schaltzustand === "Aus" && kommenttaste === "Aus"))
         ? "0.0"
         : new Diff().getDiff(diff, 1.25, 5.0, 0.0, 100.0).toString();
 }
 
 export function calculateTemperatureDiff(config: ConfigState, wifiAf83Data: WifiAF83State): { diff: number | null; twa: number; twi: number } {
-//    console.log('calculatingTemperature diff...', wifiAf83Data);
+    //    console.log('calculatingTemperature diff...', wifiAf83Data);
 
     const twi = wifiAf83Data.data.indoorTemperature;
     const twa = wifiAf83Data.data.temperature ?? 0;
     const { t_soll, t_delta } = config.data;
 
-/*    
-    console.log(`
-      Außentemperatur: ${twa}
-      Innentemperatur: ${twi}
-      Solltemperatur: ${t_soll}
-      Deltatemperatur: ${t_delta}
-    `);
-*/
+    /*    
+        console.log(`
+          Außentemperatur: ${twa}
+          Innentemperatur: ${twi}
+          Solltemperatur: ${t_soll}
+          Deltatemperatur: ${t_delta}
+        `);
+    */
 
     const tSollNum = Number(t_soll);
     const tDeltaNum = Number(t_delta);
@@ -65,39 +66,45 @@ export interface EtaApiInterface {
 }
 
 export async function updateSliderPosition(
-    newPosition: string,
+    newPosition: number,
     currentPosition: number,
-    names2id: Record<string, { id: string }>,
-    etaApi: EtaApi
-): Promise<{ success: boolean; position: number }> {
-    if (Number(newPosition) === currentPosition) {
-        return { success: true, position: currentPosition };
-    }
-
+    names2id: Names2Id,
+    etaApi: EtaApi,
+): Promise<{ success: boolean; position: number; error?: string }> {
+    // Set the new position
     const id = names2id[EtaConstants.SCHIEBERPOS]?.['id'];
     if (!id) {
-        throw new Error('Slider position ID not found');
+        return {
+            success: false,
+            position: currentPosition,
+            error: `Keine ID gefunden für shortkey: ${EtaConstants.SCHIEBERPOS}`
+        };
     }
 
-    const scaledPosition = String(Number(newPosition) * 10);
-    console.log(`Setting slider position from ${currentPosition} to ${newPosition} (scaled: ${scaledPosition})`);
-    
-    // Set the new position
-    await etaApi.setUserVar(id, scaledPosition, "0", "0");
+    const scaledPosition = (newPosition * 10).toString();
 
-    // Verify the position was set correctly
-    const verifyResponse = await etaApi.getUserVar(id);
-    if (!verifyResponse.result) {
-        throw new Error('Failed to verify slider position update');
+    try {
+        // Set the new position
+        const result = await etaApi.setUserVar(id, scaledPosition, "0", "0");
+        
+        if (result.error) {
+            return {
+                success: false,
+                position: currentPosition,
+                error: `Failed to set position: ${result.error}`
+            };
+        }
+
+        return {
+            success: true,
+            position: newPosition
+        };
+    } catch (error) {
+        console.error('Error updating slider position:', error);
+        return {
+            success: false,
+            position: currentPosition,
+            error: error instanceof Error ? error.message : String(error)
+        };
     }
-
-    const updatedPosition = Number(verifyResponse.result) / 10;
-    console.log(`Verified slider position: ${updatedPosition}`);
-
-    const success = Math.abs(Number(newPosition) - updatedPosition) <= 0.1;
-    if (!success) {
-        console.warn(`Slider position verification failed. Expected: ${newPosition}, Got: ${updatedPosition}`);
-    }
-
-    return { success, position: updatedPosition };
 }

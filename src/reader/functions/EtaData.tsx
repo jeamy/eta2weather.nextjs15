@@ -19,7 +19,7 @@ export const fetchEtaData = async (
     return data;
 };
 
-const parseXML = (content: string, shortkey: string, names2id: Names2Id): ParsedXmlData => {
+export const parseXML = (content: string, shortkey: string, names2id: Names2Id): ParsedXmlData => {
     // console.log(`Parsing ${shortkey} Content:`, content);
     
     const parser = new DOMParser();
@@ -81,4 +81,3 @@ export const prepareAndFetchGetUserVar = async (shortkey: string, data: EtaData,
         console.error(`Fehler beim Abrufen der Daten für ${shortkey}:`, error);
     }
 };
-
