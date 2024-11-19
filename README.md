@@ -1,4 +1,4 @@
-# ETA to Ecowitt Weather StationConnector
+# ETA to Ecowitt Weather Station Connector
 
 A Next.js 15 application for visualizing ETA and Ecowitt Weather Data in a clean, structured format.
 
