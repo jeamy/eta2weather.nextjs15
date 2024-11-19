@@ -1,6 +1,5 @@
 'use client'
 
-import Names2IdData from "@/components/Names2IdData";
 import ConfigData from "@/components/ConfigData";
 import EtaData from "@/components/EtaData";
 import WifiAf83Data from "@/components/WifiAf83Data";

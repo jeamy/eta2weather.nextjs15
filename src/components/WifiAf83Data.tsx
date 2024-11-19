@@ -138,19 +138,16 @@ const WifiAf83Data: React.FC = () => {
           tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
         };
 
-        console.log('etaValues:', etaValues);
         const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
-        console.log('Calculated new slider position:', newSliderPosition);
         
-        // Update local state with both diff and slider position
-        dispatch(storeData({
-          ...config.data,
-          [ConfigKeys.DIFF]: newDiffValue,
-          [ConfigKeys.T_SLIDER]: newSliderPosition
-        }));
+        if (newSliderPosition !== config.data[ConfigKeys.T_SLIDER] || newDiffValue !== config.data[ConfigKeys.DIFF]) {
+          dispatch(storeData({
+            ...config.data,
+            [ConfigKeys.DIFF]: newDiffValue,
+            [ConfigKeys.T_SLIDER]: newSliderPosition
+          }));
+        }
       }
-    } else {
-      console.warn('Temperature difference calculation returned null');
     }
   }, [config, wifiData, etaState.data, dispatch]);
 
@@ -206,12 +203,19 @@ const WifiAf83Data: React.FC = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [loadAndStoreWifi]);
 
-  // Update temperature diff when data changes
+  // Update temperature diff only when temperatures change
   useEffect(() => {
     if (config.isInitialized && wifiData && etaState.data) {
       updateTemperatureDiff();
     }
-  }, [config.isInitialized, wifiData, etaState.data, updateTemperatureDiff]);
+  }, [
+    config.isInitialized,
+    wifiData?.temperature,
+    wifiData?.indoorTemperature,
+    config.data.t_soll,
+    config.data.t_delta,
+    updateTemperatureDiff
+  ]);
 
   const loadAndStoreEta = useCallback(async () => {
     try {

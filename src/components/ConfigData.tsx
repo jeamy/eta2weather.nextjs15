@@ -1,16 +1,16 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../redux';
-import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
+import { useAppDispatch } from '../redux/hooks';
+import { storeData as storeEtaData } from '../redux/etaSlice';
 import { AppDispatch } from '@/redux/index';
-import { useAppDispatch } from '@/redux/hooks';
-import { storeData, storeError, setIsLoading } from '@/redux/configSlice';
+import { storeData, storeError, setIsLoading as setIsConfigLoading } from '@/redux/configSlice';
 import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 import { updateSliderPosition } from '@/utils/Functions';
 import { EtaApi } from '@/reader/functions/EtaApi';
-
+import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 
 const ConfigData: React.FC = () => {
     const dispatch: AppDispatch = useAppDispatch();
@@ -18,15 +18,16 @@ const ConfigData: React.FC = () => {
     const etaState = useSelector((state: RootState) => state.eta);
     const [isEditing, setIsEditing] = useState<ConfigKeys | null>(null);
     const [editValue, setEditValue] = useState('');
-
     const sliderValue = config.data[ConfigKeys.T_SLIDER];
+    const etaApiRef = useRef<EtaApi | null>(null);
+    const lastSliderUpdate = useRef<string | null>(null);
 
     useEffect(() => {
         // Only load config if not already initialized
         if (!config.isInitialized) {
             const loadConfigData = async () => {
                 if (!config.loadingState.isLoading) {  // Prevent multiple simultaneous loads
-                    dispatch(setIsLoading(true));
+                    dispatch(setIsConfigLoading(true));
                     try {
                         const response = await fetch('/api/config/read');
                         if (!response.ok) {
@@ -39,7 +40,7 @@ const ConfigData: React.FC = () => {
                         console.error('Error fetching config data:', typedError);
                         dispatch(storeError(typedError.message));
                     } finally {
-                        dispatch(setIsLoading(false)); // End loading
+                        dispatch(setIsConfigLoading(false)); // End loading
                     }
                 }
             };
@@ -48,24 +49,54 @@ const ConfigData: React.FC = () => {
     }, [config.isInitialized, config.loadingState.isLoading, dispatch]);
 
     useEffect(() => {
+        if (config.data[ConfigKeys.S_ETA]) {
+            etaApiRef.current = new EtaApi(config.data[ConfigKeys.S_ETA]);
+        }
+    }, [config.data]);
+
+    const etaSliderPosition = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue;
+
+    useEffect(() => {
         const recommendedPos = Math.round(parseFloat(sliderValue || '0'));
         const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
         const currentPos = etaSP ? parseFloat(etaSP.strValue) : recommendedPos;
 
-//        console.log(`sliderValue: ${sliderValue}, recommendedPos: ${recommendedPos}, currentPos: ${currentPos}`);
-
-        if (etaSP && recommendedPos !== currentPos) {
-            const etaApi = new EtaApi(config.data[ConfigKeys.S_ETA]);
+        // Only update if the positions are different, values are valid, and it's not the same update
+        if (etaSP && 
+            recommendedPos !== currentPos && 
+            !isNaN(recommendedPos) && 
+            !isNaN(currentPos) &&
+            lastSliderUpdate.current !== sliderValue) {
+            
+            lastSliderUpdate.current = sliderValue;
+            
+            if (!etaApiRef.current) {
+                console.error('EtaApi not initialized');
+                return;
+            }
             updateSliderPosition(
                 recommendedPos,
                 currentPos,
                 defaultNames2Id,
-                etaApi,
-            ).catch(error => {
+                etaApiRef.current,
+            ).then(result => {
+                if (result.success) {
+                    // Update the SP value in the Redux store immediately
+                    const updatedEtaData = { ...etaState.data };
+                    const spId = defaultNames2Id[EtaConstants.SCHIEBERPOS].id;
+                    if (updatedEtaData[spId]) {
+                        updatedEtaData[spId] = {
+                            ...updatedEtaData[spId],
+                            strValue: (result.position).toString()
+                        };
+                        dispatch(storeEtaData(updatedEtaData));
+                    }
+                }
+            }).catch(error => {
                 console.error('Error updating slider position:', error);
             });
         }
-    }, [sliderValue, etaState.data, config.data, dispatch]);
+    }, [sliderValue, etaState.data, dispatch]);
 
     if (config.loadingState.isLoading) {
         return <div>Loading...</div>;

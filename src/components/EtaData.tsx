@@ -30,6 +30,7 @@ const MIN_API_INTERVAL = 5000; // Minimum 5 seconds between API calls
 const EtaData: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
   const config = useSelector((state: RootState) => state.config);
+  const etaState = useSelector((state: RootState) => state.eta);
   const [displayData, setDisplayData] = useState<Record<string, DisplayEtaValue> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const isFirstLoad = useRef(true);
@@ -88,6 +89,22 @@ const EtaData: React.FC = () => {
       isFirstLoad.current = false;
     }
   }, [loadAndStoreEta]);
+
+  // Update display data when etaState changes
+  useEffect(() => {
+    if (etaState.data) {
+      const transformed = Object.entries(etaState.data).reduce((acc, [key, value]) => {
+        acc[key] = {
+          short: value.short || key,
+          long: value.long || key,
+          strValue: value.strValue || value.toString(),
+          unit: value.unit || ''
+        };
+        return acc;
+      }, {} as Record<string, DisplayEtaValue>);
+      setDisplayData(transformed);
+    }
+  }, [etaState.data]);
 
   // Timer effect
   useEffect(() => {

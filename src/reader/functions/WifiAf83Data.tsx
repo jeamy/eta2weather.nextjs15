@@ -30,7 +30,7 @@ export const fetchWifiAf83Data = async (): Promise<WifiAF83Data> => {
 
     try {
         const response = await wifiApi.getRealtime();
-        console.log('WifiAf83 raw data:', JSON.stringify(response, null, 2));
+//        console.log('WifiAf83 raw data:', JSON.stringify(response, null, 2));
 
         if (!response || response.code !== 0) {
             throw new Error(`Failed to fetch WifiAf83 data: ${response?.msg || 'Unknown error'}`);
@@ -75,7 +75,7 @@ export const fetchWifiAf83Data = async (): Promise<WifiAF83Data> => {
             indoorTemperature
         };
 
-        console.log('Transformed WifiAf83 data:', result);
+//        console.log('Transformed WifiAf83 data:', result);
         return result;
     } catch (error) {
         console.error('Error fetching WifiAf83 data:', error);

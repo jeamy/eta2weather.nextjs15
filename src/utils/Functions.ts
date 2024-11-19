@@ -3,7 +3,6 @@ import { ConfigState } from "@/redux/configSlice";
 import { WifiAF83State } from "@/redux/wifiAf83Slice";
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { EtaConstants, Names2Id } from "@/reader/functions/types-constants/Names2IDconstants";
-import { parseXML } from "@/reader/functions/EtaData";
 
 type EtaValues = {
     einaus: string;
@@ -82,25 +81,33 @@ export async function updateSliderPosition(
     }
 
     const scaledPosition = (newPosition * 10).toString();
-
     try {
-        // Set the new position
-        const result = await etaApi.setUserVar(id, scaledPosition, "0", "0");
-        
-        if (result.error) {
-            return {
-                success: false,
-                position: currentPosition,
-                error: `Failed to set position: ${result.error}`
-            };
+        // Set the new position using the API route
+        const response = await fetch('/api/eta/update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                id,
+                value: scaledPosition,
+                begin: "0",
+                end: "0"
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update slider position');
         }
 
+        const data = await response.json();
         return {
             success: true,
             position: newPosition
         };
     } catch (error) {
-        console.error('Error updating slider position:', error);
+        console.error('Error setting slider position:', error);
         return {
             success: false,
             position: currentPosition,

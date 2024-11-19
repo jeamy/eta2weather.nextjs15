@@ -1,12 +1,12 @@
-# ETA Weather Data Visualization
+# ETA to Ecowitt Weather StationConnector
 
-A Next.js 15 application for visualizing ETA and weather data in a clean, structured format.
+A Next.js 15 application for visualizing ETA and Ecowitt Weather Data in a clean, structured format.
 
 ## Features
 
 - **Configuration Display**: View and manage ETA system configuration
 - **ETA Data Visualization**: Display ETA data with custom sorting and formatting
-- **Weather Information**: Show indoor and outdoor temperature readings
+- **Ecowitt Weather Information**: Show indoor and outdoor temperature readings
 - **Real-time Updates**: Automatic data refresh capabilities
 - **Responsive Layout**: Clean, grid-based design for optimal viewing
 
@@ -50,7 +50,7 @@ eta2weather.nextjs15/
 - Filtered empty entries
 - Formatted display: `short : long: value unit`
 
-### Weather Data
+### Ecowitt Weather Data
 - Indoor/Outdoor temperature readings
 - German date format
 - Difference tracking
