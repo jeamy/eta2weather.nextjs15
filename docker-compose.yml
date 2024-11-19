@@ -1,0 +1,16 @@
+services:
+  app:
+    image: eta2weather
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eta2weather
+    command: npm run dev
+    volumes:
+      - .:/app
+      - nodemodules:/app/node_modules
+    ports:
+      - "3000:3000"
+
+volumes:
+  nodemodules: {}

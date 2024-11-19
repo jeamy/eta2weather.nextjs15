@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Names2Id } from '../reader/Names2Id';
 import { LoadingState } from './interface';
 import { updateLoadingState } from './loadingStateUtils';
+import { Names2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 
 export type Names2IdState = {
   data: Names2Id;
