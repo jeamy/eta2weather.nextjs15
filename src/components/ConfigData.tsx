@@ -11,6 +11,7 @@ import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constant
 import { updateSliderPosition } from '@/utils/Functions';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
+import Image from 'next/image';
 
 const ConfigData: React.FC = () => {
     const dispatch: AppDispatch = useAppDispatch();
@@ -99,11 +100,19 @@ const ConfigData: React.FC = () => {
     }, [sliderValue, etaState.data, dispatch]);
 
     if (config.loadingState.isLoading) {
-        return <div>Loading...</div>;
+        return (
+            <div className="flex justify-center items-center min-h-[200px]">
+                <p>Loading...</p>
+            </div>
+        );
     }
 
     if (config.loadingState.error) {
-        return <div>Error: {config.loadingState.error}</div>;
+        return (
+            <div className="flex justify-center items-center min-h-[200px]">
+                <p>Error: {config.loadingState.error}</p>
+            </div>
+        );
     }
 
     const convertMsToMinutes = (ms: string): string => {
@@ -196,10 +205,11 @@ const ConfigData: React.FC = () => {
         };
 
         return (
-            <td className="border border-gray-300 px-4 py-2 text-right w-[150px]">
-                {isEditingThis ? (
-                    <div className="flex flex-col items-end space-y-2">
-                        <div className="flex items-center justify-end space-x-2">
+            <div className="flex flex-col space-y-1">
+                <div className="flex justify-between items-center">
+                    <span className="font-medium">{label}:</span>
+                    {isEditingThis ? (
+                        <div className="flex items-center space-x-2">
                             <input
                                 type="range"
                                 min={min}
@@ -212,46 +222,41 @@ const ConfigData: React.FC = () => {
                             <span className="w-16 text-right font-mono">
                                 {editValue}{unit}
                             </span>
-                        </div>
-                        <div className="flex space-x-2">
                             <button
                                 type="button"
                                 onClick={handleSaveValue}
-                                className="text-red-600 text-sm hover:text-red-800"
-                                aria-label="Save changes"
+                                className="text-green-600 hover:text-green-800 px-1"
+                                title="Save"
                             >
                                 ✓
                             </button>
                             <button
                                 type="button"
                                 onClick={handleCancel}
-                                className="text-green-600 text-sm hover:text-green-800"
-                                aria-label="Cancel changes"
+                                className="text-red-600 hover:text-red-800 px-1"
+                                title="Cancel"
                             >
                                 ✗
                             </button>
                         </div>
-                    </div>
-                ) : (
-                    <div 
-                        className="cursor-pointer hover:text-blue-600 font-mono group relative"
-                        onClick={() => handleEditStart()}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e: React.KeyboardEvent) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                handleEditStart();
-                            }
-                        }}
-                    >
-                        {value}{unit}
-                        <span className="invisible group-hover:visible absolute -top-8 right-0 bg-gray-800 text-white text-sm py-1 px-2 rounded whitespace-nowrap">
-                            {label} ändern
-                        </span>
-                    </div>
-                )}
-            </td>
+                    ) : (
+                        <div 
+                            className="cursor-pointer hover:text-blue-600 font-mono"
+                            onClick={handleEditStart}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    handleEditStart();
+                                }
+                            }}
+                        >
+                            <span>{value}{unit}</span>
+                        </div>
+                    )}
+                </div>
+            </div>
         );
     };
 
@@ -300,131 +305,133 @@ const ConfigData: React.FC = () => {
         };
 
         return (
-            <td className="border border-gray-300 px-4 py-2 text-right w-[150px]">
-                {isEditingThis ? (
-                    <div className="flex flex-col items-end space-y-2">
-                        <input
-                            type="text"
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            className={`w-full px-2 py-1 text-right border rounded ${
-                                validator && !validator(editValue) ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                            placeholder="xxx.xxx.xxx.xxx:port"
-                        />
+            <div className="flex flex-col space-y-1">
+                <div className="flex justify-between items-center">
+                    <span className="font-medium">{label}:</span>
+                    {isEditingThis ? (
                         <div className="flex space-x-2">
+                            <input
+                                type="text"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                className={`w-full px-2 py-1 border rounded ${
+                                    validator && !validator(editValue) ? 'border-red-500' : 'border-gray-300'
+                                }`}
+                                placeholder="xxx.xxx.xxx.xxx:port"
+                            />
                             <button
                                 type="button"
                                 onClick={handleSaveValue}
-                                className="text-red-600 text-sm hover:text-red-800"
-                                aria-label="Save changes"
+                                className="text-green-600 hover:text-green-800 px-1"
+                                title="Save"
                             >
                                 ✓
                             </button>
                             <button
                                 type="button"
                                 onClick={handleCancel}
-                                className="text-blue-600 text-sm hover:text-blue-800"
-                                aria-label="Cancel changes"
+                                className="text-red-600 hover:text-red-800 px-1"
+                                title="Cancel"
                             >
                                 ✗
                             </button>
                         </div>
-                    </div>
-                ) : (
-                    <div 
-                        className="cursor-pointer hover:text-blue-600 font-mono group relative"
-                        onClick={handleEditStart}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e: React.KeyboardEvent) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                handleEditStart();
-                            }
-                        }}
-                    >
-                        {value}
-                        <span className="invisible group-hover:visible absolute -top-8 right-0 bg-gray-800 text-white text-sm py-1 px-2 rounded whitespace-nowrap">
-                            {label} ändern
-                        </span>
-                    </div>
-                )}
-            </td>
+                    ) : (
+                        <div 
+                            className="cursor-pointer hover:text-blue-600"
+                            onClick={handleEditStart}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    handleEditStart();
+                                }
+                            }}
+                        >
+                            <span>{value}</span>
+                        </div>
+                    )}
+                </div>
+            </div>
         );
     };
 
     return (
-        <div className="flex flex-col items-start">
-            <h1 className='text-2xl py-5'>Konfiguration:</h1>
-            <table className="border-collapse border border-gray-300 w-[400px]">
-               <tbody>
-                    <tr>
-                        <td className="border border-gray-300 px-4 py-2 w-[250px]">Solltemperatur</td>
-                        {renderEditableValue(ConfigKeys.T_SOLL, 'Solltemperatur', 10, 25, 0.5, '°C')}
-                    </tr>
-                    <tr>
-                        <td className="border border-gray-300 px-4 py-2 w-[250px]">Deltatemperatur</td>
-                        {renderEditableValue(ConfigKeys.T_DELTA, 'Deltatemperatur', -5, 5, 0.5, '°C')}
-                    </tr>
-                    <tr>
-                        <td className="border border-gray-300 px-4 py-2 w-[250px]">Updates</td>
-                        {renderEditableValue(
-                            ConfigKeys.T_UPDATE_TIMER,
-                            'Updates',
-                            0,
-                            10,
-                            0.5,
-                            ' min',
-                            {
-                                fromStorage: convertMsToMinutes,
-                                toStorage: convertMinutesToMs
-                            }
-                        )}
-                    </tr>
-                    <tr>
-                        <td className="border border-gray-300 px-4 py-2 w-[250px]">Empfohlene Schieber Position</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right w-[150px] font-mono">
+        <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
+            <div className="flex flex-col items-center mb-4">
+                <div className="h-[150px] w-full relative flex items-center justify-center">
+                    <Image
+                        src="/config-logo.jpg"
+                        alt="Configuration"
+                        width={150}
+                        height={150}
+                        style={{ objectFit: 'contain' }}
+                        priority
+                    />
+                </div>
+                <h2 className="text-lg sm:text-xl font-semibold">Configuration</h2>
+            </div>
+            <div className="space-y-4 text-sm sm:text-base">
+                {renderEditableValue(ConfigKeys.T_SOLL, 'Solltemperatur', 10, 25, 0.5, '°C')}
+                {renderEditableValue(ConfigKeys.T_DELTA, 'Deltatemperatur', -5, 5, 0.5, '°C')}
+                {renderEditableValue(
+                    ConfigKeys.T_UPDATE_TIMER,
+                    'Updates',
+                    0,
+                    10,
+                    0.5,
+                    ' min',
+                    {
+                        fromStorage: convertMsToMinutes,
+                        toStorage: convertMinutesToMs
+                    }
+                )}
+                <div className="flex flex-col space-y-1">
+                    <div className="flex justify-between items-center">
+                        <span className="font-medium">Empfohlene Schieber Position:</span>
+                        <span>
                             {(() => {
                                 const recommendedPos = Math.round(parseFloat(sliderValue || '0'));
                                 const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
                                 const currentPos = etaSP ? parseFloat(etaSP.strValue) : recommendedPos;
                                 
-                                const colorClass = recommendedPos > currentPos 
-                                    ? 'text-green-600' 
-                                    : recommendedPos < currentPos 
-                                        ? 'text-red-600' 
-                                        : 'text-gray-900';
-                                
                                 return (
-                                    <>
-                                        <span className={`font-bold ${colorClass}`}>
-                                            {recommendedPos}
-                                        </span>
-                                        <span className="ml-1 text-gray-600">%</span>
-                                    </>
+                                    <span className={`${
+                                        recommendedPos > 0 
+                                            ? 'text-green-600' 
+                                            : recommendedPos < 0 
+                                                ? 'text-blue-600' 
+                                                : ''
+                                    }`}>
+                                        {recommendedPos}
+                                        <span className="text-gray-600 ml-1">%</span>
+                                    </span>
                                 );
                             })()}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td className="border border-gray-300 px-4 py-2 w-[250px]">Eta Server</td>
-                        {renderEditableText(ConfigKeys.S_ETA, 'Eta Server', validateIpWithPort)}
-                    </tr>
-                    <tr>
-                        <td className="border border-gray-300 px-4 py-2 w-[250px]">ETA Konfiguration</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right w-[150px]">{config.data[ConfigKeys.F_ETA]?.replace('*', '') || ''}</td>
-                    </tr>
-                    <tr>
-                        <td className="border border-gray-300 px-4 py-2 w-[250px]">WIFIAF83 Konfiguration</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right w-[150px]">{config.data[ConfigKeys.F_WIFIAF83]?.replace('*', '') || ''}</td>
-                    </tr>
-                    <tr>
-                        <td className="border border-gray-300 px-4 py-2 w-[250px]">NAMES2ID Konfiguration</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right w-[150px]">{config.data[ConfigKeys.F_NAMES2ID]?.replace('*', '') || ''}</td>
-                    </tr>
-                </tbody>
-            </table>
+                        </span>
+                    </div>
+                </div>
+                {renderEditableText(ConfigKeys.S_ETA, 'Eta Server', validateIpWithPort)}
+                <div className="flex flex-col space-y-1">
+                    <div className="flex justify-between items-center">
+                        <span className="font-medium">ETA Konfiguration:</span>
+                        <span>{config.data[ConfigKeys.F_ETA]?.replace('*', '') || ''}</span>
+                    </div>
+                </div>
+                <div className="flex flex-col space-y-1">
+                    <div className="flex justify-between items-center">
+                        <span className="font-medium">WIFIAF83 Konfiguration:</span>
+                        <span>{config.data[ConfigKeys.F_WIFIAF83]?.replace('*', '') || ''}</span>
+                    </div>
+                </div>
+                <div className="flex flex-col space-y-1">
+                    <div className="flex justify-between items-center">
+                        <span className="font-medium">NAMES2ID Konfiguration:</span>
+                        <span>{config.data[ConfigKeys.F_NAMES2ID]?.replace('*', '') || ''}</span>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

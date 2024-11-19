@@ -12,6 +12,7 @@ import { calculateTemperatureDiff, calculateNewSliderPosition } from '@/utils/Fu
 import { storeData } from '@/redux/configSlice';
 import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
+import Image from 'next/image';
 
 interface ApiResponse {
   data: WifiAF83Data & {
@@ -208,14 +209,7 @@ const WifiAf83Data: React.FC = () => {
     if (config.isInitialized && wifiData && etaState.data) {
       updateTemperatureDiff();
     }
-  }, [
-    config.isInitialized,
-    wifiData?.temperature,
-    wifiData?.indoorTemperature,
-    config.data.t_soll,
-    config.data.t_delta,
-    updateTemperatureDiff
-  ]);
+  }, [config.isInitialized, wifiData, etaState.data, updateTemperatureDiff]);
 
   const loadAndStoreEta = useCallback(async () => {
     try {
@@ -233,53 +227,79 @@ const WifiAf83Data: React.FC = () => {
   }, [dispatch]);
 
   if (isLoading || !wifiData) {
-    return <div>Loading...</div>;
+    return (
+      <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
+        <div className="flex flex-col items-center mb-4">
+          <div className="h-[150px] w-full relative flex items-center justify-center">
+            <Image
+              src="/weather-logo.jpg"
+              alt="Weather"
+              width={150}
+              height={150}
+              style={{ objectFit: 'contain' }}
+              priority
+            />
+          </div>
+          <h2 className="text-lg sm:text-xl font-semibold">WiFi Data</h2>
+        </div>
+        <div className="flex justify-center items-center min-h-[200px]">
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col items-start">
-      <h1 className="text-2xl py-5">WiFi AF83 Daten:</h1>
-      <table className="border-collapse border border-gray-300 w-[400px]">
-        <tbody>
-          <tr className="border-b border-gray-200">
-            <td className="px-4 py-2 w-[100px] border-r border-gray-200">Außentemperatur</td>
-            <td className="px-4 py-2 w-[200px] text-right">
-              <span className="font-mono">{wifiData.temperature.toFixed(1)}</span>
-              <span className="ml-1 text-gray-600">°C</span>
-            </td>
-          </tr>
-          <tr className="border-b border-gray-200">
-            <td className="px-4 py-2 w-[100px] border-r border-gray-200">Innentemperatur</td>
-            <td className="px-4 py-2 w-[200px] text-right">
-              <span className="font-mono">{wifiData.indoorTemperature.toFixed(1)}</span>
-              <span className="ml-1 text-gray-600">°C</span>
-            </td>
-          </tr>
-          {config.data[ConfigKeys.DIFF] && (
-            <tr className="border-b border-gray-200">
-              <td className="px-4 py-2 w-[100px] border-r border-gray-200">Diff Soll/Innentemperatur</td>
-              <td className="px-4 py-2 w-[200px] text-right">
+    <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
+      <div className="flex flex-col items-center mb-4">
+        <div className="h-[150px] w-full relative flex items-center justify-center">
+          <Image
+            src="/weather-logo.jpg"
+            alt="Weather"
+            width={150}
+            height={150}
+            style={{ objectFit: 'contain' }}
+            priority
+          />
+        </div>
+        <h2 className="text-lg sm:text-xl font-semibold">WiFi Data</h2>
+      </div>
+      <div className="space-y-3 text-sm sm:text-base">
+        <div className="grid grid-cols-1 gap-2">
+          <div className="flex flex-col space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Temperature:</span>
+              <span className="font-mono">{wifiData.temperature}°C</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Indoor Temperature:</span>
+              <span className="font-mono">{wifiData.indoorTemperature}°C</span>
+            </div>
+            {config.data[ConfigKeys.DIFF] && (
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Diff Soll/Indoor:</span>
                 <span className={`font-mono ${
                   Number(config.data[ConfigKeys.DIFF]) > 0 
-                    ? 'text-red-600' 
+                    ? 'text-green-600' 
                     : Number(config.data[ConfigKeys.DIFF]) < 0 
                       ? 'text-blue-600' 
-                      : 'text-gray-900'
+                      : ''
                 }`}>
-                  {Number(config.data[ConfigKeys.DIFF]).toFixed(1)}
+                  {Number(config.data[ConfigKeys.DIFF]).toFixed(1)}°C
                 </span>
-                <span className="ml-1 text-gray-600">°C</span>
-              </td>
-            </tr>
-          )}
-          <tr className="border-b border-gray-200">
-            <td className="px-4 py-2 w-[100px] border-r border-gray-200">Datum</td>
-            <td className="px-4 py-2 w-[200px] text-right">
-              <span className="font-mono">{formatDateTime(wifiData.time)}</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>  
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="mt-4 pt-4 border-t">
+          <div className="flex flex-col">
+            <span className="font-medium">Last Update:</span>
+            <span className="text-xs sm:text-sm text-gray-600">
+              {formatDateTime(wifiData.time)}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

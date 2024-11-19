@@ -7,15 +7,15 @@ import WifiAf83Data from "@/components/WifiAf83Data";
 export default function Home() {
 
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="grid grid-cols-3 gap-8 row-start-2 w-full">
+    <div className="font-sans grid grid-rows-[auto_1fr_auto] items-center justify-items-center min-h-screen p-4 pb-20 gap-8 sm:p-8 md:p-16 lg:p-20">
+      <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 row-start-2 w-full">
         <div className="col-span-1">
           <ConfigData />
         </div>
         <div className="col-span-1">
           <EtaData />
         </div>
-        <div className="col-span-1">
+        <div className="col-span-1 md:col-span-2 lg:col-span-1">
           <WifiAf83Data />
         </div>
       </main>

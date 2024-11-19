@@ -10,6 +10,7 @@ import { storeData as storeEtaData, storeError } from '@/redux/etaSlice';
 import { storeData as storeConfigData } from '@/redux/configSlice';
 import { EtaData as EtaDataType, ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { DEFAULT_UPDATE_TIMER } from '@/reader/functions/types-constants/TimerConstants';
+import Image from 'next/image';
 
 // Constants
 
@@ -134,38 +135,86 @@ const EtaData: React.FC = () => {
   }, [loadAndStoreEta, config.data.t_update_timer]);
 
   if (isLoading || !displayData) {
-    return <div>Loading...</div>;
+    return (
+      <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
+        <div className="flex flex-col items-center mb-4">
+          <div className="h-[150px] w-full relative flex items-center justify-center">
+            <Image
+              src="/eta-logo.png"
+              alt="ETA"
+              width={150}
+              height={150}
+              style={{ objectFit: 'contain' }}
+              priority
+            />
+          </div>
+          <h2 className="text-lg sm:text-xl font-semibold">ETA Data</h2>
+        </div>
+        <div className="flex justify-center items-center min-h-[200px]">
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col items-start">
-      <h1 className="text-2xl py-5">ETA-Daten:</h1>
-      <table className="border-collapse border border-gray-300 w-[400px]">
-        <tbody>
-          {Object.entries(displayData)
-            .filter(([_, value]) => value.strValue && value.strValue.trim() !== '')
-            .sort(([_, a], [__, b]) => {
-              const order: Record<string, number> = { SP: 1, AT: 2, KZ: 3, VT: 4, HK: 5, IP: 6, VR: 7, SZ: 8, EAT: 9, HT: 10, KT: 11 };
-              const aOrder = a.short in order ? order[a.short] : 99;
-              const bOrder = b.short in order ? order[b.short] : 99;
-              return aOrder - bOrder;
-            })
-            .map(([key, value]) => (
-              <tr key={key} className="border-b border-gray-200">
-                <td className="px-4 py-2 w-[100px] border-r border-gray-200">
-                  <span className="font-mono">{value.short}</span>
-                </td>
-                <td className="px-4 py-2 w-[200px] border-r border-gray-200">
-                  <span>{value.long}</span>
-                </td>
-                <td className="px-4 py-2 w-[100px]">
-                  <span className="font-mono">{value.strValue}</span>
-                  <span className="ml-1 text-gray-600">{value.unit}</span>
-                </td>
-              </tr>
-            ))}
-        </tbody>
-      </table>
+    <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
+      <div className="flex flex-col items-center mb-4">
+        <div className="h-[150px] w-full relative flex items-center justify-center">
+          <Image
+            src="/eta-logo.png"
+            alt="ETA"
+            width={150}
+            height={150}
+            style={{ objectFit: 'contain' }}
+            priority
+          />
+        </div>
+        <h2 className="text-lg sm:text-xl font-semibold">ETA Data</h2>
+      </div>
+      {etaState.data ? (
+        <div className="space-y-3 text-sm sm:text-base">
+          <div className="grid grid-cols-1 gap-2">
+            {Object.entries(etaState.data)
+              .filter(([_, value]) => value.strValue && value.strValue.trim() !== '')
+              .sort(([_, a], [__, b]) => {
+                const order: Record<string, number> = { 
+                  SP: 1, AT: 2, KZ: 3, VT: 4, HK: 5, 
+                  IP: 6, VR: 7, SZ: 8, EAT: 9, HT: 10, KT: 11 
+                };
+                const aOrder = a.short in order ? order[a.short] : 99;
+                const bOrder = b.short in order ? order[b.short] : 99;
+                return aOrder - bOrder;
+              })
+              .map(([key, value]) => (
+                <div key={key} className="flex flex-col">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-gray-500">{value.short}</span>
+                      <span className="font-medium">{value.long}:</span>
+                    </div>
+                    <span className={`font-mono ${
+                      value.short === 'SP' 
+                        ? Number(value.strValue) > 0 
+                          ? 'text-green-600' 
+                          : Number(value.strValue) < 0 
+                            ? 'text-blue-600' 
+                            : ''
+                        : ''
+                    }`}>
+                      {value.strValue}
+                      {value.unit && <span className="text-gray-600 ml-1">{value.unit}</span>}
+                    </span>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      ) : (
+        <div className="flex justify-center items-center min-h-[200px]">
+          <p className="text-red-500">No data available</p>
+        </div>
+      )}
     </div>
   );
 };
