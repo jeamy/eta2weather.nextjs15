@@ -200,7 +200,11 @@ const EtaData: React.FC = () => {
                           : Number(value.strValue) < 0 
                             ? 'text-blue-600' 
                             : ''
-                        : ''
+                        : value.short === 'AT'
+                          ? Number(value.strValue) < 0
+                            ? 'text-blue-500'
+                            : 'text-green-500'
+                          : ''
                     }`}>
                       {value.strValue}
                       {value.unit && <span className="text-gray-600 ml-1">{value.unit}</span>}

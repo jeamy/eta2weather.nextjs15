@@ -22,6 +22,8 @@ const ConfigData: React.FC = () => {
     const sliderValue = config.data[ConfigKeys.T_SLIDER];
     const etaApiRef = useRef<EtaApi | null>(null);
     const lastSliderUpdate = useRef<string | null>(null);
+    const [nextUpdate, setNextUpdate] = useState<number>(0);
+    const lastUpdateTime = useRef<number>(Date.now());
 
     useEffect(() => {
         // Only load config if not already initialized
@@ -54,6 +56,10 @@ const ConfigData: React.FC = () => {
             etaApiRef.current = new EtaApi(config.data[ConfigKeys.S_ETA]);
         }
     }, [config.data]);
+
+    useEffect(() => {
+        lastUpdateTime.current = Date.now();
+    }, [etaState.data]);
 
     const etaSliderPosition = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue;
 
@@ -98,6 +104,28 @@ const ConfigData: React.FC = () => {
             });
         }
     }, [sliderValue, etaState.data, dispatch]);
+
+    useEffect(() => {
+        const updateTimer = parseInt(config.data[ConfigKeys.T_UPDATE_TIMER]) || 60000;
+        let interval: NodeJS.Timeout;
+
+        const updateCountdown = () => {
+            const now = Date.now();
+            const timeSinceLastUpdate = now - lastUpdateTime.current;
+            const remainingTime = Math.max(0, Math.floor((updateTimer - timeSinceLastUpdate) / 1000));
+            setNextUpdate(remainingTime);
+
+            if (remainingTime === 0) {
+                lastUpdateTime.current = now;
+            }
+        };
+
+        // Update countdown immediately and start interval
+        updateCountdown();
+        interval = setInterval(updateCountdown, 1000);
+
+        return () => clearInterval(interval);
+    }, [config.data]);
 
     if (config.loadingState.isLoading) {
         return (
@@ -387,6 +415,10 @@ const ConfigData: React.FC = () => {
                         toStorage: convertMinutesToMs
                     }
                 )}
+                <div className="flex justify-between items-center">
+                    <span className="font-medium">Next Update:</span>
+                    <span className="font-mono">{nextUpdate} s</span>
+                </div>
                 <div className="flex flex-col space-y-1">
                     <div className="flex justify-between items-center">
                         <span className="font-medium">Empfohlene Schieber Position:</span>
