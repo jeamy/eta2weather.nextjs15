@@ -1,6 +1,10 @@
 # ETA to Ecowitt Weather Station Connector
 
-A Next.js 15 application for visualizing ETA and Ecowitt Weather Data in a clean, structured format.
+A Next.js 15 application for connecting ETA and Ecowitt Weather Station to provide real-time temperature information for both indoor and outdoor temperatures, ETA system data, and control the ETA heating system.
+
+Connects the temperature sensors of an Ecowitt weather station with an ETA heating system and takes over the temperature control of the heating system. Thus replaces an ETA room thermostat.
+
+Programmed in Codeium Windsurf with Claude 3.5 Sonnet. 100% Codeium. https://codeium.com
 
 ## Features
 
