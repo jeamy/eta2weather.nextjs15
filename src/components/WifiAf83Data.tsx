@@ -22,7 +22,7 @@ interface ApiResponse {
 }
 
 const formatDateTime = (timestamp: number): string => {
-  return new Date(timestamp).toLocaleString('de-DE', {
+  return new Date(timestamp).toLocaleString('en-US', {
     hour: 'numeric',
     minute: 'numeric',
     second: 'numeric',
@@ -30,6 +30,7 @@ const formatDateTime = (timestamp: number): string => {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
+    timeZone: 'UTC'
   });
 };
 
@@ -38,7 +39,7 @@ const WifiAf83Data: React.FC = () => {
   const config = useSelector((state: RootState) => state.config);
   const etaState = useSelector((state: RootState) => state.eta);
   const [wifiData, setWifiData] = useState<WifiAF83Data | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const isFirstLoad = useRef(true);
   const lastApiCall = useRef<number>(0);
   const lastTSoll = useRef(config.data.t_soll);
@@ -225,6 +226,10 @@ const WifiAf83Data: React.FC = () => {
       return null;
     }
   }, [dispatch]);
+
+  useEffect(() => {
+    loadAndStoreEta();
+  }, [loadAndStoreEta]);
 
   if (isLoading || !wifiData) {
     return (
