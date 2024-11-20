@@ -54,6 +54,7 @@ class EcoCon {
     return this.config;
   }
 }
+export default EcoCon;
 
 
 /**
