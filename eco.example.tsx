@@ -27,14 +27,34 @@
  * - Keep your API keys confidential
  */
 
-export const EcowittConfig = {
-  config: {
+class EcoCon {
+  private static instance: EcoCon;
+
+  private readonly config = {
     applicationKey: "XXX", // Your Ecowitt Application Key
     apiKey: "XXX",        // Your Generated API Key
     mac: "XXX",           // Your Device MAC Address
     server: "api.ecowitt.net"
+  };
+
+  private constructor() {}
+
+  public static getInstance(): EcoCon {
+    if (!EcoCon.instance) {
+      EcoCon.instance = new EcoCon();
+    }
+    return EcoCon.instance;
   }
-};
+
+  public setServer(server: string): void {
+    this.config.server = server;
+  }
+
+  public getConfig(): Readonly<typeof this.config> {
+    return this.config;
+  }
+}
+
 
 /**
  * Usage Example:
