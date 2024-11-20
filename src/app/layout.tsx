@@ -24,7 +24,7 @@ export default async function RootLayout({
 }>) {
 
   return (
-    <html lang="de">
+    <html lang="de" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <StoreProvider>
           {children}
