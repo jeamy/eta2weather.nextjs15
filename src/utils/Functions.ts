@@ -56,7 +56,7 @@ export function calculateTemperatureDiff(config: ConfigState, wifiAf83Data: Wifi
     }
 
     const diff = Math.min(tSollNum + tDeltaNum - twi, 5.0);
-    console.log(`Diff calculation: ${tSollNum} + ${tDeltaNum} - ${twi} = ${diff}`);
+//    console.log(`Diff calculation: ${tSollNum} + ${tDeltaNum} - ${twi} = ${diff}`);
     return { diff: Number(diff.toFixed(1)), twa, twi };
 }
 

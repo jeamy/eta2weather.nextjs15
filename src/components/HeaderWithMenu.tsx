@@ -21,10 +21,10 @@ export default function HeaderWithMenu() {
       const response = await fetch('/api/eta/menu');
       const result: ApiResponse = await response.json();
 
-      console.log('Menu data received:', result);
+//      console.log('Menu data received:', result);
       
       if (result.success && Array.isArray(result.data)) {
-        console.log('Menu data received:', result.data);
+//        console.log('Menu data received:', result.data);
         setMenuData(result.data);
       } else {
         console.error('Invalid menu data format:', result);

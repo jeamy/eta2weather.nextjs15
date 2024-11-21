@@ -12,7 +12,7 @@ export class EtaApi {
     private server: string;
 
     constructor(server: string = DEFAULT_SERVER) {
-        console.log(`Using server: ${server}`);
+//        console.log(`Using server: ${server}`);
         this.server = server;
     }
 

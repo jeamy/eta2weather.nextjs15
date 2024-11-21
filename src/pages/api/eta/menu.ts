@@ -94,7 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             throw new Error('No menu data received');
         }
 
-        console.log('Parsing menu XML...');
+//        console.log('Parsing menu XML...');
         
         // Save raw XML for reference
         const menuPathX = path.join(process.cwd(), 'src', 'config', 'f_etamenu.xml');

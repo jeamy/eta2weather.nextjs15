@@ -32,6 +32,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
+  console.log(`Fetching menu data for URI: ${uri}`);
+
   try {
     const api = new EtaApi();
     const response = await api.getUserVar(uri);
