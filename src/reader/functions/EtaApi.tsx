@@ -71,4 +71,8 @@ export class EtaApi {
             end: end
         });
     }
+
+    public async getMenu(): Promise<ApiResponse> {
+        return this.fetchApi('/user/menu', 'GET');
+    }
 }

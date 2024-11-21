@@ -1,0 +1,2394 @@
+[
+  {
+    "uri": "/40/10021",
+    "name": "Kessel",
+    "children": [
+      {
+        "uri": "/40/10021/0/0/10990",
+        "name": "Eingänge",
+        "children": [
+          {
+            "uri": "/40/10021/0/11031/0",
+            "name": "Wassermangel",
+            "children": [
+              {
+                "uri": "/40/10021/0/11031/2012",
+                "name": "Einschalt Verzögerung"
+              },
+              {
+                "uri": "/40/10021/0/11031/2013",
+                "name": "Ausschalt Verzögerung"
+              },
+              {
+                "uri": "/40/10021/0/11031/2016",
+                "name": "Eingang"
+              },
+              {
+                "uri": "/40/10021/0/11031/2017",
+                "name": "Eingang"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11032/0",
+            "name": "Not-Aus Schalter",
+            "children": [
+              {
+                "uri": "/40/10021/0/11032/2012",
+                "name": "Einschalt Verzögerung"
+              },
+              {
+                "uri": "/40/10021/0/11032/2013",
+                "name": "Ausschalt Verzögerung"
+              },
+              {
+                "uri": "/40/10021/0/11032/2016",
+                "name": "Eingang"
+              },
+              {
+                "uri": "/40/10021/0/11032/2017",
+                "name": "Eingang"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11033/0",
+            "name": "STB",
+            "children": [
+              {
+                "uri": "/40/10021/0/11033/2012",
+                "name": "Einschalt Verzögerung"
+              },
+              {
+                "uri": "/40/10021/0/11033/2013",
+                "name": "Ausschalt Verzögerung"
+              },
+              {
+                "uri": "/40/10021/0/11033/2016",
+                "name": "Eingang"
+              },
+              {
+                "uri": "/40/10021/0/11033/2017",
+                "name": "Eingang"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11034/0",
+            "name": "Aschebox",
+            "children": [
+              {
+                "uri": "/40/10021/0/11034/2012",
+                "name": "Einschalt Verzögerung"
+              },
+              {
+                "uri": "/40/10021/0/11034/2013",
+                "name": "Ausschalt Verzögerung"
+              },
+              {
+                "uri": "/40/10021/0/11034/2016",
+                "name": "Eingang"
+              },
+              {
+                "uri": "/40/10021/0/11034/2017",
+                "name": "Eingang"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12251",
+            "name": "Rost geschlossen?"
+          },
+          {
+            "uri": "/40/10021/0/11036/0",
+            "name": "Glutbett",
+            "children": [
+              {
+                "uri": "/40/10021/0/11036/2012",
+                "name": "Einschalt Verzögerung"
+              },
+              {
+                "uri": "/40/10021/0/11036/2013",
+                "name": "Ausschalt Verzögerung"
+              },
+              {
+                "uri": "/40/10021/0/11036/2016",
+                "name": "Eingang"
+              },
+              {
+                "uri": "/40/10021/0/11036/2017",
+                "name": "Eingang"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11037/0",
+            "name": "Pelletsbehälter",
+            "children": [
+              {
+                "uri": "/40/10021/0/11037/2012",
+                "name": "Einschalt Verzögerung"
+              },
+              {
+                "uri": "/40/10021/0/11037/2013",
+                "name": "Ausschalt Verzögerung"
+              },
+              {
+                "uri": "/40/10021/0/11037/2016",
+                "name": "Eingang"
+              },
+              {
+                "uri": "/40/10021/0/11037/2017",
+                "name": "Eingang"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11108/0",
+            "name": "Restsauerstoff",
+            "children": [
+              {
+                "uri": "/40/10021/0/11108/2002",
+                "name": "Zustand"
+              },
+              {
+                "uri": "/40/10021/0/11108/2001",
+                "name": "Anforderung"
+              },
+              {
+                "uri": "/40/10021/0/11108/2011",
+                "name": "Sensor Typ"
+              },
+              {
+                "uri": "/40/10021/0/11108/2060",
+                "name": "Restsauerstoff"
+              },
+              {
+                "uri": "/40/10021/0/11108/2066",
+                "name": "Signal"
+              },
+              {
+                "uri": "/40/10021/0/11108/2053",
+                "name": "Verzögerung (Tf)"
+              },
+              {
+                "uri": "/40/10021/0/11108/2058",
+                "name": "Innenwiderstand"
+              },
+              {
+                "uri": "/40/10021/0/11108/2064",
+                "name": "Kalibrierwert"
+              },
+              {
+                "uri": "/40/10021/0/11108/2065",
+                "name": "korrigiertes Signal"
+              },
+              {
+                "uri": "/40/10021/0/11108/2069",
+                "name": "Heizspannung Ist"
+              },
+              {
+                "uri": "/40/10021/0/11108/2061",
+                "name": "Heiz Strom"
+              },
+              {
+                "uri": "/40/10021/0/11108/2057",
+                "name": "Heizleistung"
+              },
+              {
+                "uri": "/40/10021/0/11108/2059",
+                "name": "O2 nicht korrigiert"
+              },
+              {
+                "uri": "/40/10021/0/11108/2157",
+                "name": "O2 nicht korrigiert bei Luft"
+              },
+              {
+                "uri": "/40/10021/0/11108/2400",
+                "name": "Notbetrieb"
+              },
+              {
+                "uri": "/40/10021/0/0/13944",
+                "name": "Kalibrierung",
+                "children": [
+                  {
+                    "uri": "/40/10021/0/0/12246",
+                    "name": "Kalibrier Intervall"
+                  },
+                  {
+                    "uri": "/40/10021/0/0/12247",
+                    "name": "Letzte Kalibrierung bei"
+                  },
+                  {
+                    "uri": "/40/10021/0/0/12301",
+                    "name": "Extra Kalibrieren"
+                  },
+                  {
+                    "uri": "/40/10021/0/0/13943",
+                    "name": "Kalibrierung abbrechen"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11109/0",
+            "name": "Kessel",
+            "children": [
+              {
+                "uri": "/40/10021/0/11109/2002",
+                "name": "Zustand"
+              },
+              {
+                "uri": "/40/10021/0/11109/2011",
+                "name": "Sensor Typ"
+              },
+              {
+                "uri": "/40/10021/0/11109/2049",
+                "name": "Kalibrierwert"
+              },
+              {
+                "uri": "/40/10021/0/11109/2054",
+                "name": "Fixwert"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11058/0",
+            "name": "Kessel Vorlauf 1",
+            "children": [
+              {
+                "uri": "/40/10021/0/11058/2002",
+                "name": "Zustand"
+              },
+              {
+                "uri": "/40/10021/0/11058/2011",
+                "name": "Sensor Typ"
+              },
+              {
+                "uri": "/40/10021/0/11058/2049",
+                "name": "Kalibrierwert"
+              },
+              {
+                "uri": "/40/10021/0/11058/2054",
+                "name": "Fixwert"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11122/0",
+            "name": "Kessel unten",
+            "children": [
+              {
+                "uri": "/40/10021/0/11122/2002",
+                "name": "Zustand"
+              },
+              {
+                "uri": "/40/10021/0/11122/2011",
+                "name": "Sensor Typ"
+              },
+              {
+                "uri": "/40/10021/0/11122/2049",
+                "name": "Kalibrierwert"
+              },
+              {
+                "uri": "/40/10021/0/11122/2054",
+                "name": "Fixwert"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11110/0",
+            "name": "Abgas",
+            "children": [
+              {
+                "uri": "/40/10021/0/11110/2002",
+                "name": "Zustand"
+              },
+              {
+                "uri": "/40/10021/0/11110/2011",
+                "name": "Sensor Typ"
+              },
+              {
+                "uri": "/40/10021/0/11110/2049",
+                "name": "Kalibrierwert"
+              },
+              {
+                "uri": "/40/10021/0/11110/2054",
+                "name": "Fixwert"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12180",
+            "name": "Kesseldruck",
+            "children": [
+              {
+                "uri": "/40/10021/0/11135/0",
+                "name": "Kesseldruck",
+                "children": [
+                  {
+                    "uri": "/40/10021/0/11135/2400",
+                    "name": "Notbetrieb"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12166",
+            "name": "Messblende",
+            "children": [
+              {
+                "uri": "/40/10021/0/11134/0",
+                "name": "Messblende",
+                "children": [
+                  {
+                    "uri": "/40/10021/0/11134/2400",
+                    "name": "Notbetrieb"
+                  }
+                ]
+              },
+              {
+                "uri": "/40/10021/0/0/12167",
+                "name": "Offset"
+              },
+              {
+                "uri": "/40/10021/0/0/12150",
+                "name": "Mindestdruck"
+              },
+              {
+                "uri": "/40/10021/0/11181/0",
+                "name": "Versorgung",
+                "children": [
+                  {
+                    "uri": "/40/10021/0/11181/2001",
+                    "name": "Anforderung"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "uri": "/40/10021/0/0/10991",
+        "name": "Ausgänge",
+        "children": [
+          {
+            "uri": "/40/10021/0/11030/0",
+            "name": "Stokerschnecke",
+            "children": [
+              {
+                "uri": "/40/10021/0/11030/2001",
+                "name": "Anforderung"
+              },
+              {
+                "uri": "/40/10021/0/11030/2090",
+                "name": "Taktrate"
+              },
+              {
+                "uri": "/40/10021/0/11030/2002",
+                "name": "Zustand"
+              },
+              {
+                "uri": "/40/10021/0/11030/2091",
+                "name": "Motor Strom",
+                "children": [
+                  {
+                    "uri": "/40/10021/0/11030/2097",
+                    "name": "Mindest Strom"
+                  },
+                  {
+                    "uri": "/40/10021/0/11030/2098",
+                    "name": "Nennstrom"
+                  },
+                  {
+                    "uri": "/40/10021/0/11030/2096",
+                    "name": "Maximal Strom"
+                  }
+                ]
+              },
+              {
+                "uri": "/40/10021/0/11030/2092",
+                "name": "Erwärmung"
+              },
+              {
+                "uri": "/40/10021/0/11030/2099",
+                "name": "Schneckendrehzahl"
+              },
+              {
+                "uri": "/40/10021/0/11030/2102",
+                "name": "Retourversuche"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11048/0",
+            "name": "Entaschung und Rost",
+            "children": [
+              {
+                "uri": "/40/10021/0/11048/2001",
+                "name": "Anforderung"
+              },
+              {
+                "uri": "/40/10021/0/11048/2002",
+                "name": "Zustand"
+              },
+              {
+                "uri": "/40/10021/0/11048/2083",
+                "name": "Schalter"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11041/0",
+            "name": "Zündung",
+            "children": [
+              {
+                "uri": "/40/10021/0/11041/2001",
+                "name": "Anforderung"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11042/0",
+            "name": "Saugturbine",
+            "children": [
+              {
+                "uri": "/40/10021/0/11042/2001",
+                "name": "Anforderung"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12165",
+            "name": "Abgasgebläse",
+            "children": [
+              {
+                "uri": "/40/10021/0/11120/0",
+                "name": "Abgasgebläse",
+                "children": [
+                  {
+                    "uri": "/40/10021/0/11120/2001",
+                    "name": "Anforderung"
+                  },
+                  {
+                    "uri": "/40/10021/0/11120/2002",
+                    "name": "Zustand"
+                  },
+                  {
+                    "uri": "/40/10021/0/11120/2110",
+                    "name": "Soll Drehzahl"
+                  },
+                  {
+                    "uri": "/40/10021/0/11120/2111",
+                    "name": "Ist Drehzahl"
+                  },
+                  {
+                    "uri": "/40/10021/0/11120/2133",
+                    "name": "Drehzahlsteuerung"
+                  },
+                  {
+                    "uri": "/40/10021/0/11120/2400",
+                    "name": "Notbetrieb"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11123/0",
+            "name": "Kesselpumpe",
+            "children": [
+              {
+                "uri": "/40/10021/0/11123/2001",
+                "name": "Anforderung"
+              },
+              {
+                "uri": "/40/10021/0/11123/2130",
+                "name": "Ausgang"
+              },
+              {
+                "uri": "/40/10021/0/11123/2002",
+                "name": "Zustand"
+              },
+              {
+                "uri": "/40/10021/0/11123/2133",
+                "name": "Drehzahlsteuerung"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11121/0",
+            "name": "Vorlaufmischer 1",
+            "children": [
+              {
+                "uri": "/40/10021/0/11121/2001",
+                "name": "Anforderung"
+              },
+              {
+                "uri": "/40/10021/0/11121/2120",
+                "name": "Soll Temperatur"
+              },
+              {
+                "uri": "/40/10021/0/11121/2002",
+                "name": "Zustand"
+              },
+              {
+                "uri": "/40/10021/0/11121/2121",
+                "name": "Ist Temperatur"
+              },
+              {
+                "uri": "/40/10021/0/11121/2127",
+                "name": "Position"
+              },
+              {
+                "uri": "/40/10021/0/11121/2124",
+                "name": "Laufzeit Mischer"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11128/0",
+            "name": "Umschaltventil",
+            "children": [
+              {
+                "uri": "/40/10021/0/11128/2001",
+                "name": "Anforderung"
+              },
+              {
+                "uri": "/40/10021/0/0/12040",
+                "name": "Laufzeit"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11115/0",
+            "name": "Luftschieber",
+            "children": [
+              {
+                "uri": "/40/10021/0/11115/2001",
+                "name": "Anforderung"
+              },
+              {
+                "uri": "/40/10021/0/11115/2070",
+                "name": "Soll Stellung"
+              },
+              {
+                "uri": "/40/10021/0/11115/2002",
+                "name": "Zustand"
+              },
+              {
+                "uri": "/40/10021/0/11115/2071",
+                "name": "Ist Stellung"
+              },
+              {
+                "uri": "/40/10021/0/11115/2417",
+                "name": "Schließt nach"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "uri": "/40/10021/0/0/12010",
+        "name": "Zählerstände",
+        "children": [
+          {
+            "uri": "/40/10021/0/0/12153",
+            "name": "Volllaststunden"
+          },
+          {
+            "uri": "/40/10021/0/0/12299",
+            "name": "Laufzeit Abgasgebläse"
+          },
+          {
+            "uri": "/40/10021/0/0/12016",
+            "name": "Gesamtverbrauch"
+          },
+          {
+            "uri": "/40/10021/0/0/12014",
+            "name": "Verbrauch seit Wartung",
+            "children": [
+              {
+                "uri": "/40/10021/0/0/12257",
+                "name": "Zähler rücksetzen ?"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12011",
+            "name": "Inhalt Pelletsbehälter"
+          },
+          {
+            "uri": "/40/10021/0/0/12012",
+            "name": "Verbrauch seit Entaschung"
+          },
+          {
+            "uri": "/40/10021/0/0/12013",
+            "name": "Verbrauch seit Aschebox leeren"
+          },
+          {
+            "uri": "/40/10021/0/0/12017",
+            "name": "Zähler Heizbetriebe"
+          },
+          {
+            "uri": "/40/10021/0/0/12018",
+            "name": "Zähler Zündungen"
+          },
+          {
+            "uri": "/40/10021/0/0/12156",
+            "name": "Laufzeit Zündung",
+            "children": [
+              {
+                "uri": "/40/10021/0/0/13346",
+                "name": "Dauer der letzten Zündung"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12081",
+            "name": "Auslösung Sicherheitstemperaturbegrenzer"
+          },
+          {
+            "uri": "/40/10021/0/0/13642",
+            "name": "Zähler Sicherheitspumpenlauf",
+            "children": [
+              {
+                "uri": "/40/10021/0/0/13643",
+                "name": "Laufzeit Sicherheitspumpenlauf"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12323",
+            "name": "Kessel unten zu kalt"
+          },
+          {
+            "uri": "/40/10021/0/0/12082",
+            "name": "Reset"
+          },
+          {
+            "uri": "/40/10021/0/0/12154",
+            "name": "Laufzeit Stoker"
+          },
+          {
+            "uri": "/40/10021/0/0/12155",
+            "name": "Laufzeit Entaschung"
+          },
+          {
+            "uri": "/40/10021/0/0/12157",
+            "name": "Laufzeit Saugturbine"
+          }
+        ]
+      },
+      {
+        "uri": "/40/10021/0/0/19402",
+        "name": "Kessel",
+        "children": [
+          {
+            "uri": "/40/10021/0/0/19391",
+            "name": "Ergänzung"
+          },
+          {
+            "uri": "/40/10021/0/0/12421",
+            "name": "Einstellungen",
+            "children": [
+              {
+                "uri": "/40/10021/0/0/12443",
+                "name": "Kesselfolge"
+              },
+              {
+                "uri": "/40/10021/0/0/12651",
+                "name": "Brenner verriegeln"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12180",
+            "name": "Kesseldruck",
+            "children": [
+              {
+                "uri": "/40/10021/0/11135/0",
+                "name": "Kesseldruck",
+                "children": [
+                  {
+                    "uri": "/40/10021/0/11135/2400",
+                    "name": "Notbetrieb"
+                  }
+                ]
+              },
+              {
+                "uri": "/40/10021/0/0/12170",
+                "name": "Mindestdruck"
+              },
+              {
+                "uri": "/40/10021/0/0/12171",
+                "name": "Maximaler Wasserdruck"
+              },
+              {
+                "uri": "/40/10021/0/0/12172",
+                "name": "Wasserdruck Nachfüllen ab"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12161",
+            "name": "Kessel",
+            "children": [
+              {
+                "uri": "/40/10021/0/0/12001",
+                "name": "Kessel Soll"
+              },
+              {
+                "uri": "/40/10021/0/0/12141",
+                "name": "Ausschaltdifferenz"
+              },
+              {
+                "uri": "/40/10021/0/0/12022",
+                "name": "Kessel Min"
+              },
+              {
+                "uri": "/40/10021/0/0/12226",
+                "name": "Mindest Laufzeit"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12300",
+            "name": "Kessel unten"
+          },
+          {
+            "uri": "/40/10021/0/0/12078",
+            "name": "Vorlaufregler 1",
+            "children": [
+              {
+                "uri": "/40/10021/0/11128/0",
+                "name": "Umschaltventil",
+                "children": [
+                  {
+                    "uri": "/40/10021/0/11128/2001",
+                    "name": "Anforderung"
+                  }
+                ]
+              },
+              {
+                "uri": "/40/10021/0/0/12077",
+                "name": "Angeforderte Leistung"
+              },
+              {
+                "uri": "/40/10021/0/0/12006",
+                "name": "Angeforderte Temperatur"
+              },
+              {
+                "uri": "/40/10021/0/0/12020",
+                "name": "Anforderungsdifferenz"
+              },
+              {
+                "uri": "/40/10021/0/11121/0",
+                "name": "Vorlaufmischer 1",
+                "children": [
+                  {
+                    "uri": "/40/10021/0/11121/2001",
+                    "name": "Anforderung"
+                  },
+                  {
+                    "uri": "/40/10021/0/11121/2120",
+                    "name": "Soll Temperatur"
+                  },
+                  {
+                    "uri": "/40/10021/0/11121/2002",
+                    "name": "Zustand"
+                  },
+                  {
+                    "uri": "/40/10021/0/11121/2121",
+                    "name": "Ist Temperatur"
+                  },
+                  {
+                    "uri": "/40/10021/0/11121/2127",
+                    "name": "Position"
+                  },
+                  {
+                    "uri": "/40/10021/0/11121/2124",
+                    "name": "Laufzeit Mischer"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/11123/0",
+            "name": "Kesselpumpe",
+            "children": [
+              {
+                "uri": "/40/10021/0/11123/2001",
+                "name": "Anforderung"
+              },
+              {
+                "uri": "/40/10021/0/11123/2130",
+                "name": "Ausgang"
+              },
+              {
+                "uri": "/40/10021/0/11123/2002",
+                "name": "Zustand"
+              },
+              {
+                "uri": "/40/10021/0/11123/2133",
+                "name": "Drehzahlsteuerung"
+              },
+              {
+                "uri": "/40/10021/0/0/12368",
+                "name": "Maximal Drehzahl"
+              },
+              {
+                "uri": "/40/10021/0/0/12227",
+                "name": "Mindest Drehzahl"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12162",
+            "name": "Abgas",
+            "children": [
+              {
+                "uri": "/40/10021/0/0/12023",
+                "name": "Abgas Max"
+              },
+              {
+                "uri": "/40/10021/0/0/12024",
+                "name": "Abgas Min"
+              },
+              {
+                "uri": "/40/10021/0/0/14163",
+                "name": "Abgas Min"
+              },
+              {
+                "uri": "/40/10021/0/0/13266",
+                "name": "Emissionsmessung",
+                "children": [
+                  {
+                    "uri": "/40/10021/0/0/12116",
+                    "name": "Art der Messung"
+                  },
+                  {
+                    "uri": "/40/10021/0/0/12118",
+                    "name": "Dauer der Messung"
+                  },
+                  {
+                    "uri": "/40/10021/0/0/13267",
+                    "name": "Beginn der Messung"
+                  },
+                  {
+                    "uri": "/40/10021/0/0/13268",
+                    "name": "Verriegelungsdauer"
+                  },
+                  {
+                    "uri": "/40/10021/0/0/13481",
+                    "name": "Vorwärmdauer"
+                  },
+                  {
+                    "uri": "/40/10021/0/0/13269",
+                    "name": "Jetzt starten"
+                  },
+                  {
+                    "uri": "/40/10021/0/0/13277",
+                    "name": "Messung deaktivieren"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12165",
+            "name": "Abgasgebläse"
+          },
+          {
+            "uri": "/40/10021/0/0/12164",
+            "name": "Restsauerstoff",
+            "children": [
+              {
+                "uri": "/40/10021/12004/0/0",
+                "name": "O2 Soll",
+                "children": [
+                  {
+                    "uri": "/40/10021/12004/0/1050",
+                    "name": "Lin x"
+                  },
+                  {
+                    "uri": "/40/10021/12004/0/1051",
+                    "name": "Lin x1"
+                  },
+                  {
+                    "uri": "/40/10021/12004/0/1052",
+                    "name": "Lin y1"
+                  },
+                  {
+                    "uri": "/40/10021/12004/0/1053",
+                    "name": "Lin x2"
+                  },
+                  {
+                    "uri": "/40/10021/12004/0/1054",
+                    "name": "Lin y2"
+                  },
+                  {
+                    "uri": "/40/10021/12004/0/1056",
+                    "name": "Extrapol"
+                  },
+                  {
+                    "uri": "/40/10021/12004/0/1055",
+                    "name": "Lin y"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12007",
+            "name": "Einschub",
+            "children": [
+              {
+                "uri": "/40/10021/0/0/12069",
+                "name": "Brennstoffverstärkung"
+              },
+              {
+                "uri": "/40/10021/0/0/12043",
+                "name": "Stoker Zeit pro kg"
+              },
+              {
+                "uri": "/40/10021/0/11030/0",
+                "name": "Stokerschnecke",
+                "children": [
+                  {
+                    "uri": "/40/10021/0/11030/2001",
+                    "name": "Anforderung"
+                  },
+                  {
+                    "uri": "/40/10021/0/11030/2090",
+                    "name": "Taktrate"
+                  },
+                  {
+                    "uri": "/40/10021/0/11030/2002",
+                    "name": "Zustand"
+                  },
+                  {
+                    "uri": "/40/10021/0/11030/2091",
+                    "name": "Motor Strom",
+                    "children": [
+                      {
+                        "uri": "/40/10021/0/11030/2097",
+                        "name": "Mindest Strom"
+                      },
+                      {
+                        "uri": "/40/10021/0/11030/2098",
+                        "name": "Nennstrom"
+                      },
+                      {
+                        "uri": "/40/10021/0/11030/2096",
+                        "name": "Maximal Strom"
+                      }
+                    ]
+                  },
+                  {
+                    "uri": "/40/10021/0/11030/2092",
+                    "name": "Erwärmung"
+                  },
+                  {
+                    "uri": "/40/10021/0/11030/2099",
+                    "name": "Schneckendrehzahl"
+                  },
+                  {
+                    "uri": "/40/10021/0/11030/2102",
+                    "name": "Retourversuche"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12163",
+            "name": "Zündung",
+            "children": [
+              {
+                "uri": "/40/10021/0/0/12045",
+                "name": "Warmstart Zeit"
+              },
+              {
+                "uri": "/40/10021/0/0/12046",
+                "name": "Heizversuch Max"
+              },
+              {
+                "uri": "/40/10021/0/0/12048",
+                "name": "Maximale Zünddauer"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12050",
+            "name": "Entaschung",
+            "children": [
+              {
+                "uri": "/40/10021/0/0/12248",
+                "name": "Beginn Ruhezeit"
+              },
+              {
+                "uri": "/40/10021/0/0/12249",
+                "name": "Dauer Ruhezeit"
+              },
+              {
+                "uri": "/40/10021/0/11048/0",
+                "name": "Entaschung und Rost",
+                "children": [
+                  {
+                    "uri": "/40/10021/0/11048/2001",
+                    "name": "Anforderung"
+                  },
+                  {
+                    "uri": "/40/10021/0/11048/2002",
+                    "name": "Zustand"
+                  },
+                  {
+                    "uri": "/40/10021/0/11048/2083",
+                    "name": "Schalter"
+                  }
+                ]
+              },
+              {
+                "uri": "/40/10021/0/0/12073",
+                "name": "Entaschen nach min."
+              },
+              {
+                "uri": "/40/10021/0/0/12074",
+                "name": "Entaschen nach max."
+              },
+              {
+                "uri": "/40/10021/0/0/12012",
+                "name": "Verbrauch seit Entaschung"
+              },
+              {
+                "uri": "/40/10021/0/0/12013",
+                "name": "Verbrauch seit Aschebox leeren"
+              },
+              {
+                "uri": "/40/10021/0/0/12120",
+                "name": "Aschebox leeren nach"
+              },
+              {
+                "uri": "/40/10021/0/0/12014",
+                "name": "Verbrauch seit Wartung"
+              },
+              {
+                "uri": "/40/10021/0/0/13951",
+                "name": "Glutabbrand sofort beenden"
+              },
+              {
+                "uri": "/40/10021/0/0/12065",
+                "name": "Anzahl Rost Kippen"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/12005",
+            "name": "Pelletsbehälter",
+            "children": [
+              {
+                "uri": "/40/10021/0/0/12071",
+                "name": "Pelletsbehälter auffüllen"
+              },
+              {
+                "uri": "/40/10021/0/0/12011",
+                "name": "Inhalt Pelletsbehälter"
+              },
+              {
+                "uri": "/40/10021/0/0/12152",
+                "name": "Saugzeitpunkt"
+              },
+              {
+                "uri": "/40/10021/0/11042/0",
+                "name": "Saugturbine",
+                "children": [
+                  {
+                    "uri": "/40/10021/0/11042/2001",
+                    "name": "Anforderung"
+                  }
+                ]
+              },
+              {
+                "uri": "/40/10021/0/0/12061",
+                "name": "Saugzeit Max"
+              },
+              {
+                "uri": "/40/10021/0/0/14635",
+                "name": "berechnete Saugzeit Max"
+              },
+              {
+                "uri": "/40/10021/0/0/12064",
+                "name": "Nachlauf Austragschnecke"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/14265",
+            "name": "Kesselstörmeldung",
+            "children": [
+              {
+                "uri": "/40/10021/0/0/14267",
+                "name": "Kesselstörmeldung für Schnittstellen"
+              },
+              {
+                "uri": "/40/10021/0/0/13353",
+                "name": "ab Priorität"
+              }
+            ]
+          },
+          {
+            "uri": "/40/10021/0/0/14268",
+            "name": "Kessellaufmeldung",
+            "children": [
+              {
+                "uri": "/40/10021/0/0/14275",
+                "name": "Laufmeldung von Schnittstellen"
+              },
+              {
+                "uri": "/40/10021/0/0/13161",
+                "name": "Aktiv wenn"
+              },
+              {
+                "uri": "/40/10021/0/0/12110",
+                "name": "Nachlaufzeit"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "uri": "/40/10021/0/0/12182",
+        "name": "Sonstiges",
+        "children": [
+          {
+            "uri": "/40/10021/0/0/12489",
+            "name": "Seriennummer vor ."
+          },
+          {
+            "uri": "/40/10021/0/0/12490",
+            "name": "Seriennummer nach ."
+          },
+          {
+            "uri": "/40/10021/0/0/13603",
+            "name": "Designvariante"
+          },
+          {
+            "uri": "/40/10021/0/0/12080",
+            "name": "Ein/Aus Taste"
+          },
+          {
+            "uri": "/40/10021/0/0/12112",
+            "name": "Entaschentaste"
+          },
+          {
+            "uri": "/40/10021/0/0/12000",
+            "name": "Kessel"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "uri": "/40/10201",
+    "name": "Lager",
+    "children": [
+      {
+        "uri": "/40/10201/0/0/12773",
+        "name": "Typ des Lagers"
+      },
+      {
+        "uri": "/40/10201/0/0/10991",
+        "name": "Ausgänge",
+        "children": [
+          {
+            "uri": "/40/10201/0/11029/0",
+            "name": "Austragschnecke",
+            "children": [
+              {
+                "uri": "/40/10201/0/11029/2001",
+                "name": "Anforderung"
+              },
+              {
+                "uri": "/40/10201/0/11029/2090",
+                "name": "Taktrate"
+              },
+              {
+                "uri": "/40/10201/0/11029/2002",
+                "name": "Zustand"
+              },
+              {
+                "uri": "/40/10201/0/11029/2091",
+                "name": "Motor Strom",
+                "children": [
+                  {
+                    "uri": "/40/10201/0/11029/2097",
+                    "name": "Mindest Strom"
+                  },
+                  {
+                    "uri": "/40/10201/0/11029/2098",
+                    "name": "Nennstrom"
+                  },
+                  {
+                    "uri": "/40/10201/0/11029/2096",
+                    "name": "Maximal Strom"
+                  }
+                ]
+              },
+              {
+                "uri": "/40/10201/0/11029/2092",
+                "name": "Erwärmung"
+              },
+              {
+                "uri": "/40/10201/0/11029/2099",
+                "name": "Schneckendrehzahl"
+              },
+              {
+                "uri": "/40/10201/0/11029/2102",
+                "name": "Retourversuche"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "uri": "/40/10201/0/0/19417",
+        "name": "Austragung",
+        "children": [
+          {
+            "uri": "/40/10201/0/0/19391",
+            "name": "Ergänzung"
+          },
+          {
+            "uri": "/40/10201/0/0/12062",
+            "name": "Saugturbine Vorlauf"
+          },
+          {
+            "uri": "/40/10201/0/0/12063",
+            "name": "Saugturbine Nachlauf"
+          },
+          {
+            "uri": "/40/10201/0/0/12252",
+            "name": "Austragleistung"
+          },
+          {
+            "uri": "/40/10201/0/0/12254",
+            "name": "Austrag Zykluszeit"
+          },
+          {
+            "uri": "/40/10201/0/0/12236",
+            "name": "Laufzeit Austragschnecke"
+          }
+        ]
+      },
+      {
+        "uri": "/40/10201/0/0/12015",
+        "name": "Vorrat"
+      },
+      {
+        "uri": "/40/10201/0/0/12042",
+        "name": "Vorrat Warngrenze"
+      },
+      {
+        "uri": "/40/10201/0/0/12182",
+        "name": "Sonstiges",
+        "children": [
+          {
+            "uri": "/40/10201/0/0/12058",
+            "name": "Austragung"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "uri": "/120/10111",
+    "name": "WW-Speicher",
+    "children": [
+      {
+        "uri": "/120/10111/0/0/10990",
+        "name": "Eingänge",
+        "children": [
+          {
+            "uri": "/120/10111/0/11129/0",
+            "name": "Warmwasserspeicher",
+            "children": [
+              {
+                "uri": "/120/10111/0/11129/2002",
+                "name": "Zustand"
+              },
+              {
+                "uri": "/120/10111/0/11129/2011",
+                "name": "Sensor Typ"
+              },
+              {
+                "uri": "/120/10111/0/11129/2049",
+                "name": "Kalibrierwert"
+              },
+              {
+                "uri": "/120/10111/0/11129/2054",
+                "name": "Fixwert"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "uri": "/120/10111/0/0/10991",
+        "name": "Ausgänge"
+      },
+      {
+        "uri": "/120/10111/0/0/19406",
+        "name": "Warmwasserspeicher",
+        "children": [
+          {
+            "uri": "/120/10111/0/0/19391",
+            "name": "Ergänzung"
+          },
+          {
+            "uri": "/120/10111/0/0/12271",
+            "name": "Warmwasserspeicher"
+          },
+          {
+            "uri": "/120/10111/0/0/12132",
+            "name": "Warmwasserspeicher Soll"
+          },
+          {
+            "uri": "/120/10111/0/0/14257",
+            "name": "Solltemperatur für [Sofort laden]"
+          },
+          {
+            "uri": "/120/10111/0/0/12133",
+            "name": "Einschaltdifferenz"
+          },
+          {
+            "uri": "/120/10111/0/0/12272",
+            "name": "Warmwasserspeicher unten"
+          },
+          {
+            "uri": "/120/10111/0/0/12135",
+            "name": "Warmwasser unten Aus"
+          },
+          {
+            "uri": "/120/10111/12130/0/0",
+            "name": "Ladezeiten",
+            "children": [
+              {
+                "uri": "/120/10111/12130/0/1109",
+                "name": "Schaltzustand"
+              },
+              {
+                "uri": "/120/10111/12130/0/1110",
+                "name": "Temperatur"
+              },
+              {
+                "uri": "/120/10111/12130/0/1081",
+                "name": "Montag",
+                "children": [
+                  {
+                    "uri": "/120/10111/12130/0/1111",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1082",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1083",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1084",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10111/12130/0/1085",
+                "name": "Dienstag",
+                "children": [
+                  {
+                    "uri": "/120/10111/12130/0/1112",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1086",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1087",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1088",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10111/12130/0/1089",
+                "name": "Mittwoch",
+                "children": [
+                  {
+                    "uri": "/120/10111/12130/0/1113",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1090",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1091",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1092",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10111/12130/0/1093",
+                "name": "Donnerstag",
+                "children": [
+                  {
+                    "uri": "/120/10111/12130/0/1114",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1094",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1095",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1096",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10111/12130/0/1097",
+                "name": "Freitag",
+                "children": [
+                  {
+                    "uri": "/120/10111/12130/0/1115",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1098",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1099",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1100",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10111/12130/0/1101",
+                "name": "Samstag",
+                "children": [
+                  {
+                    "uri": "/120/10111/12130/0/1116",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1102",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1103",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1104",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10111/12130/0/1105",
+                "name": "Sonntag",
+                "children": [
+                  {
+                    "uri": "/120/10111/12130/0/1117",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1106",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1107",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10111/12130/0/1108",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uri": "/120/10111/0/0/12274",
+            "name": "Warmwasser Ladepumpe",
+            "children": [
+              {
+                "uri": "/120/10111/0/0/12221",
+                "name": "Rücklauf Soll"
+              },
+              {
+                "uri": "/120/10111/0/0/13529",
+                "name": "Soll Differenz"
+              },
+              {
+                "uri": "/120/10111/0/0/12227",
+                "name": "Mindest Drehzahl"
+              },
+              {
+                "uri": "/120/10111/0/0/12258",
+                "name": "Pumpendrehzahl"
+              }
+            ]
+          },
+          {
+            "uri": "/120/10111/0/0/12109",
+            "name": "Anforderungsdifferenz"
+          },
+          {
+            "uri": "/120/10111/0/0/12020",
+            "name": "Anforderungsdifferenz"
+          },
+          {
+            "uri": "/120/10111/0/0/12100",
+            "name": "Freigabe Temperatur"
+          },
+          {
+            "uri": "/120/10111/0/0/14789",
+            "name": "Anforderungsdifferenz"
+          },
+          {
+            "uri": "/120/10111/0/0/14788",
+            "name": "Freigabe Temperatur"
+          },
+          {
+            "uri": "/120/10111/0/0/13150",
+            "name": "Registerleistung"
+          },
+          {
+            "uri": "/120/10111/0/0/12169",
+            "name": "Warmwasserspeicher max."
+          },
+          {
+            "uri": "/120/10111/0/0/12426",
+            "name": "Solarladung bis"
+          },
+          {
+            "uri": "/120/10111/0/0/12652",
+            "name": "Solar abschöpfen"
+          },
+          {
+            "uri": "/120/10111/0/0/12770",
+            "name": "Priorität"
+          },
+          {
+            "uri": "/120/10111/0/0/12667",
+            "name": "Laden mit anderen Verbrauchern",
+            "children": [
+              {
+                "uri": "/120/10111/0/0/13535",
+                "name": "Einschaltdifferenz"
+              }
+            ]
+          },
+          {
+            "uri": "/120/10111/0/0/12932",
+            "name": "Laden mit Erzeuger",
+            "children": [
+              {
+                "uri": "/120/10111/0/0/13535",
+                "name": "Einschaltdifferenz"
+              }
+            ]
+          },
+          {
+            "uri": "/120/10111/0/0/13298",
+            "name": "Temperaturwarnung 1",
+            "children": [
+              {
+                "uri": "/120/10111/0/0/13039",
+                "name": "Differenz Warnung"
+              },
+              {
+                "uri": "/120/10111/0/0/13166",
+                "name": "Dauer bis Warnung"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "uri": "/120/10111/0/0/12273",
+        "name": "Zirkulation",
+        "children": [
+          {
+            "uri": "/120/10111/12175/0/0",
+            "name": "Zirkulationszeiten",
+            "children": [
+              {
+                "uri": "/120/10111/12175/0/1109",
+                "name": "Schaltzustand"
+              },
+              {
+                "uri": "/120/10111/12175/0/1110",
+                "name": "Temperatur"
+              },
+              {
+                "uri": "/120/10111/12175/0/1081",
+                "name": "Montag",
+                "children": [
+                  {
+                    "uri": "/120/10111/12175/0/1111",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1082",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1083",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1084",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10111/12175/0/1085",
+                "name": "Dienstag",
+                "children": [
+                  {
+                    "uri": "/120/10111/12175/0/1112",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1086",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1087",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1088",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10111/12175/0/1089",
+                "name": "Mittwoch",
+                "children": [
+                  {
+                    "uri": "/120/10111/12175/0/1113",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1090",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1091",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1092",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10111/12175/0/1093",
+                "name": "Donnerstag",
+                "children": [
+                  {
+                    "uri": "/120/10111/12175/0/1114",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1094",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1095",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1096",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10111/12175/0/1097",
+                "name": "Freitag",
+                "children": [
+                  {
+                    "uri": "/120/10111/12175/0/1115",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1098",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1099",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1100",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10111/12175/0/1101",
+                "name": "Samstag",
+                "children": [
+                  {
+                    "uri": "/120/10111/12175/0/1116",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1102",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1103",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1104",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10111/12175/0/1105",
+                "name": "Sonntag",
+                "children": [
+                  {
+                    "uri": "/120/10111/12175/0/1117",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1106",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1107",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10111/12175/0/1108",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uri": "/120/10111/0/0/12174",
+            "name": "Zirkulation Laufzeit"
+          },
+          {
+            "uri": "/120/10111/0/0/12173",
+            "name": "Zirkulation Pause"
+          },
+          {
+            "uri": "/120/10111/0/0/12176",
+            "name": "Freigabe Zirkulation"
+          },
+          {
+            "uri": "/120/10111/0/0/12220",
+            "name": "Rücklauf"
+          },
+          {
+            "uri": "/120/10111/0/0/12158",
+            "name": "Stopp-Differenz"
+          }
+        ]
+      },
+      {
+        "uri": "/120/10111/0/0/12182",
+        "name": "Sonstiges",
+        "children": [
+          {
+            "uri": "/120/10111/0/0/12134",
+            "name": "Warmwasser sofort laden"
+          },
+          {
+            "uri": "/120/10111/0/0/12080",
+            "name": "Ein/Aus Taste"
+          },
+          {
+            "uri": "/120/10111/0/0/12129",
+            "name": "Warmwasserspeicher"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "uri": "/120/10101",
+    "name": "Heizkreis",
+    "children": [
+      {
+        "uri": "/120/10101/0/0/12476",
+        "name": "Heizkreistyp"
+      },
+      {
+        "uri": "/120/10101/0/0/10990",
+        "name": "Eingänge",
+        "children": [
+          {
+            "uri": "/120/10101/0/0/12197",
+            "name": "Außentemperatur"
+          }
+        ]
+      },
+      {
+        "uri": "/120/10101/0/0/19404",
+        "name": "Heizkreis",
+        "children": [
+          {
+            "uri": "/120/10101/0/0/19391",
+            "name": "Ergänzung"
+          },
+          {
+            "uri": "/120/10101/12113/0/0",
+            "name": "Heizzeiten",
+            "children": [
+              {
+                "uri": "/120/10101/12113/0/1109",
+                "name": "Schaltzustand"
+              },
+              {
+                "uri": "/120/10101/12113/0/1110",
+                "name": "Temperatur"
+              },
+              {
+                "uri": "/120/10101/12113/0/1081",
+                "name": "Montag",
+                "children": [
+                  {
+                    "uri": "/120/10101/12113/0/1111",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1082",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1083",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1084",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10101/12113/0/1085",
+                "name": "Dienstag",
+                "children": [
+                  {
+                    "uri": "/120/10101/12113/0/1112",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1086",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1087",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1088",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10101/12113/0/1089",
+                "name": "Mittwoch",
+                "children": [
+                  {
+                    "uri": "/120/10101/12113/0/1113",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1090",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1091",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1092",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10101/12113/0/1093",
+                "name": "Donnerstag",
+                "children": [
+                  {
+                    "uri": "/120/10101/12113/0/1114",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1094",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1095",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1096",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10101/12113/0/1097",
+                "name": "Freitag",
+                "children": [
+                  {
+                    "uri": "/120/10101/12113/0/1115",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1098",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1099",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1100",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10101/12113/0/1101",
+                "name": "Samstag",
+                "children": [
+                  {
+                    "uri": "/120/10101/12113/0/1116",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1102",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1103",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1104",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              },
+              {
+                "uri": "/120/10101/12113/0/1105",
+                "name": "Sonntag",
+                "children": [
+                  {
+                    "uri": "/120/10101/12113/0/1117",
+                    "name": "Wert außerhalb der Zeitfenster"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1106",
+                    "name": "Zeitfenster 1"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1107",
+                    "name": "Zeitfenster 2"
+                  },
+                  {
+                    "uri": "/120/10101/12113/0/1108",
+                    "name": "Zeitfenster 3"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uri": "/120/10101/0/0/13796",
+            "name": "Rückstellzeit f. [Kommen]-Taste"
+          },
+          {
+            "uri": "/120/10101/0/0/12241",
+            "name": "Vorlauf",
+            "children": [
+              {
+                "uri": "/120/10101/0/0/12108",
+                "name": "Vorlauf Max"
+              }
+            ]
+          },
+          {
+            "uri": "/120/10101/0/0/12111",
+            "name": "Heizkurve",
+            "children": [
+              {
+                "uri": "/120/10101/0/0/12240",
+                "name": "Schieber Position"
+              },
+              {
+                "uri": "/120/10101/0/0/12104",
+                "name": "Vorlauf bei -10°C"
+              },
+              {
+                "uri": "/120/10101/0/0/12103",
+                "name": "Vorlauf bei +10°C"
+              },
+              {
+                "uri": "/120/10101/0/0/12107",
+                "name": "Vorlauf Absenkung"
+              },
+              {
+                "uri": "/120/10101/0/0/14052",
+                "name": "bei niedriger Heizkurve"
+              },
+              {
+                "uri": "/120/10101/0/0/12168",
+                "name": "Aus bei Heizkurve unter"
+              },
+              {
+                "uri": "/120/10101/0/0/14133",
+                "name": "Aus bei Heizkurve unter"
+              },
+              {
+                "uri": "/120/10101/0/0/14051",
+                "name": "Vorlauf Min"
+              },
+              {
+                "uri": "/120/10101/0/0/14134",
+                "name": "Vorlauf Min"
+              }
+            ]
+          },
+          {
+            "uri": "/120/10101/0/0/13100",
+            "name": "Heizlast",
+            "children": [
+              {
+                "uri": "/120/10101/0/0/13098",
+                "name": "spez. Heizlast"
+              },
+              {
+                "uri": "/120/10101/0/0/13096",
+                "name": "Gesamtfläche"
+              },
+              {
+                "uri": "/120/10101/0/0/13099",
+                "name": "Nennheizlast"
+              },
+              {
+                "uri": "/120/10101/0/0/13600",
+                "name": "Heizlast während Estrichtrocknung"
+              }
+            ]
+          },
+          {
+            "uri": "/120/10101/12095/0/0",
+            "name": "Außentemperatur verzögert",
+            "children": [
+              {
+                "uri": "/120/10101/12095/0/1071",
+                "name": "Lag x"
+              },
+              {
+                "uri": "/120/10101/12095/0/1072",
+                "name": "Lag Tf"
+              },
+              {
+                "uri": "/120/10101/12095/0/1074",
+                "name": "Lag Tf"
+              },
+              {
+                "uri": "/120/10101/12095/0/1073",
+                "name": "Lag y"
+              }
+            ]
+          },
+          {
+            "uri": "/120/10101/0/0/12096",
+            "name": "Heizgrenze für [Heizen]"
+          },
+          {
+            "uri": "/120/10101/0/0/14116",
+            "name": "Heizgrenze für [Heizen]"
+          },
+          {
+            "uri": "/120/10101/0/0/12097",
+            "name": "Heizgrenze für [Absenken]"
+          },
+          {
+            "uri": "/120/10101/0/0/12100",
+            "name": "Freigabe Temperatur"
+          },
+          {
+            "uri": "/120/10101/0/0/12215",
+            "name": "Freigabe Temperatur"
+          },
+          {
+            "uri": "/120/10101/0/0/14788",
+            "name": "Freigabe Temperatur"
+          },
+          {
+            "uri": "/120/10101/0/0/12178",
+            "name": "Vorrang Warmwasser"
+          },
+          {
+            "uri": "/120/10101/0/0/12652",
+            "name": "Solar abschöpfen"
+          },
+          {
+            "uri": "/120/10101/0/0/12302",
+            "name": "Estrich",
+            "children": [
+              {
+                "uri": "/120/10101/0/0/12303",
+                "name": "Start Estrich ausheizen"
+              },
+              {
+                "uri": "/120/10101/0/0/12241",
+                "name": "Vorlauf"
+              },
+              {
+                "uri": "/120/10101/0/0/12304",
+                "name": "Vorlauf Soll"
+              },
+              {
+                "uri": "/120/10101/0/0/12311",
+                "name": "Letzte Änderung"
+              },
+              {
+                "uri": "/120/10101/0/0/12305",
+                "name": "Anstieg um"
+              },
+              {
+                "uri": "/120/10101/0/0/12306",
+                "name": "Anstieg alle"
+              },
+              {
+                "uri": "/120/10101/0/0/12307",
+                "name": "Max. Temperatur"
+              },
+              {
+                "uri": "/120/10101/0/0/12308",
+                "name": "Max. Temp. halten"
+              },
+              {
+                "uri": "/120/10101/0/0/12309",
+                "name": "Absenkung um"
+              },
+              {
+                "uri": "/120/10101/0/0/12310",
+                "name": "Absenkung alle"
+              },
+              {
+                "uri": "/120/10101/0/0/14687",
+                "name": "anschließende Heizpause"
+              },
+              {
+                "uri": "/120/10101/0/0/14688",
+                "name": "erneute Max. Temperatur"
+              },
+              {
+                "uri": "/120/10101/0/0/14689",
+                "name": "erneute Max. Temp. halten"
+              },
+              {
+                "uri": "/120/10101/0/0/14686",
+                "name": "am Ende"
+              },
+              {
+                "uri": "/120/10101/0/0/13600",
+                "name": "Heizlast während Estrichtrocknung"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "uri": "/120/10101/0/0/12182",
+        "name": "Sonstiges",
+        "children": [
+          {
+            "uri": "/120/10101/0/0/12125",
+            "name": "Heizen Taste"
+          },
+          {
+            "uri": "/120/10101/0/0/12126",
+            "name": "Auto Taste"
+          },
+          {
+            "uri": "/120/10101/0/0/12230",
+            "name": "Absenken Taste"
+          },
+          {
+            "uri": "/120/10101/0/0/12080",
+            "name": "Ein/Aus Taste"
+          },
+          {
+            "uri": "/120/10101/0/0/12218",
+            "name": "Kommen Taste"
+          },
+          {
+            "uri": "/120/10101/0/0/12231",
+            "name": "Gehen Taste"
+          },
+          {
+            "uri": "/120/10101/0/0/12232",
+            "name": "Urlaub Beginn"
+          },
+          {
+            "uri": "/120/10101/0/0/12239",
+            "name": "Urlaub Ende"
+          },
+          {
+            "uri": "/120/10101/0/0/12090",
+            "name": "Heizkreis"
+          },
+          {
+            "uri": "/120/10101/0/0/12092",
+            "name": "Betrieb"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "uri": "/120/10241",
+    "name": "Sys",
+    "children": [
+      {
+        "uri": "/120/10241/0/0/12197",
+        "name": "Außentemperatur",
+        "children": [
+          {
+            "uri": "/120/10241/0/11127/0",
+            "name": "Außentemperaturfühler",
+            "children": [
+              {
+                "uri": "/120/10241/0/11127/2002",
+                "name": "Zustand"
+              },
+              {
+                "uri": "/120/10241/0/11127/2011",
+                "name": "Sensor Typ"
+              },
+              {
+                "uri": "/120/10241/0/11127/2049",
+                "name": "Kalibrierwert"
+              },
+              {
+                "uri": "/120/10241/0/11127/2054",
+                "name": "Fixwert"
+              }
+            ]
+          },
+          {
+            "uri": "/120/10241/0/0/14273",
+            "name": "Außentemperatur von Schnittstellen"
+          },
+          {
+            "uri": "/120/10241/0/0/13168",
+            "name": "Zeitüberwachung"
+          }
+        ]
+      },
+      {
+        "uri": "/120/10241/0/0/14262",
+        "name": "Störmeldung",
+        "children": [
+          {
+            "uri": "/120/10241/0/0/14870",
+            "name": "Anzeigen"
+          },
+          {
+            "uri": "/120/10241/0/0/14264",
+            "name": "Störmeldung für Schnittstellen"
+          },
+          {
+            "uri": "/120/10241/0/0/13353",
+            "name": "ab Priorität"
+          }
+        ]
+      },
+      {
+        "uri": "/120/10241/0/0/14259",
+        "name": "Externe Störmeldung",
+        "children": [
+          {
+            "uri": "/120/10241/0/0/14130",
+            "name": "Name der ext. Störmeldung"
+          },
+          {
+            "uri": "/120/10241/0/0/14871",
+            "name": "Anzeigen"
+          },
+          {
+            "uri": "/120/10241/0/0/14261",
+            "name": "Externe Störmeldung von Schnittstellen"
+          }
+        ]
+      },
+      {
+        "uri": "/120/10241/0/0/14241",
+        "name": "Antiblockierschutz",
+        "children": [
+          {
+            "uri": "/120/10241/0/0/14242",
+            "name": "Zeitpunkt"
+          },
+          {
+            "uri": "/120/10241/0/0/14243",
+            "name": "an welchem Tag?"
+          },
+          {
+            "uri": "/120/10241/0/0/14244",
+            "name": "zu welcher Uhrzeit?"
+          }
+        ]
+      }
+    ]
+  }
+]

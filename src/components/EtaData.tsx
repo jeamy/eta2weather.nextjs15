@@ -11,6 +11,7 @@ import { storeData as storeConfigData } from '@/redux/configSlice';
 import { EtaData as EtaDataType, ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { DEFAULT_UPDATE_TIMER } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
+import { Switch } from '@headlessui/react';
 
 // Constants
 
@@ -34,6 +35,8 @@ const EtaData: React.FC = () => {
   const etaState = useSelector((state: RootState) => state.eta);
   const [displayData, setDisplayData] = useState<Record<string, DisplayEtaValue> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showHT, setShowHT] = useState(false);
+  const [showKT, setShowKT] = useState(false);
   const isFirstLoad = useRef(true);
   const intervalId = useRef<NodeJS.Timeout | null>(null);
   const lastApiCall = useRef<number>(0);
@@ -176,7 +179,12 @@ const EtaData: React.FC = () => {
         <div className="space-y-3 text-sm sm:text-base">
           <div className="grid grid-cols-1 gap-2">
             {Object.entries(etaState.data)
-              .filter(([_, value]) => value.strValue && value.strValue.trim() !== '')
+              .filter(([key, value]) => {
+                if (!value.strValue || value.strValue.trim() === '') return false;
+                if (key === 'HT' && !showHT) return false;
+                if (key === 'KT' && !showKT) return false;
+                return true;
+              })
               .sort(([_, a], [__, b]) => {
                 const order: Record<string, number> = { 
                   SP: 1, AT: 2, KZ: 3, VT: 4, HK: 5, 
@@ -193,22 +201,54 @@ const EtaData: React.FC = () => {
                       <span className="font-mono text-gray-500">{value.short}</span>
                       <span className="font-medium">{value.long}:</span>
                     </div>
-                    <span className={`font-mono ${
-                      value.short === 'SP' 
-                        ? Number(value.strValue) > 0 
-                          ? 'text-green-600' 
-                          : Number(value.strValue) < 0 
-                            ? 'text-blue-600' 
+                    <div className="flex items-center gap-2">
+                      <span className={`font-mono ${
+                        value.short === 'SP' 
+                          ? Number(value.strValue) > 0 
+                            ? 'text-green-600' 
+                            : Number(value.strValue) < 0 
+                              ? 'text-blue-600' 
+                              : ''
+                          : value.short === 'AT'
+                            ? Number(value.strValue) < 0
+                              ? 'text-blue-500'
+                              : 'text-green-500'
                             : ''
-                        : value.short === 'AT'
-                          ? Number(value.strValue) < 0
-                            ? 'text-blue-500'
-                            : 'text-green-500'
-                          : ''
-                    }`}>
-                      {value.strValue}
-                      {value.unit && <span className="text-gray-600 ml-1">{value.unit}</span>}
-                    </span>
+                      }`}>
+                        {value.strValue}
+                        {value.unit && <span className="text-gray-600 ml-1">{value.unit}</span>}
+                      </span>
+                      {value.short === 'HT' && (
+                        <Switch
+                          checked={showHT}
+                          onChange={setShowHT}
+                          className={`${
+                            showHT ? 'bg-blue-600' : 'bg-gray-200'
+                          } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                        >
+                          <span
+                            className={`${
+                              showHT ? 'translate-x-6' : 'translate-x-1'
+                            } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                          />
+                        </Switch>
+                      )}
+                      {value.short === 'KT' && (
+                        <Switch
+                          checked={showKT}
+                          onChange={setShowKT}
+                          className={`${
+                            showKT ? 'bg-blue-600' : 'bg-gray-200'
+                          } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                        >
+                          <span
+                            className={`${
+                              showKT ? 'translate-x-6' : 'translate-x-1'
+                            } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                          />
+                        </Switch>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

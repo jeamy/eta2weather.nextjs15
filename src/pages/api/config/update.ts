@@ -24,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .replace(/}\s*}/g, '}') // Remove multiple closing braces
         .replace(/\n\s*\n/g, '\n'); // Remove empty lines
       
-      console.log('Cleaned config file content:', cleanData);
+//      console.log('Cleaned config file content:', cleanData);
       
       try {
         config = JSON.parse(cleanData);

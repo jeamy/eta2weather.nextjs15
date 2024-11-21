@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import StoreProvider from "@/components/StoreProvider";
+import HeaderWithMenu from "@/components/HeaderWithMenu";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -27,7 +28,10 @@ export default async function RootLayout({
     <html lang="de" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <StoreProvider>
-          {children}
+          <HeaderWithMenu />
+          <main className="container mx-auto px-4 py-8">
+            {children}
+          </main>
         </StoreProvider>
       </body>
     </html>

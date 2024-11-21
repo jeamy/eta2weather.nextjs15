@@ -9,12 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.0",
     "@next/env": "^15.0.1",
     "@reduxjs/toolkit": "^2.3.0",
     "fs": "^0.0.1-security",
+    "next": "15.0.3",
     "react": "19.0.0-rc-66855b96-20241106",
     "react-dom": "19.0.0-rc-66855b96-20241106",
-    "next": "15.0.3",
     "react-redux": "^9.1.2",
     "xmldom": "^0.6.0"
   },
