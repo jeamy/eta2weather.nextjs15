@@ -1,5 +1,3 @@
-'use server';
-
 import { DOMParser } from 'xmldom';
 import { EtaApi } from './EtaApi';
 import { EtaConstants, Names2Id } from './types-constants/Names2IDconstants';
@@ -19,7 +17,7 @@ export const fetchEtaData = async (
     return data;
 };
 
-export const parseXML = (content: string, shortkey: string, names2id: Names2Id): ParsedXmlData => {
+export const parseXML = (content: string, shortkey: string, names2id: Names2Id | null): ParsedXmlData => {
     // console.log(`Parsing ${shortkey} Content:`, content);
     
     const parser = new DOMParser();
@@ -28,9 +26,14 @@ export const parseXML = (content: string, shortkey: string, names2id: Names2Id):
     // Get the value element
     const valueElement = xmlDoc.getElementsByTagName('value')[0];
     
+    let longName = ""; 
+    if (names2id != null) {
+        longName = names2id[shortkey]?.['name'] ?? 'N/A';
+    }
+
     const result: ParsedXmlData = {
         value: valueElement?.textContent ?? 'N/A',
-        long: names2id[shortkey]?.['name'] ?? 'N/A',
+        long: longName,
         short: shortkey,
         strValue: valueElement?.getAttribute('strValue') ?? 'N/A',
         unit: valueElement?.getAttribute('unit') ?? '',

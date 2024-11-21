@@ -32,25 +32,30 @@ export class EtaApi {
             const url = `http://${serverAddress}${formattedEndpoint}`;
             
             console.log(`Sending ${method} request to ${url}`);
-            console.log(`Body: ${body ? JSON.stringify(body) : 'null'}`);
-            
-            const response = await fetch(url, {
+            if (body) {
+                console.log(`Body: ${JSON.stringify(body)}`);
+            }
+
+            const fetchOptions: RequestInit = {
                 method,
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
                 },
                 body: body ? new URLSearchParams(body).toString() : undefined,
-            });
+            };
+            
+            const response = await fetch(url, fetchOptions);
             
             if (!response.ok) {
                 throw new Error(`HTTP-Fehler! Status: ${response.status}`);
             }
             
             const result = await response.text();
-//            console.log(`Response body: ${result}`);
+            // console.log(`Response received for ${url}:`, result);
+            
             return { result, error: null };
         } catch (error) {
-            console.error('API Error:', error);
+            console.error(`API Error for ${endpoint}:`, error);
             return { 
                 result: null, 
                 error: error instanceof Error ? error.message : String(error)
@@ -59,12 +64,12 @@ export class EtaApi {
     }
 
     public async getUserVar(id: string): Promise<ApiResponse> {
-//        console.log(`Getting user var for ID: ${id}`);
+        // console.log(`Getting user var for ID: ${id}`);
         return this.fetchApi(`user/var/${id}`, 'GET');
     }
 
     public async setUserVar(id: string, value: string, begin: string, end: string): Promise<ApiResponse> {
-//        console.log(`Setting user var for ID: ${id} with value: ${value}, begin: ${begin}, end: ${end}`);
+        console.log(`Setting user var for ID: ${id} with value: ${value}, begin: ${begin}, end: ${end}`);
         return this.fetchApi(`user/var/${id}`, 'POST', {
             value: value,
             begin: begin,

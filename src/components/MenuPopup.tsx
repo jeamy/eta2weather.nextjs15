@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from 'react';
-import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { Dialog } from '@headlessui/react';
 import { MenuNode } from '../types/menu';
+import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 
 interface MenuPopupProps {
   isOpen: boolean;
@@ -12,59 +13,91 @@ interface MenuPopupProps {
 }
 
 export default function MenuPopup({ isOpen, onClose, title, menuItems }: MenuPopupProps) {
+  const [values, setValues] = useState<Record<string, ParsedXmlData>>({});
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
+    const fetchValues = async () => {
+      for (const item of menuItems) {
+        if (item.uri) {
+          try {
+            setLoading(prev => ({ ...prev, [item.uri]: true }));
+            
+            const response = await fetch(`/api/eta/readMenuData?uri=${encodeURIComponent(item.uri)}`);
+            const result = await response.json();
+
+            if (result.success && result.data) {
+              setValues(prev => ({
+                ...prev,
+                [item.uri]: result.data
+              }));
+            } else {
+              console.error(`Error fetching value for ${item.uri}:`, result.error);
+            }
+          } catch (error) {
+            console.error(`Error fetching value for ${item.uri}:`, error);
+          } finally {
+            setLoading(prev => ({ ...prev, [item.uri]: false }));
+          }
+        }
       }
     };
 
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
+    if (isOpen && menuItems.length > 0) {
+      setValues({}); // Reset values when opening
+      fetchValues();
     }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
+  }, [isOpen, menuItems]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-xl font-semibold font-sans">{title}</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 focus:outline-none"
-          >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="p-4 max-h-[70vh] overflow-y-auto">
-          {menuItems.length > 0 ? (
-            <div className="space-y-2">
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      className="relative z-50"
+    >
+      <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        <div className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl">
+          <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
+            {title}
+          </h3>
+
+          <div className="mt-2">
+            <div className="space-y-4">
               {menuItems.map((item) => (
-                <Link
-                  key={item.uri}
-                  href={`/eta${item.uri}`}
-                  className="block px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-md font-sans transition-colors duration-150"
-                  onClick={onClose}
-                >
-                  {item.name}
-                </Link>
+                <div key={item.uri} className="flex justify-between items-center">
+                  <span className="text-sm text-gray-700">{item.name}</span>
+                  {item.uri && (
+                    <div className="text-sm font-medium text-gray-900">
+                      {loading[item.uri] ? (
+                        <span className="text-gray-400">Loading...</span>
+                      ) : values[item.uri] ? (
+                        <div className="flex justify-between gap-4">
+                          <span>{values[item.uri].strValue || values[item.uri].value}</span>
+                          {values[item.uri].unit && (
+                            <span className="text-gray-500">{values[item.uri].unit}</span>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
-          ) : (
-            <p className="text-gray-500 text-center py-4">No items available</p>
-          )}
+          </div>
+
+          <div className="mt-4">
+            <button
+              type="button"
+              className="inline-flex justify-center rounded-md border border-transparent bg-blue-100 px-4 py-2 text-sm font-medium text-blue-900 hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

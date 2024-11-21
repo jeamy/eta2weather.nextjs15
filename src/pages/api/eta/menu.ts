@@ -65,6 +65,18 @@ function parseMenuXML(xmlString: string): MenuNode[] {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+    // Enable CORS
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
@@ -119,6 +131,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
     } catch (error) {
         console.error('Error:', error);
-        return res.status(500).json({ error: 'Failed to fetch menu data' });
+        return res.status(500).json({ 
+            success: false, 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+        });
     }
 }
