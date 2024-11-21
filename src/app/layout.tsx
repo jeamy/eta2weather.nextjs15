@@ -28,7 +28,6 @@ export default async function RootLayout({
     <html lang="de" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <StoreProvider>
-          <HeaderWithMenu />
           <main className="container mx-auto px-4 py-8">
             {children}
           </main>
