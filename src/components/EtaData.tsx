@@ -9,7 +9,7 @@ import { useAppDispatch } from '@/redux/hooks';
 import { storeData as storeEtaData, storeError } from '@/redux/etaSlice';
 import { storeData as storeConfigData } from '@/redux/configSlice';
 import { EtaData as EtaDataType, ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
-import { DEFAULT_UPDATE_TIMER } from '@/reader/functions/types-constants/TimerConstants';
+import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
 import { Switch } from '@headlessui/react';
 
@@ -26,8 +26,6 @@ interface ApiResponse {
   data: EtaDataType;
   config?: ConfigState['data'];
 }
-
-const MIN_API_INTERVAL = 5000; // Minimum 5 seconds between API calls
 
 const EtaData: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
