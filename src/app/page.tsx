@@ -30,9 +30,6 @@ export default function Home() {
 
   return (
     <div className="font-sans min-h-screen p-4 pb-20 gap-8 sm:p-8 md:p-16 lg:p-20">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-center">eta2weather.nextjs15</h1>
-      </header>
       <main className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <div className="col-span-1">

@@ -1,7 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState, useCallback } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
+import { useEffect, useState, useCallback } from 'react';
 import { MenuNode } from '../types/menu';
 import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { formatValue } from '@/utils/formatters';
@@ -100,49 +99,53 @@ export default function MenuPopup({ isOpen, onClose, title, menuItems }: MenuPop
                     </span>
                   )}
                 </div>
-              ) : null}
+              ) : (
+                <span className="text-gray-400">No data</span>
+              )}
             </div>
           )}
         </div>
-
         {item.children && item.children.length > 0 && (
-          <ul className="space-y-2 mt-2">
-            {item.children.map((childItem, childIndex) => 
-              renderMenuItem(childItem, childIndex, `${itemKey}-`)
-            )}
+          <ul className="mt-1 space-y-1">
+            {item.children.map((child, childIndex) => renderMenuItem(child, childIndex, itemKey))}
           </ul>
         )}
       </li>
     );
   };
 
+  if (!isOpen) return null;
+
   return (
-    <Dialog.Root open={isOpen} onOpenChange={onClose}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/30 animate-fadeIn" />
-        <Dialog.Content className="fixed left-[50%] top-[50%] max-h-[85vh] w-[90vw] max-w-[800px] translate-x-[-50%] translate-y-[-50%] rounded-lg bg-white p-6 shadow-lg focus:outline-none animate-contentShow overflow-y-auto">
-          <Dialog.Title className="text-xl font-semibold text-gray-900 mb-4">
+    <>
+      <div 
+        className="fixed inset-0 bg-black/30 transition-opacity"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        <div className="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all max-h-[80vh] overflow-y-auto">
+          <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
             {title}
-          </Dialog.Title>
-          
-          <div className="space-y-6">
+          </h3>
+
+          <div className="mt-2">
             <ul className="space-y-2 list-disc pl-4">
               {menuItems.map((item, index) => renderMenuItem(item, index))}
             </ul>
           </div>
 
-          <Dialog.Close asChild>
-            <button
-              className="absolute right-4 top-4 inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:text-gray-500 focus:outline-none"
-              aria-label="Close"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </Dialog.Close>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-4 inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:text-gray-500 focus:outline-none"
+            aria-label="Close"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </>
   );
 }

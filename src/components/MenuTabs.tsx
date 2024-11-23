@@ -1,4 +1,3 @@
-import * as Tabs from '@radix-ui/react-tabs';
 import { useEffect, useState, useCallback } from 'react';
 import { MenuNode } from '@/types/menu';
 import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
@@ -72,74 +71,76 @@ export default function MenuTabs({ menuItems = [] }: MenuTabsProps) {
 
   return (
     <div className="w-1/2 px-4">
-      <Tabs.Root value={String(selectedIndex)} onValueChange={(value) => setSelectedIndex(Number(value))}>
-        <Tabs.List className="flex space-x-1 rounded-xl bg-blue-900/20 p-1">
-          {menuItems.map((category, categoryIndex) => (
-            <Tabs.Trigger
-              key={`tab-${categoryIndex}-${category.name}`}
-              value={String(categoryIndex)}
-              className={`w-full rounded-lg py-2.5 text-sm font-medium leading-5 text-blue-700 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 data-[state=active]:bg-white data-[state=active]:shadow data-[state=inactive]:text-black data-[state=inactive]:hover:bg-white/[0.12] data-[state=inactive]:hover:text-blue-700`}
-            >
-              {category.name}
-            </Tabs.Trigger>
-          ))}
-        </Tabs.List>
-        <div className="mt-2">
-          {menuItems.map((category, categoryIndex) => (
-            <Tabs.Content
-              key={`panel-${categoryIndex}-${category.name}`}
-              value={String(categoryIndex)}
-              className="rounded-xl bg-white p-3 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 border border-gray-200 shadow-lg"
-            >
-              <div className="space-y-4">
-                {category.children?.map((item, itemIndex) => {
-                  const itemId = `${categoryIndex}-${itemIndex}-${item.name}`;
-                  return (
-                    <div key={itemId} className="space-y-2">
-                      <h3 className="text-lg font-medium text-gray-900">{item.name}</h3>
-                      {item.children?.map((subItem, subItemIndex) => {
-                        const subItemId = `${itemId}-${subItemIndex}-${subItem.name}`;
-                        return (
-                          <div key={subItemId} className="pl-4">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-700">{subItem.name}</span>
-                              {subItem.uri && (
-                                <div className="flex justify-end min-w-[8rem]">
-                                  {loading[subItem.uri] ? (
-                                    <span className="text-gray-400">Loading...</span>
-                                  ) : error[subItem.uri] ? (
-                                    <span className="text-red-500 text-sm" title={error[subItem.uri]}>Error</span>
-                                  ) : values[subItem.uri] ? (
-                                    <div 
-                                      className="tabular-nums cursor-help"
-                                      title={subItem.uri}
-                                    >
-                                      <span className="inline-block min-w-[3rem] text-right">
-                                        {renderValue(values[subItem.uri])}
+      <div className="flex space-x-1 rounded-xl bg-blue-900/20 p-1">
+        {menuItems.map((category, categoryIndex) => (
+          <button
+            key={`tab-${categoryIndex}-${category.name}`}
+            onClick={() => setSelectedIndex(categoryIndex)}
+            className={`w-full rounded-lg py-2.5 text-sm font-medium leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 transition-colors
+              ${selectedIndex === categoryIndex 
+                ? 'bg-white text-blue-700 shadow' 
+                : 'text-black hover:bg-white/[0.12] hover:text-blue-700'}`}
+          >
+            {category.name}
+          </button>
+        ))}
+      </div>
+      <div className="mt-2">
+        {menuItems.map((category, categoryIndex) => (
+          <div
+            key={`panel-${categoryIndex}-${category.name}`}
+            className={`rounded-xl bg-white p-3 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 border border-gray-200 shadow-lg ${
+              selectedIndex === categoryIndex ? '' : 'hidden'
+            }`}
+          >
+            <div className="space-y-4">
+              {category.children?.map((item, itemIndex) => {
+                const itemId = `${categoryIndex}-${itemIndex}-${item.name}`;
+                return (
+                  <div key={itemId} className="space-y-2">
+                    <h3 className="text-lg font-medium text-gray-900">{item.name}</h3>
+                    {item.children?.map((subItem, subItemIndex) => {
+                      const subItemId = `${itemId}-${subItemIndex}-${subItem.name}`;
+                      return (
+                        <div key={subItemId} className="pl-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-700">{subItem.name}</span>
+                            {subItem.uri && (
+                              <div className="flex justify-end min-w-[8rem]">
+                                {loading[subItem.uri] ? (
+                                  <span className="text-gray-400">Loading...</span>
+                                ) : error[subItem.uri] ? (
+                                  <span className="text-red-500 text-sm" title={error[subItem.uri]}>Error</span>
+                                ) : values[subItem.uri] ? (
+                                  <div 
+                                    className="tabular-nums cursor-help"
+                                    title={subItem.uri}
+                                  >
+                                    <span className="inline-block min-w-[3rem] text-right">
+                                      {renderValue(values[subItem.uri])}
+                                    </span>
+                                    {values[subItem.uri].unit && (
+                                      <span className="text-gray-500 ml-1 inline-block">
+                                        {values[subItem.uri].unit}
                                       </span>
-                                      {values[subItem.uri].unit && (
-                                        <span className="text-gray-500 ml-1 inline-block">
-                                          {values[subItem.uri].unit}
-                                        </span>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <span className="text-gray-400">No data</span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">No data</span>
+                                )}
+                              </div>
+                            )}
                           </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </div>
-            </Tabs.Content>
-          ))}
-        </div>
-      </Tabs.Root>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

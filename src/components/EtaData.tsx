@@ -11,7 +11,6 @@ import { storeData as storeConfigData } from '@/redux/configSlice';
 import { EtaData as EtaDataType, ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
-import * as Switch from '@radix-ui/react-switch';
 
 // Constants
 
@@ -122,7 +121,6 @@ const EtaData: React.FC = () => {
       }
       
       // Set new interval with safe timer value
-//      console.log(`Setting update timer to ${safeTimer}ms`);
       intervalId.current = setInterval(loadAndStoreEta, safeTimer);
     }
 
@@ -217,36 +215,36 @@ const EtaData: React.FC = () => {
                         {value.unit && <span className="text-gray-600 ml-1">{value.unit}</span>}
                       </span>
                       {value.short === 'HT' && (
-                        <Switch.Root
-                          checked={showHT}
-                          onCheckedChange={setShowHT}
-                          className={`${
+                        <button
+                          role="switch"
+                          aria-checked={showHT}
+                          onClick={() => setShowHT(!showHT)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                             showHT ? 'bg-blue-600' : 'bg-gray-200'
-                          } relative w-11 h-6 rounded-full outline-none cursor-default`}
+                          }`}
                         >
-                          <Switch.Thumb 
-                            className={`
-                              block w-4 h-4 bg-white rounded-full transition-transform duration-100 translate-x-1
-                              ${showHT ? 'translate-x-6' : ''}
-                            `}
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              showHT ? 'translate-x-6' : 'translate-x-1'
+                            }`}
                           />
-                        </Switch.Root>
+                        </button>
                       )}
                       {value.short === 'KT' && (
-                        <Switch.Root
-                          checked={showKT}
-                          onCheckedChange={setShowKT}
-                          className={`${
+                        <button
+                          role="switch"
+                          aria-checked={showKT}
+                          onClick={() => setShowKT(!showKT)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                             showKT ? 'bg-blue-600' : 'bg-gray-200'
-                          } relative w-11 h-6 rounded-full outline-none cursor-default`}
+                          }`}
                         >
-                          <Switch.Thumb 
-                            className={`
-                              block w-4 h-4 bg-white rounded-full transition-transform duration-100 translate-x-1
-                              ${showKT ? 'translate-x-6' : ''}
-                            `}
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              showKT ? 'translate-x-6' : 'translate-x-1'
+                            }`}
                           />
-                        </Switch.Root>
+                        </button>
                       )}
                     </div>
                   </div>
