@@ -11,7 +11,7 @@ import { storeData as storeConfigData } from '@/redux/configSlice';
 import { EtaData as EtaDataType, ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
-import { Switch } from '@headlessui/react';
+import * as Switch from '@radix-ui/react-switch';
 
 // Constants
 
@@ -217,34 +217,36 @@ const EtaData: React.FC = () => {
                         {value.unit && <span className="text-gray-600 ml-1">{value.unit}</span>}
                       </span>
                       {value.short === 'HT' && (
-                        <Switch
+                        <Switch.Root
                           checked={showHT}
-                          onChange={setShowHT}
+                          onCheckedChange={setShowHT}
                           className={`${
                             showHT ? 'bg-blue-600' : 'bg-gray-200'
-                          } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                          } relative w-11 h-6 rounded-full outline-none cursor-default`}
                         >
-                          <span
-                            className={`${
-                              showHT ? 'translate-x-6' : 'translate-x-1'
-                            } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                          <Switch.Thumb 
+                            className={`
+                              block w-4 h-4 bg-white rounded-full transition-transform duration-100 translate-x-1
+                              ${showHT ? 'translate-x-6' : ''}
+                            `}
                           />
-                        </Switch>
+                        </Switch.Root>
                       )}
                       {value.short === 'KT' && (
-                        <Switch
+                        <Switch.Root
                           checked={showKT}
-                          onChange={setShowKT}
+                          onCheckedChange={setShowKT}
                           className={`${
                             showKT ? 'bg-blue-600' : 'bg-gray-200'
-                          } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                          } relative w-11 h-6 rounded-full outline-none cursor-default`}
                         >
-                          <span
-                            className={`${
-                              showKT ? 'translate-x-6' : 'translate-x-1'
-                            } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                          <Switch.Thumb 
+                            className={`
+                              block w-4 h-4 bg-white rounded-full transition-transform duration-100 translate-x-1
+                              ${showKT ? 'translate-x-6' : ''}
+                            `}
                           />
-                        </Switch>
+                        </Switch.Root>
                       )}
                     </div>
                   </div>

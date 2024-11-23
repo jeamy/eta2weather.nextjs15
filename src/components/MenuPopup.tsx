@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState, useCallback } from 'react';
-import { Dialog, Transition } from '@headlessui/react';
+import * as Dialog from '@radix-ui/react-dialog';
 import { MenuNode } from '../types/menu';
 import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { formatValue } from '@/utils/formatters';
@@ -117,54 +117,32 @@ export default function MenuPopup({ isOpen, onClose, title, menuItems }: MenuPop
   };
 
   return (
-    <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
-        <Transition.Child
-          as={Fragment}
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-        </Transition.Child>
+    <Dialog.Root open={isOpen} onOpenChange={onClose}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 bg-black/30 animate-fadeIn" />
+        <Dialog.Content className="fixed left-[50%] top-[50%] max-h-[85vh] w-[90vw] max-w-[800px] translate-x-[-50%] translate-y-[-50%] rounded-lg bg-white p-6 shadow-lg focus:outline-none animate-contentShow overflow-y-auto">
+          <Dialog.Title className="text-xl font-semibold text-gray-900 mb-4">
+            {title}
+          </Dialog.Title>
+          
+          <div className="space-y-6">
+            <ul className="space-y-2 list-disc pl-4">
+              {menuItems.map((item, index) => renderMenuItem(item, index))}
+            </ul>
+          </div>
 
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0 scale-95"
-            enterTo="opacity-100 scale-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100 scale-100"
-            leaveTo="opacity-0 scale-95"
-          >
-            <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl max-h-[80vh] overflow-y-auto">
-              <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-4">
-                {title}
-              </Dialog.Title>
-
-              <div className="mt-2">
-                <ul className="space-y-2 list-disc pl-4">
-                  {menuItems.map((item, index) => renderMenuItem(item, index))}
-                </ul>
-              </div>
-
-              <div className="mt-4">
-                <button
-                  type="button"
-                  className="inline-flex justify-center rounded-md border border-transparent bg-blue-100 px-4 py-2 text-sm font-medium text-blue-900 hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                  onClick={onClose}
-                >
-                  Close
-                </button>
-              </div>
-            </Dialog.Panel>
-          </Transition.Child>
-        </div>
-      </Dialog>
-    </Transition>
+          <Dialog.Close asChild>
+            <button
+              className="absolute right-4 top-4 inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:text-gray-500 focus:outline-none"
+              aria-label="Close"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </Dialog.Close>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
