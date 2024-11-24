@@ -17,11 +17,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { id, value, begin = "0", end = "0" } = req.body;
 
+    console.log(`Setting user var for ID: ${id} with value: ${value}, begin: ${begin}, end: ${end}`);
+
     if (!id || !value) {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
 
     const etaApi = new EtaApi(config.s_eta);
+
     const result = await etaApi.setUserVar(id, value, begin, end);
 
     if (result.error) {

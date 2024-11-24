@@ -3,6 +3,7 @@ import { ConfigState } from "@/redux/configSlice";
 import { WifiAF83State } from "@/redux/wifiAf83Slice";
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { EtaConstants, Names2Id } from "@/reader/functions/types-constants/Names2IDconstants";
+import { EtaPos } from "@/reader/functions/types-constants/EtaConstants";
 
 type EtaValues = {
     einaus: string;
@@ -81,6 +82,7 @@ export async function updateSliderPosition(
     }
 
     const scaledPosition = (newPosition * 10).toString();
+    console.log(`Setting slider position to: ${scaledPosition}`);
     try {
         // Set the new position using the API route
         const response = await fetch('/api/eta/update', {
@@ -114,4 +116,110 @@ export async function updateSliderPosition(
             error: error instanceof Error ? error.message : String(error)
         };
     }
+}
+
+export async function updateHeating(
+    ht: number,
+    auto: number,
+    ab: number,
+    names2id: Names2Id,
+    etaApi: EtaApi,
+): Promise<{ success: boolean; error?: string }> {
+    // Set the new position
+    const idht = names2id[EtaConstants.HEIZENTASTE]?.['id'];
+    const idauto = names2id[EtaConstants.AUTOTASTE]?.['id'];
+    const idab = names2id[EtaConstants.ABSENKTASTE]?.['id'];
+
+    if (!idht) {
+        return {
+            success: false,
+            error: `Keine ID gefunden für shortkey: ${EtaConstants.HEIZENTASTE}`
+        };
+    }
+    if (!idauto) {
+        return {
+            success: false,
+            error: `Keine ID gefunden für shortkey: ${EtaConstants.AUTOTASTE}`
+        };
+    }
+    if (!idab) {
+        return {
+            success: false,
+            error: `Keine ID gefunden für shortkey: ${EtaConstants.ABSENKTASTE}`
+        };
+    }
+
+    console.log(`
+      ht: ${ht} ${names2id[EtaConstants.HEIZENTASTE]?.['id']}
+      auto: ${auto} ${names2id[EtaConstants.AUTOTASTE]?.['id']}
+      ab: ${ab} ${names2id[EtaConstants.ABSENKTASTE]?.['id']}
+    `);
+
+    try {
+        // Set the new heating using the API route
+        const rht = await fetch('/api/eta/update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                id: idht,
+                value: ht == 1 ? EtaPos.EIN : EtaPos.AUS,
+                begin: "0",
+                end: "0"
+            })
+        });
+
+        if (!rht.ok) {
+            const error = await rht.json();
+            throw new Error(error.error || 'Failed to update heating position');
+        }
+
+        const rauto = await fetch('/api/eta/update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                id: idauto,
+                value: auto == 1 ? EtaPos.EIN : EtaPos.AUS,
+                begin: "0",
+                end: "0"
+            })
+        });
+
+        if (!rauto.ok) {
+            const error = await rauto.json();
+            throw new Error(error.error || 'Failed to update auto position');
+        }
+
+        const rab = await fetch('/api/eta/update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                id: idab,
+                value: ab == 1 ? EtaPos.EIN : EtaPos.AUS,
+                begin: "0",
+                end: "0"
+            })
+        });
+
+        if (!rab.ok) {
+            const error = await rab.json();
+            throw new Error(error.error || 'Failed to update ab position');
+        }
+
+        return {
+            success: true,
+        };        
+    } catch (error) {
+        console.error('Error setting positions:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+        };
+    }
+
 }

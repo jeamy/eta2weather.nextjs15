@@ -11,6 +11,9 @@ import { storeData as storeConfigData } from '@/redux/configSlice';
 import { EtaData as EtaDataType, ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
+import { defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
+import { EtaApi } from '@/reader/functions/EtaApi';
+import { updateHeating } from '@/utils/Functions';
 
 // Constants
 
@@ -35,6 +38,11 @@ const EtaData: React.FC = () => {
   const isFirstLoad = useRef(true);
   const intervalId = useRef<NodeJS.Timeout | null>(null);
   const lastApiCall = useRef<number>(0);
+  const etaApiRef = useRef<EtaApi | null>(null);
+
+  useEffect(() => {
+    etaApiRef.current = new EtaApi();
+  }, []);
 
   const loadAndStoreEta = useCallback(async () => {
     const now = Date.now();
@@ -65,6 +73,19 @@ const EtaData: React.FC = () => {
         };
         return acc;
       }, {} as Record<string, DisplayEtaValue>);
+
+      // Ensure HT, DT, and AA are present with default values if missing
+      const requiredKeys = ['HT', 'DT', 'AA'];
+      requiredKeys.forEach(key => {
+        if (!transformed[key]) {
+          transformed[key] = {
+            short: key,
+            long: key,
+            strValue: 'Aus',
+            unit: ''
+          };
+        }
+      });
 
       setDisplayData(transformed);
       dispatch(storeEtaData(data));
@@ -101,6 +122,20 @@ const EtaData: React.FC = () => {
         };
         return acc;
       }, {} as Record<string, DisplayEtaValue>);
+
+      // Ensure HT, DT, and AA are present with default values if missing
+      const requiredKeys = ['HT', 'DT', 'AA'];
+      requiredKeys.forEach(key => {
+        if (!transformed[key]) {
+          transformed[key] = {
+            short: key,
+            long: key,
+            strValue: 'Aus',
+            unit: ''
+          };
+        }
+      });
+
       setDisplayData(transformed);
     }
   }, [etaState.data]);
@@ -130,6 +165,66 @@ const EtaData: React.FC = () => {
       }
     };
   }, [loadAndStoreEta, config.data.t_update_timer]);
+
+  type HeatingKey = 'HT' | 'DT' | 'AA';
+
+  const isHeatingKey = (key: string): key is HeatingKey => {
+    return ['HT', 'DT', 'AA'].includes(key);
+  };
+
+  const handleToggle = (key: HeatingKey) => {
+    if (!displayData || !displayData.HT || !displayData.DT || !displayData.AA) {
+      console.error('Display data is not properly initialized');
+      return;
+    }
+
+    const newDisplayData = {
+      HT: { ...displayData.HT },
+      DT: { ...displayData.DT },
+      AA: { ...displayData.AA }
+    };
+
+    if (key === 'AA') {
+      // Only allow turning AA "Ein" if it's currently "Aus"
+      if (displayData.AA.strValue === 'Aus') {
+        newDisplayData.AA.strValue = 'Ein';
+        newDisplayData.HT.strValue = 'Aus';
+        newDisplayData.DT.strValue = 'Aus';
+      }
+    } else {
+      // Handle HT or DT clicks
+      if (displayData[key].strValue === 'Ein') {
+        // If button was "Ein", turn it "Aus"
+        newDisplayData[key].strValue = 'Aus';
+        // If both are now "Aus", AA becomes "Ein"
+        if (newDisplayData.HT.strValue === 'Aus' && newDisplayData.DT.strValue === 'Aus') {
+          newDisplayData.AA.strValue = 'Ein';
+        }
+      } else {
+        // If button was "Aus", turn it "Ein" and the other one "Aus"
+        newDisplayData.HT.strValue = key === 'HT' ? 'Ein' : 'Aus';
+        newDisplayData.DT.strValue = key === 'DT' ? 'Ein' : 'Aus';
+        newDisplayData.AA.strValue = 'Aus';
+      }
+    }
+
+    // Update the display
+    setDisplayData(newDisplayData);
+
+    // Update the server state
+    if (etaApiRef.current && defaultNames2Id) {
+      const ht = newDisplayData.HT.strValue === 'Ein' ? 1 : 0;
+      const dt = newDisplayData.DT.strValue === 'Ein' ? 1 : 0;
+      const aa = newDisplayData.AA.strValue === 'Ein' ? 1 : 0;
+
+      updateHeating(ht, aa, dt, defaultNames2Id, etaApiRef.current)
+        .then(response => {
+          if (!response.success) {
+            console.error('Failed to update heating:', response.error);
+          }
+        });
+    }
+  };
 
   if (isLoading || !displayData) {
     return (
@@ -215,14 +310,11 @@ const EtaData: React.FC = () => {
                           role="switch"
                           aria-checked={value.strValue === 'Ein'}
                           onClick={() => {
-                            const newValue = value.strValue === 'Ein' ? 'Aus' : 'Ein';
-                            setDisplayData(prev => ({
-                              ...prev,
-                              [key]: {
-                                ...value,
-                                strValue: newValue
-                              } as DisplayEtaValue
-                            }));
+                            if (isHeatingKey(value.short)) {
+                              handleToggle(value.short);
+                            } else {
+                              console.error('Invalid heating key:', value.short);
+                            }
                           }}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                             value.strValue === 'Ein' ? 'bg-green-600' : 'bg-red-600'
