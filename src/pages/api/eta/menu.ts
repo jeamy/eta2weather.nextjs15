@@ -1,7 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { Config } from '@/reader/functions/types-constants/ConfigConstants';
 import { EtaApi } from '@/reader/functions/EtaApi';
 
 interface MenuNode {
