@@ -32,8 +32,6 @@ const EtaData: React.FC = () => {
   const etaState = useSelector((state: RootState) => state.eta);
   const [displayData, setDisplayData] = useState<Record<string, DisplayEtaValue> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showHT, setShowHT] = useState(false);
-  const [showKT, setShowKT] = useState(false);
   const isFirstLoad = useRef(true);
   const intervalId = useRef<NodeJS.Timeout | null>(null);
   const lastApiCall = useRef<number>(0);
@@ -177,14 +175,12 @@ const EtaData: React.FC = () => {
             {Object.entries(etaState.data)
               .filter(([key, value]) => {
                 if (!value.strValue || value.strValue.trim() === '') return false;
-                if (key === 'HT' && !showHT) return false;
-                if (key === 'KT' && !showKT) return false;
                 return true;
               })
               .sort(([_, a], [__, b]) => {
                 const order: Record<string, number> = { 
                   SP: 1, AT: 2, KZ: 3, VT: 4, HK: 5, 
-                  IP: 6, VR: 7, SZ: 8, EAT: 9, HT: 10, KT: 11 
+                  IP: 6, VR: 7, SZ: 8, EAT: 9, HT: 10, AA: 11, DT: 12
                 };
                 const aOrder = a.short in order ? order[a.short] : 99;
                 const bOrder = b.short in order ? order[b.short] : 99;
@@ -214,34 +210,27 @@ const EtaData: React.FC = () => {
                         {value.strValue}
                         {value.unit && <span className="text-gray-600 ml-1">{value.unit}</span>}
                       </span>
-                      {value.short === 'HT' && (
+                      {(value.short === 'HT' || value.short === 'DT' || value.short === 'AA') && (
                         <button
                           role="switch"
-                          aria-checked={showHT}
-                          onClick={() => setShowHT(!showHT)}
+                          aria-checked={value.strValue === 'Ein'}
+                          onClick={() => {
+                            const newValue = value.strValue === 'Ein' ? 'Aus' : 'Ein';
+                            setDisplayData(prev => ({
+                              ...prev,
+                              [key]: {
+                                ...value,
+                                strValue: newValue
+                              } as DisplayEtaValue
+                            }));
+                          }}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                            showHT ? 'bg-blue-600' : 'bg-gray-200'
+                            value.strValue === 'Ein' ? 'bg-green-600' : 'bg-red-600'
                           }`}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              showHT ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                      )}
-                      {value.short === 'KT' && (
-                        <button
-                          role="switch"
-                          aria-checked={showKT}
-                          onClick={() => setShowKT(!showKT)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                            showKT ? 'bg-blue-600' : 'bg-gray-200'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              showKT ? 'translate-x-6' : 'translate-x-1'
+                              value.strValue === 'Ein' ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
@@ -254,7 +243,7 @@ const EtaData: React.FC = () => {
         </div>
       ) : (
         <div className="flex justify-center items-center min-h-[200px]">
-          <p className="text-red-500">No data available</p>
+          <p>Loading...</p>
         </div>
       )}
     </div>

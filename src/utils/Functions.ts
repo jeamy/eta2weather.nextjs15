@@ -7,7 +7,7 @@ import { EtaConstants, Names2Id } from "@/reader/functions/types-constants/Names
 type EtaValues = {
     einaus: string;
     schaltzustand: string;
-    kommenttaste: string;
+    heizentaste: string;
     tes: number;
     tea: number;
 };
@@ -18,7 +18,7 @@ type TempDiff = {
     twi: number;
 };
 
-export function calculateNewSliderPosition({ einaus, schaltzustand, kommenttaste }: EtaValues, diff: number): string {
+export function calculateNewSliderPosition({ einaus, schaltzustand, heizentaste }: EtaValues, diff: number): string {
 
     //    console.log(`
     //      Einaus: ${einaus}
@@ -26,7 +26,7 @@ export function calculateNewSliderPosition({ einaus, schaltzustand, kommenttaste
     //      Kommenttaste: ${kommenttaste}
     //      Diff: ${diff}
     //    `);
-    return (einaus === "Aus" || (schaltzustand === "Aus" && kommenttaste === "Aus"))
+    return (einaus === "Aus" || (schaltzustand === "Aus" && heizentaste === "Aus"))
         ? "0.0"
         : new Diff().getDiff(diff, 1.25, 5.0, 0.0, 100.0).toString();
 }

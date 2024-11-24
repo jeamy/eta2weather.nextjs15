@@ -8,6 +8,8 @@
   "EAT": { "id": "/120/10101/0/0/12080", "name": "Ein/Aus Taste" },
   "KZ": { "id": "/40/10021/0/11109/0", "name": "Kessel Temperatur" },
   "HT": { "id": "/120/10101/0/0/12125", "name": "Heizen Taste" },
+  "AA": { "id": "/120/10101/0/0/12126", "name": "Autotaste" },
+  "DT": { "id": "/120/10101/0/0/12230", "name": "Absenken Taste" },
   "KT": { "id": "/120/10101/0/0/12218", "name": "Kommen Taste" },
   "VT": { "id": "/120/10101/0/0/12241", "name": "Vorlauf Temperatur" }
 }
