@@ -6,6 +6,6 @@
   "f_eta": "f_eta.json",
   "f_wifiaf83": "f_wifiaf89.json",
   "f_names2id": "f_names2id.json",
-  "t_update_timer": "60000",
+  "t_update_timer": "30000",
   "diff": "4.1"
 }

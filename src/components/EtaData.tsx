@@ -37,16 +37,37 @@ const EtaData: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
   const config = useSelector((state: RootState) => state.config);
   const etaState = useSelector((state: RootState) => state.eta);
-  const [displayData, setDisplayData] = useState<DisplayDataType>({
-    HT: { short: 'HT', long: 'Heizung', strValue: 'Ein', unit: '' },
-    DT: { short: 'DT', long: 'Durchlauferhitzer', strValue: 'Ein', unit: '' },
-    AA: { short: 'AA', long: 'Außenanlage', strValue: 'Ein', unit: '' }
-  });
   const [isLoading, setIsLoading] = useState(true);
   const isFirstLoad = useRef(true);
   const intervalId = useRef<NodeJS.Timeout | null>(null);
   const lastApiCall = useRef<number>(0);
   const etaApiRef = useRef<EtaApi | null>(null);
+
+  // Create default values for each switch
+  const defaultValues: Record<'HT' | 'DT' | 'AA', DisplayEtaValue> = {
+    HT: { 
+      short: 'HT',
+      long: 'Heizen Taste',
+      strValue: 'Aus',
+      unit: ''
+    },
+    DT: { 
+      short: 'DT',
+      long: 'Absenken Taste',
+      strValue: 'Aus',
+      unit: ''
+    },
+    AA: { 
+      short: 'AA',
+      long: 'Autotaste',
+      strValue: 'Aus',
+      unit: ''
+    }
+  };
+
+  const [displayData, setDisplayData] = useState<DisplayDataType>({
+    ...defaultValues
+  });
 
   useEffect(() => {
     etaApiRef.current = new EtaApi();
@@ -121,30 +142,24 @@ const EtaData: React.FC = () => {
   // Update display data when etaState changes
   useEffect(() => {
     if (etaState.data) {
-      const transformed = Object.entries(etaState.data).reduce((acc, [key, value]) => {
-        acc[key] = {
-          short: value.short || key,
-          long: value.long || key,
-          strValue: value.strValue || value.toString(),
-          unit: value.unit || ''
-        };
-        return acc;
-      }, {} as DisplayDataType);
+      const newDisplayData: DisplayDataType = {
+        ...defaultValues,  // Start with default values
+        ...Object.entries(etaState.data).reduce((acc, [key, value]) => {
+          if (['HT', 'DT', 'AA'].includes(key)) {
+            acc[key] = {
+              short: key,
+              long: key === 'HT' ? 'Heizen Taste' : 
+                    key === 'DT' ? 'Absenken Taste' : 
+                    'Autotaste',
+              strValue: value.strValue || 'Aus',
+              unit: value.unit || ''
+            };
+          }
+          return acc;
+        }, {} as DisplayDataType)
+      };
 
-      // Ensure HT, DT, and AA are present with default values if missing
-      const requiredKeys = ['HT', 'DT', 'AA'];
-      requiredKeys.forEach(key => {
-        if (!transformed[key]) {
-          transformed[key] = {
-            short: key,
-            long: key,
-            strValue: 'Aus',
-            unit: ''
-          };
-        }
-      });
-
-      setDisplayData(transformed);
+      setDisplayData(newDisplayData);
     }
   }, [etaState.data]);
 
@@ -184,28 +199,6 @@ const EtaData: React.FC = () => {
     // Get the current value from displayData
     const currentValue = displayData[key]?.strValue === 'Ein' ? 'Ein' : 'Aus';
     
-    // Create default values for each switch
-    const defaultValues: Record<HeatingKey, DisplayEtaValue> = {
-      HT: { 
-        short: 'HT',
-        long: 'Heizen Taste',
-        strValue: 'Aus',
-        unit: ''
-      },
-      DT: { 
-        short: 'DT',
-        long: 'Absenken Taste',
-        strValue: 'Aus',
-        unit: ''
-      },
-      AA: { 
-        short: 'AA',
-        long: 'Autotaste',
-        strValue: 'Aus',
-        unit: ''
-      }
-    };
-
     const newDisplayData: DisplayDataType = {
       HT: { 
         ...defaultValues.HT,
