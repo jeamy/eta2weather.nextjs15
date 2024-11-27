@@ -24,6 +24,10 @@ interface DisplayEtaValue {
   unit: string;
 }
 
+type DisplayDataType = {
+  [key: string]: DisplayEtaValue;
+};
+
 interface ApiResponse {
   data: EtaDataType;
   config?: ConfigState['data'];
@@ -33,7 +37,11 @@ const EtaData: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
   const config = useSelector((state: RootState) => state.config);
   const etaState = useSelector((state: RootState) => state.eta);
-  const [displayData, setDisplayData] = useState<Record<string, DisplayEtaValue> | null>(null);
+  const [displayData, setDisplayData] = useState<DisplayDataType>({
+    HT: { short: 'HT', long: 'Heizung', strValue: 'Ein', unit: '' },
+    DT: { short: 'DT', long: 'Durchlauferhitzer', strValue: 'Ein', unit: '' },
+    AA: { short: 'AA', long: 'Außenanlage', strValue: 'Ein', unit: '' }
+  });
   const [isLoading, setIsLoading] = useState(true);
   const isFirstLoad = useRef(true);
   const intervalId = useRef<NodeJS.Timeout | null>(null);
@@ -72,7 +80,7 @@ const EtaData: React.FC = () => {
           unit: parsedValue.unit || ''
         };
         return acc;
-      }, {} as Record<string, DisplayEtaValue>);
+      }, {} as DisplayDataType);
 
       // Ensure HT, DT, and AA are present with default values if missing
       const requiredKeys = ['HT', 'DT', 'AA'];
@@ -121,7 +129,7 @@ const EtaData: React.FC = () => {
           unit: value.unit || ''
         };
         return acc;
-      }, {} as Record<string, DisplayEtaValue>);
+      }, {} as DisplayDataType);
 
       // Ensure HT, DT, and AA are present with default values if missing
       const requiredKeys = ['HT', 'DT', 'AA'];
@@ -173,43 +181,93 @@ const EtaData: React.FC = () => {
   };
 
   const handleToggle = (key: HeatingKey) => {
-    if (!displayData || !displayData.HT || !displayData.DT || !displayData.AA) {
-      console.error('Display data is not properly initialized');
-      return;
-    }
+    // Get the current value from displayData
+    const currentValue = displayData[key]?.strValue === 'Ein' ? 'Ein' : 'Aus';
+    
+    // Create default values for each switch
+    const defaultValues: Record<HeatingKey, DisplayEtaValue> = {
+      HT: { 
+        short: 'HT',
+        long: 'Heizen Taste',
+        strValue: 'Aus',
+        unit: ''
+      },
+      DT: { 
+        short: 'DT',
+        long: 'Absenken Taste',
+        strValue: 'Aus',
+        unit: ''
+      },
+      AA: { 
+        short: 'AA',
+        long: 'Autotaste',
+        strValue: 'Aus',
+        unit: ''
+      }
+    };
 
-    const newDisplayData = {
-      HT: { ...displayData.HT },
-      DT: { ...displayData.DT },
-      AA: { ...displayData.AA }
+    const newDisplayData: DisplayDataType = {
+      HT: { 
+        ...defaultValues.HT,
+        ...displayData.HT,
+        strValue: displayData.HT?.strValue || 'Aus'
+      },
+      DT: { 
+        ...defaultValues.DT,
+        ...displayData.DT,
+        strValue: displayData.DT?.strValue || 'Aus'
+      },
+      AA: { 
+        ...defaultValues.AA,
+        ...displayData.AA,
+        strValue: displayData.AA?.strValue || 'Aus'
+      }
     };
 
     if (key === 'AA') {
-      // Only allow turning AA "Ein" if it's currently "Aus"
-      if (displayData.AA.strValue === 'Aus') {
-        newDisplayData.AA.strValue = 'Ein';
+      // Toggle AA between Ein and Aus
+      const newValue = currentValue === 'Ein' ? 'Aus' : 'Ein';
+      newDisplayData.AA.strValue = newValue;
+      if (newValue === 'Ein') {
+        // If AA is turned on, turn off HT and DT
         newDisplayData.HT.strValue = 'Aus';
         newDisplayData.DT.strValue = 'Aus';
       }
     } else {
       // Handle HT or DT clicks
-      if (displayData[key].strValue === 'Ein') {
-        // If button was "Ein", turn it "Aus"
-        newDisplayData[key].strValue = 'Aus';
-        // If both are now "Aus", AA becomes "Ein"
-        if (newDisplayData.HT.strValue === 'Aus' && newDisplayData.DT.strValue === 'Aus') {
-          newDisplayData.AA.strValue = 'Ein';
-        }
-      } else {
-        // If button was "Aus", turn it "Ein" and the other one "Aus"
-        newDisplayData.HT.strValue = key === 'HT' ? 'Ein' : 'Aus';
-        newDisplayData.DT.strValue = key === 'DT' ? 'Ein' : 'Aus';
+      const newValue = currentValue === 'Ein' ? 'Aus' : 'Ein';
+      newDisplayData[key].strValue = newValue;
+      
+      if (newValue === 'Ein') {
+        // If turning on HT or DT, turn off AA and the other switch
         newDisplayData.AA.strValue = 'Aus';
+        const otherKey = key === 'HT' ? 'DT' : 'HT';
+        newDisplayData[otherKey].strValue = 'Aus';
+      } else if (newDisplayData.HT.strValue === 'Aus' && newDisplayData.DT.strValue === 'Aus') {
+        // If both HT and DT are off, turn on AA
+        newDisplayData.AA.strValue = 'Ein';
       }
     }
 
-    // Update the display
+    // Update both displayData and etaState
     setDisplayData(newDisplayData);
+
+    // Convert DisplayEtaValue to EtaData format
+    const newEtaData: EtaDataType = {
+      ...etaState.data
+    };
+
+    // Update only the switched values in EtaData format
+    ['HT', 'DT', 'AA'].forEach((key) => {
+      if (newDisplayData[key]) {
+        const parsedData: ParsedXmlData = {
+          strValue: newDisplayData[key].strValue
+        };
+        newEtaData[key] = parsedData;
+      }
+    });
+
+    dispatch(storeEtaData(newEtaData));
 
     // Update the server state
     if (etaApiRef.current && defaultNames2Id) {
@@ -222,9 +280,53 @@ const EtaData: React.FC = () => {
           if (!response.success) {
             console.error('Failed to update heating:', response.error);
           }
+        })
+        .catch(error => {
+          console.error('Error updating heating:', error);
         });
     }
   };
+
+  type SwitchKeys = 'HT' | 'DT' | 'AA';
+  interface DisplayDataType extends Record<string, DisplayEtaValue> {
+    HT: DisplayEtaValue;
+    DT: DisplayEtaValue;
+    AA: DisplayEtaValue;
+  }
+
+  useEffect(() => {
+    const updateDisplayData = () => {
+      if (!etaState.data || !defaultNames2Id) return;
+
+      // Start with the current switch states
+      const newDisplayData: DisplayDataType = {
+        ...displayData, // Keep existing data
+        HT: displayData.HT,
+        DT: displayData.DT,
+        AA: displayData.AA
+      };
+
+      // Add filtered data
+      Object.entries(etaState.data).forEach(([key, value]) => {
+        if (
+          (newDisplayData.HT.strValue === 'Ein' && value.type === 'HT') ||
+          (newDisplayData.DT.strValue === 'Ein' && value.type === 'DT') ||
+          (newDisplayData.AA.strValue === 'Ein' && value.type === 'AA')
+        ) {
+          newDisplayData[key] = {
+            short: value.type,
+            long: defaultNames2Id[key]?.name || key,
+            strValue: value.strValue,
+            unit: value.unit || ''
+          };
+        }
+      });
+
+      setDisplayData(newDisplayData);
+    };
+
+    updateDisplayData();
+  }, [etaState.data, defaultNames2Id, displayData.HT.strValue, displayData.DT.strValue, displayData.AA.strValue]);
 
   if (isLoading || !displayData) {
     return (
@@ -269,6 +371,10 @@ const EtaData: React.FC = () => {
           <div className="grid grid-cols-1 gap-2">
             {Object.entries(etaState.data)
               .filter(([key, value]) => {
+                // Filter out duplicate HT, AA, DT entries from etaState
+                if (['HT', 'AA', 'DT'].includes(key) && displayData[key]) {
+                  return false;
+                }
                 if (!value.strValue || value.strValue.trim() === '') return false;
                 return true;
               })
@@ -303,34 +409,57 @@ const EtaData: React.FC = () => {
                             : ''
                       }`}>
                         {value.strValue}
-                        {value.unit && <span className="text-gray-600 ml-1">{value.unit}</span>}
+                        {value.unit && <span className="text-gray-500">{value.unit}</span>}
                       </span>
-                      {(value.short === 'HT' || value.short === 'DT' || value.short === 'AA') && (
-                        <button
-                          role="switch"
-                          aria-checked={value.strValue === 'Ein'}
-                          onClick={() => {
-                            if (isHeatingKey(value.short)) {
-                              handleToggle(value.short);
-                            } else {
-                              console.error('Invalid heating key:', value.short);
-                            }
-                          }}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                            value.strValue === 'Ein' ? 'bg-green-600' : 'bg-red-600'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              value.strValue === 'Ein' ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
               ))}
+            {/* Render switches separately */}
+            {['HT', 'AA', 'DT'].map(key => {
+              const value = displayData[key] || defaultValues[key as HeatingKey];
+              return (
+                <div key={key} className="flex flex-col">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-gray-500">{value.short}</span>
+                      <span className="font-medium">
+                        {key === 'HT' ? 'Heizen Taste' :
+                         key === 'AA' ? 'Autotaste' :
+                         key === 'DT' ? 'Absenken Taste' :
+                         value.long}:
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`font-mono ${
+                        value.strValue === 'Ein' ? 'text-green-500' : 'text-red-500'
+                      }`}>
+                        {value.strValue}
+                      </span>
+                      <button
+                        onClick={() => {
+                          if (isHeatingKey(key)) {
+                            handleToggle(key as HeatingKey);
+                          }
+                        }}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                          value.strValue === 'Ein' ? 'bg-green-600' : 'bg-red-600'
+                        }`}
+                        role="switch"
+                        aria-checked={value.strValue === 'Ein'}
+                      >
+                        <span className="sr-only">Toggle {value.long}</span>
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            value.strValue === 'Ein' ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : (
