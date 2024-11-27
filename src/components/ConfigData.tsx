@@ -11,6 +11,7 @@ import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constant
 import { updateSliderPosition } from '@/utils/Functions';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
+import { DEFAULT_UPDATE_TIMER } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
 
 const ConfigData: React.FC = () => {
@@ -144,7 +145,11 @@ const ConfigData: React.FC = () => {
     }
 
     const convertMsToMinutes = (ms: string): string => {
-        return (parseInt(ms) / 60000).toString();
+        if (!ms) {
+            return (DEFAULT_UPDATE_TIMER / 60000).toString();
+        }
+        const minutes = parseInt(ms) / 60000;
+        return isNaN(minutes) ? (DEFAULT_UPDATE_TIMER / 60000).toString() : minutes.toString();
     };
 
     const convertMinutesToMs = (minutes: string): string => {

@@ -45,15 +45,6 @@ const WifiAf83Data: React.FC = () => {
   const lastTSoll = useRef(config.data.t_soll);
   const lastTDelta = useRef(config.data.t_delta);
 
-  const getEtaValue = useCallback((shortKey: string, etaData: Record<string, any> | null): string => {
-    const stateData = etaData ? etaData[defaultNames2Id[shortKey].id] : etaState.data[defaultNames2Id[shortKey].id];
-    if (!stateData) {
-      console.warn(`Missing ETA state data for ${shortKey} (${defaultNames2Id[shortKey].id})`);
-      return '0';
-    }
-    return stateData.strValue || '0';
-  }, [etaState.data]);
-
   const saveConfigValue = useCallback(async (key: ConfigKeys, value: string | number) => {
     try {
       const response = await fetch('/api/config/update', {
