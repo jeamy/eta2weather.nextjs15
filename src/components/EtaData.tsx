@@ -146,13 +146,18 @@ const EtaData: React.FC = () => {
         ...defaultValues,  // Start with default values
         ...Object.entries(etaState.data).reduce((acc, [key, value]) => {
           if (['HT', 'DT', 'AA'].includes(key)) {
+            // Convert numeric values to Ein/Aus
+            const strValue = typeof value === 'object' && 'strValue' in value
+              ? value.strValue === '1' || value.strValue === 'Ein' ? 'Ein' : 'Aus'
+              : String(value) === '1' ? 'Ein' : 'Aus';
+
             acc[key] = {
               short: key,
               long: key === 'HT' ? 'Heizen Taste' : 
                     key === 'DT' ? 'Absenken Taste' : 
                     'Autotaste',
-              strValue: value.strValue || 'Aus',
-              unit: value.unit || ''
+              strValue: strValue,
+              unit: ''
             };
           }
           return acc;
