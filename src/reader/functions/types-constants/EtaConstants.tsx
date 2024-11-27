@@ -4,5 +4,5 @@ export type EtaData = Record<string, ParsedXmlData>;
 
 export enum EtaPos {
     EIN = "1803",
-    AUS = "1040",
+    AUS = "1802",
 }
