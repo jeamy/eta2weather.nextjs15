@@ -168,6 +168,38 @@ The heating system data is managed through the ETA RESTful API. For comprehensiv
 - Monospace fonts for values
 - Right-aligned numeric data
 
+## Recent Updates
+
+### UI Improvements (Latest)
+- Added shadow effects to data cards for better visual hierarchy
+- Improved grid layout with 3-column design for better data organization
+- Updated spacing and padding for better visual consistency
+- Reordered WiFi data categories to show channels after indoor data
+- Added rounded corners and shadow effects to improve visual appeal
+
+### API Integration
+- Migrated API routes from Next.js Pages Router (`pages/api/*`) to App Router (`app/api/*`)
+  - Updated route handlers to use new App Router conventions
+  - Improved error handling and response formatting
+  - Enhanced type safety with TypeScript
+- Improved error handling in API responses
+- Enhanced data fetching reliability for both ETA and WiFi data
+
+### Component Updates
+- **WifiTab**: 
+  - Optimized grid layout (2 columns on mobile, 3 columns on larger screens)
+  - Enhanced card styling with shadow effects
+  - Improved data organization with logical category ordering
+  
+- **EtaTab**:
+  - Improved spacing with consistent padding
+  - Enhanced visual hierarchy with shadow effects
+  - Better background contrast for improved readability
+
+### Configuration
+- Updated configuration handling to support new API parameters
+- Improved error handling for configuration loading
+
 ## License
 
 [Add License Information]
