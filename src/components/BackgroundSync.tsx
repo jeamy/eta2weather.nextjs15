@@ -17,29 +17,29 @@ const BackgroundSync: React.FC = () => {
   const isFirstMount = useRef(true);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    const fetchBackgroundData = async () => {
-      try {
-        const response = await fetch('/api/background/status');
-        const result = await response.json();
-        
-        if (result.success) {
-          // Only update config if it has changed
-          if (JSON.stringify(result.data.config) !== JSON.stringify(lastConfigRef.current)) {
-            dispatch(storeConfigData(result.data.config));
-            lastConfigRef.current = result.data.config;
-          }
-          
-          // Always update other data
-          dispatch(storeEtaData(result.data.eta));
-          dispatch(storeWifiAf83Data(result.data.wifiAf83));
-          dispatch(storeNames2IdData(result.data.names2Id));
+  const fetchBackgroundData = async () => {
+    try {
+      const response = await fetch('/api/background/status');
+      const result = await response.json();
+      
+      if (result.success) {
+        // Only update config if it has changed
+        if (JSON.stringify(result.data.config) !== JSON.stringify(lastConfigRef.current)) {
+          dispatch(storeConfigData(result.data.config));
+          lastConfigRef.current = result.data.config;
         }
-      } catch (error) {
-        console.error('Error fetching background data:', error);
+        
+        // Always update other data
+        dispatch(storeEtaData(result.data.eta));
+        dispatch(storeWifiAf83Data(result.data.wifiAf83));
+        dispatch(storeNames2IdData(result.data.names2Id));
       }
-    };
+    } catch (error) {
+      console.error('Error fetching background data:', error);
+    }
+  };
 
+  useEffect(() => {
     // Only set up the interval if this is the first mount
     if (isFirstMount.current) {
       isFirstMount.current = false;
@@ -75,30 +75,7 @@ const BackgroundSync: React.FC = () => {
       );
 
       clearInterval(intervalRef.current);
-      intervalRef.current = setInterval(async () => {
-        const fetchBackgroundData = async () => {
-          try {
-            const response = await fetch('/api/background/status');
-            const result = await response.json();
-            
-            if (result.success) {
-              // Only update config if it has changed
-              if (JSON.stringify(result.data.config) !== JSON.stringify(lastConfigRef.current)) {
-                dispatch(storeConfigData(result.data.config));
-                lastConfigRef.current = result.data.config;
-              }
-              
-              // Always update other data
-              dispatch(storeEtaData(result.data.eta));
-              dispatch(storeWifiAf83Data(result.data.wifiAf83));
-              dispatch(storeNames2IdData(result.data.names2Id));
-            }
-          } catch (error) {
-            console.error('Error fetching background data:', error);
-          }
-        };
-        await fetchBackgroundData();
-      }, updateTimer);
+      intervalRef.current = setInterval(fetchBackgroundData, updateTimer);
     }
   }, [config.data[ConfigKeys.T_UPDATE_TIMER], dispatch]);
 

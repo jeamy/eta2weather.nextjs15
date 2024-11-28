@@ -8,7 +8,7 @@ import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
 import { storeData as storeEtaData, storeError } from '@/redux/etaSlice';
 import { storeData as storeConfigData } from '@/redux/configSlice';
-import { EtaData as EtaDataType, ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
+import { EtaData as EtaDataType, ParsedXmlData, EtaText, EtaPos } from '@/reader/functions/types-constants/EtaConstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
 import { defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
@@ -60,7 +60,7 @@ const EtaData: React.FC = () => {
     AA: { 
       short: 'AA',
       long: 'Autotaste',
-      strValue: 'Aus',
+      strValue: 'Ein', // Default to Ein when others are Aus
       unit: ''
     }
   };
@@ -91,38 +91,15 @@ const EtaData: React.FC = () => {
 
       const { data, config: updatedConfig } = await response.json() as ApiResponse;
       
-      // Transform the data for display
-      const transformed = Object.entries(data).reduce((acc, [key, value]) => {
-        const parsedValue = value as unknown as ParsedXmlData;
-        acc[key] = {
-          short: parsedValue.short || key,
-          long: parsedValue.long || key,
-          strValue: parsedValue.strValue || parsedValue.toString(),
-          unit: parsedValue.unit || ''
-        };
-        return acc;
-      }, {} as DisplayDataType);
-
-      // Ensure HT, DT, and AA are present with default values if missing
-      const requiredKeys = ['HT', 'DT', 'AA'];
-      requiredKeys.forEach(key => {
-        if (!transformed[key]) {
-          transformed[key] = {
-            short: key,
-            long: key,
-            strValue: 'Aus',
-            unit: ''
-          };
-        }
-      });
-
-      setDisplayData(transformed);
+      // Update the Redux store
       dispatch(storeEtaData(data));
 
       // Update config in Redux if provided
       if (updatedConfig) {
         dispatch(storeConfigData(updatedConfig));
       }
+
+      // Let the useEffect handle the display data update
     } catch (error) {
       console.error('Error fetching ETA data:', error);
       dispatch(storeError((error as Error).message));
@@ -142,26 +119,37 @@ const EtaData: React.FC = () => {
   // Update display data when etaState changes
   useEffect(() => {
     if (etaState.data) {
-      const newDisplayData: DisplayDataType = {
-        ...defaultValues,  // Start with default values
-        ...Object.entries(etaState.data).reduce((acc, [key, value]) => {
-          if (['HT', 'DT', 'AA'].includes(key)) {
-            // Convert numeric values to Ein/Aus
-            const strValue = typeof value === 'object' && 'strValue' in value
-              ? value.strValue === '1' || value.strValue === 'Ein' ? 'Ein' : 'Aus'
-              : String(value) === '1' ? 'Ein' : 'Aus';
+      // Get raw values first
+      const htRawValue = typeof etaState.data.HT === 'object' && 'strValue' in etaState.data.HT
+        ? etaState.data.HT.strValue === EtaPos.EIN
+        : String(etaState.data.HT) === EtaPos.EIN;
 
-            acc[key] = {
-              short: key,
-              long: key === 'HT' ? 'Heizen Taste' : 
-                    key === 'DT' ? 'Absenken Taste' : 
-                    'Autotaste',
-              strValue: strValue,
-              unit: ''
-            };
-          }
-          return acc;
-        }, {} as DisplayDataType)
+      const dtRawValue = typeof etaState.data.DT === 'object' && 'strValue' in etaState.data.DT
+        ? etaState.data.DT.strValue === EtaPos.EIN
+        : String(etaState.data.DT) === EtaPos.EIN;
+
+      const aaRawValue = typeof etaState.data.AA === 'object' && 'strValue' in etaState.data.AA
+        ? etaState.data.AA.strValue === EtaPos.EIN
+        : String(etaState.data.AA) === EtaPos.EIN;
+
+      // Apply business rules
+      const finalHT = htRawValue;
+      const finalDT = !htRawValue && dtRawValue;
+      const finalAA = (!htRawValue && !dtRawValue) || (!htRawValue && !dtRawValue && aaRawValue);
+
+      const newDisplayData: DisplayDataType = {
+        HT: {
+          ...defaultValues.HT,
+          strValue: finalHT ? 'Ein' : 'Aus'
+        },
+        DT: {
+          ...defaultValues.DT,
+          strValue: finalDT ? 'Ein' : 'Aus'
+        },
+        AA: {
+          ...defaultValues.AA,
+          strValue: finalAA ? 'Ein' : 'Aus'
+        }
       };
 
       setDisplayData(newDisplayData);
@@ -200,90 +188,83 @@ const EtaData: React.FC = () => {
     return ['HT', 'DT', 'AA'].includes(key);
   };
 
-  const handleToggle = (key: HeatingKey) => {
-    // Get the current value from displayData
-    const currentValue = displayData[key]?.strValue === 'Ein' ? 'Ein' : 'Aus';
-    
-    const newDisplayData: DisplayDataType = {
-      HT: { 
-        ...defaultValues.HT,
-        ...displayData.HT,
-        strValue: displayData.HT?.strValue || 'Aus'
-      },
-      DT: { 
-        ...defaultValues.DT,
-        ...displayData.DT,
-        strValue: displayData.DT?.strValue || 'Aus'
-      },
-      AA: { 
-        ...defaultValues.AA,
-        ...displayData.AA,
-        strValue: displayData.AA?.strValue || 'Aus'
-      }
-    };
+  const handleToggle = useCallback(async (key: string) => {
+    if (!etaApiRef.current) return;
 
-    if (key === 'AA') {
-      // Toggle AA between Ein and Aus
-      const newValue = currentValue === 'Ein' ? 'Aus' : 'Ein';
-      newDisplayData.AA.strValue = newValue;
-      if (newValue === 'Ein') {
-        // If AA is turned on, turn off HT and DT
-        newDisplayData.HT.strValue = 'Aus';
-        newDisplayData.DT.strValue = 'Aus';
-      }
+    const currentValue = displayData[key]?.strValue === 'Ein' ? EtaPos.EIN : EtaPos.AUS;
+    const newValue = currentValue === EtaPos.EIN ? EtaPos.AUS : EtaPos.EIN;
+
+    // Get current states
+    const isHtOn = displayData.HT?.strValue === 'Ein';
+    const isDtOn = displayData.DT?.strValue === 'Ein';
+
+    // Prevent AA from being turned off if both HT and DT are off
+    if (key === 'AA' && !isHtOn && !isDtOn && currentValue === EtaPos.EIN) {
+      console.log('Cannot turn off Auto when both HT and DT are off');
+      return;
+    }
+
+    // Update frontend state immediately
+    const newDisplayData = { ...displayData };
+    
+    // Calculate new states based on business rules
+    if (key === 'HT' && newValue === EtaPos.EIN) {
+      // If turning on HT, turn off others
+      newDisplayData.HT.strValue = 'Ein';
+      newDisplayData.DT.strValue = 'Aus';
+      newDisplayData.AA.strValue = 'Aus';
+    } else if (key === 'DT' && newValue === EtaPos.EIN) {
+      // If turning on DT, turn off others
+      newDisplayData.HT.strValue = 'Aus';
+      newDisplayData.DT.strValue = 'Ein';
+      newDisplayData.AA.strValue = 'Aus';
+    } else if (key === 'AA' && newValue === EtaPos.EIN) {
+      // If turning on AA, turn off others
+      newDisplayData.HT.strValue = 'Aus';
+      newDisplayData.DT.strValue = 'Aus';
+      newDisplayData.AA.strValue = 'Ein';
     } else {
-      // Handle HT or DT clicks
-      const newValue = currentValue === 'Ein' ? 'Aus' : 'Ein';
-      newDisplayData[key].strValue = newValue;
-      
-      if (newValue === 'Ein') {
-        // If turning on HT or DT, turn off AA and the other switch
-        newDisplayData.AA.strValue = 'Aus';
-        const otherKey = key === 'HT' ? 'DT' : 'HT';
-        newDisplayData[otherKey].strValue = 'Aus';
-      } else if (newDisplayData.HT.strValue === 'Aus' && newDisplayData.DT.strValue === 'Aus') {
-        // If both HT and DT are off, turn on AA
+      // Turning something off
+      newDisplayData[key].strValue = 'Aus';
+      // If both HT and DT are off, turn on AA
+      if (key !== 'AA' && newDisplayData.HT.strValue === 'Aus' && newDisplayData.DT.strValue === 'Aus') {
         newDisplayData.AA.strValue = 'Ein';
       }
     }
 
-    // Update both displayData and etaState
+    // Update the display immediately
     setDisplayData(newDisplayData);
 
-    // Convert DisplayEtaValue to EtaData format
-    const newEtaData: EtaDataType = {
-      ...etaState.data
-    };
-
-    // Update only the switched values in EtaData format
-    ['HT', 'DT', 'AA'].forEach((key) => {
-      if (newDisplayData[key]) {
-        const parsedData: ParsedXmlData = {
-          strValue: newDisplayData[key].strValue
-        };
-        newEtaData[key] = parsedData;
+    try {
+      const varId = defaultNames2Id[key]?.id;
+      if (!varId) {
+        console.warn(`No ID found for key: ${key}`);
+        return;
       }
-    });
 
-    dispatch(storeEtaData(newEtaData));
+      const response = await etaApiRef.current.setUserVar(
+        varId,
+        newValue,
+        '0',
+        '0'
+      );
 
-    // Update the server state
-    if (etaApiRef.current && defaultNames2Id) {
-      const ht = newDisplayData.HT.strValue === 'Ein' ? 1 : 0;
-      const dt = newDisplayData.DT.strValue === 'Ein' ? 1 : 0;
-      const aa = newDisplayData.AA.strValue === 'Ein' ? 1 : 0;
+      if (response.error) {
+        console.warn('Error from ETA API:', response.error);
+        // Don't revert the state - let the background sync handle it
+        return;
+      }
 
-      updateHeating(ht, aa, dt, defaultNames2Id, etaApiRef.current)
-        .then(response => {
-          if (!response.success) {
-            console.error('Failed to update heating:', response.error);
-          }
-        })
-        .catch(error => {
-          console.error('Error updating heating:', error);
-        });
+      // Only refresh data from server after a short delay
+      setTimeout(() => {
+        loadAndStoreEta();
+      }, 500);
+    } catch (error) {
+      // Log but don't throw
+      console.warn(`Error toggling ${key}:`, error);
+      // Don't revert the state - let the background sync handle it
     }
-  };
+  }, [displayData, defaultNames2Id, loadAndStoreEta]);
 
   type SwitchKeys = 'HT' | 'DT' | 'AA';
   interface DisplayDataType extends Record<string, DisplayEtaValue> {

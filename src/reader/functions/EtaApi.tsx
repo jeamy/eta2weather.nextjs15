@@ -12,7 +12,6 @@ export class EtaApi {
     private server: string;
 
     constructor(server: string = DEFAULT_SERVER) {
-//        console.log(`Using server: ${server}`);
         this.server = server;
     }
 
@@ -44,18 +43,28 @@ export class EtaApi {
                 body: body ? new URLSearchParams(body).toString() : undefined,
             };
             
-            const response = await fetch(url, fetchOptions);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP-Fehler! Status: ${response.status}`);
+            try {
+                const response = await fetch(url, fetchOptions);
+                
+                if (!response.ok) {
+                    return { 
+                        result: null, 
+                        error: `HTTP error! Status: ${response.status}` 
+                    };
+                }
+                
+                const result = await response.text();
+                return { result, error: null };
+            } catch (fetchError) {
+                // Handle network errors silently
+                return { 
+                    result: null, 
+                    error: 'Network error - request will be retried automatically' 
+                };
             }
-            
-            const result = await response.text();
-            // console.log(`Response received for ${url}:`, result);
-            
-            return { result, error: null };
         } catch (error) {
-            console.error(`API Error for ${endpoint}:`, error);
+            // Log but don't throw
+            console.warn(`API Error for ${endpoint}:`, error);
             return { 
                 result: null, 
                 error: error instanceof Error ? error.message : String(error)
@@ -64,7 +73,6 @@ export class EtaApi {
     }
 
     public async getUserVar(id: string): Promise<ApiResponse> {
-        // console.log(`Getting user var for ID: ${id}`);
         return this.fetchApi(`user/var/${id}`, 'GET');
     }
 
