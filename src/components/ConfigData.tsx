@@ -27,30 +27,31 @@ const ConfigData: React.FC = () => {
     const lastUpdateTime = useRef<number>(Date.now());
 
     useEffect(() => {
-        // Only load config if not already initialized
-        if (!config.isInitialized) {
-            const loadConfigData = async () => {
-                if (!config.loadingState.isLoading) {  // Prevent multiple simultaneous loads
-                    dispatch(setIsConfigLoading(true));
-                    try {
-                        const response = await fetch('/api/config/read');
-                        if (!response.ok) {
-                            throw new Error('Failed to fetch config');
-                        }
-                        const data = await response.json();
-                        dispatch(storeData(data));
-                    } catch (error) {
-                        const typedError = error as Error;
-                        console.error('Error fetching config data:', typedError);
-                        dispatch(storeError(typedError.message));
-                    } finally {
-                        dispatch(setIsConfigLoading(false)); // End loading
-                    }
+        const loadConfigData = async () => {
+            try {
+//                console.log('Fetching config data...');
+                const response = await fetch('/api/config/read');
+                const result = await response.json();
+//                console.log('API Response:', result);
+
+                if (result.success && result.data) {
+                    dispatch(storeData(result.data));
+                } else {
+                    throw new Error(result.error || 'Failed to load config');
                 }
-            };
-            loadConfigData();
-        }
-    }, [config.isInitialized, config.loadingState.isLoading, dispatch]);
+            } catch (error) {
+                console.error('Error loading config:', error);
+                dispatch(storeError((error as Error).message));
+            }
+        };
+
+        // Load config data when component mounts
+        loadConfigData();
+    }, [dispatch]);
+
+    useEffect(() => {
+//        console.log('Current config state:', config);
+    }, [config]);
 
     useEffect(() => {
         if (config.data[ConfigKeys.S_ETA]) {

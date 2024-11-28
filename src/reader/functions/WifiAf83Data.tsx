@@ -30,7 +30,6 @@ export const fetchWifiAf83Data = async (): Promise<WifiAF83Data> => {
 
     try {
         const response = await wifiApi.getRealtime();
-//        console.log('WifiAf83 raw data:', JSON.stringify(response, null, 2));
 
         if (!response || response.code !== 0) {
             throw new Error(`Failed to fetch WifiAf83 data: ${response?.msg || 'Unknown error'}`);

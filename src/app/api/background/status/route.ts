@@ -1,16 +1,12 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import { NextResponse } from 'next/server';
 import { getServerStore } from '@/lib/backgroundService';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+export async function GET() {
   try {
     const store = getServerStore();
     const state = store.getState();
 
-    res.status(200).json({
+    return NextResponse.json({
       success: true,
       data: {
         config: state.config.data,
@@ -21,9 +17,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (error) {
     console.error('Error getting background service status:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    });
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      },
+      { status: 500 }
+    );
   }
 }

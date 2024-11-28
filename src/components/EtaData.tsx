@@ -242,16 +242,16 @@ const EtaData: React.FC = () => {
         return;
       }
 
-      const response = await etaApiRef.current.setUserVar(
-        varId,
-        newValue,
-        '0',
-        '0'
-      );
+      // Calculate new states for all switches
+      const ht = key === 'HT' ? (newValue === EtaPos.EIN ? 1 : 0) : (displayData.HT.strValue === 'Ein' ? 1 : 0);
+      const auto = key === 'AA' ? (newValue === EtaPos.EIN ? 1 : 0) : (displayData.AA.strValue === 'Ein' ? 1 : 0);
+      const ab = key === 'DT' ? (newValue === EtaPos.EIN ? 1 : 0) : (displayData.DT.strValue === 'Ein' ? 1 : 0);
 
-      if (response.error) {
-        console.warn('Error from ETA API:', response.error);
-        // Don't revert the state - let the background sync handle it
+      // Update all switches at once
+      const result = await updateHeating(ht, auto, ab, defaultNames2Id, etaApiRef.current);
+      
+      if (!result.success) {
+        console.error('Error updating heating:', result.error);
         return;
       }
 

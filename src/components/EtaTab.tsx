@@ -3,11 +3,11 @@ import { MenuNode } from '@/types/menu';
 import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { formatValue } from '@/utils/formatters';
 
-interface MenuTabsProps {
+interface EtaTabProps {
   menuItems?: MenuNode[];
 }
 
-export default function MenuTabs({ menuItems = [] }: MenuTabsProps) {
+export default function EtaTab({ menuItems = [] }: EtaTabProps) {
   const [values, setValues] = useState<Record<string, ParsedXmlData>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -70,8 +70,8 @@ export default function MenuTabs({ menuItems = [] }: MenuTabsProps) {
   }, []);
 
   return (
-    <div className="w-1/2 px-4">
-      <div className="flex space-x-1 rounded-xl bg-blue-900/20 p-1">
+    <div>
+      <div className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 h-[58px]">
         {menuItems.map((category, categoryIndex) => (
           <button
             key={`tab-${categoryIndex}-${category.name}`}
@@ -85,19 +85,19 @@ export default function MenuTabs({ menuItems = [] }: MenuTabsProps) {
           </button>
         ))}
       </div>
-      <div className="mt-2">
+      <div className="mt-5 ">
         {menuItems.map((category, categoryIndex) => (
           <div
             key={`panel-${categoryIndex}-${category.name}`}
-            className={`rounded-xl bg-white p-3 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 border border-gray-200 shadow-lg ${
+            className={`bg-gray-50 rounded-xl p-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 border border-gray-200 shadow-lg ${
               selectedIndex === categoryIndex ? '' : 'hidden'
             }`}
           >
-            <div className="space-y-4">
+            <div className="space-y-4 ">
               {category.children?.map((item, itemIndex) => {
                 const itemId = `${categoryIndex}-${itemIndex}-${item.name}`;
                 return (
-                  <div key={itemId} className="space-y-2">
+                  <div key={itemId} className="space-y-2 ">
                     <h3 className="text-lg font-medium text-gray-900">{item.name}</h3>
                     {item.children?.map((subItem, subItemIndex) => {
                       const subItemId = `${itemId}-${subItemIndex}-${subItem.name}`;

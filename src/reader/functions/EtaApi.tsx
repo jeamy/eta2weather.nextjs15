@@ -30,7 +30,7 @@ export class EtaApi {
             // Construct the full URL
             const url = `http://${serverAddress}${formattedEndpoint}`;
             
-            console.log(`Sending ${method} request to ${url}`);
+            // console.log(`Sending ${method} request to ${url}`);
             if (body) {
                 console.log(`Body: ${JSON.stringify(body)}`);
             }
