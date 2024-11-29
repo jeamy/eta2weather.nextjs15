@@ -12,8 +12,7 @@ const initialState: WifiAF83State = {
         time: 0,
         datestring: '',
         temperature: 0,
-        indoorTemperature: 0,
-        diff: 0
+        indoorTemperature: 0
     },
     loadingState: {
         error: null,
@@ -31,7 +30,6 @@ export const wifiAf83Slice = createSlice({
             // Ensure numeric values
             const temperature = Number(action.payload.temperature);
             const indoorTemperature = Number(action.payload.indoorTemperature);
-            const diff = Number(action.payload.diff);
             
             if (isNaN(temperature) || isNaN(indoorTemperature)) {
                 throw new Error('Invalid temperature values');
@@ -40,8 +38,7 @@ export const wifiAf83Slice = createSlice({
             state.data = {
                 ...action.payload,
                 temperature,
-                indoorTemperature,
-                diff: isNaN(diff) ? 0 : diff
+                indoorTemperature
             };
             state.loadingState.isLoading = false;
             state.loadingState.error = null;

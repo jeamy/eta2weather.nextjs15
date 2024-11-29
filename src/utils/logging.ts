@@ -22,8 +22,18 @@ export const logData = async (type: LogType, data: any) => {
     let formattedData = '';
     if (type === 'config') {
         formattedData = JSON.stringify(data, null, 2);
+    } else if (type === 'eta') {
+        // Special handling for ETA data
+        formattedData = `<?xml version="1.0" encoding="UTF-8"?>
+<${type}Data timestamp="${now.toISOString()}">
+${Object.entries(data).map(([key, value]) => {
+    // Convert path-like keys to valid XML element names
+    const safeKey = key.replace(/[\/\.]/g, '_').replace(/^_+|_+$/g, '');
+    return `  <variable path="${key}">${JSON.stringify(value)}</variable>`;
+}).join('\n')}
+</${type}Data>`;
     } else {
-        // Convert data to XML format
+        // Handle other XML types (like ecowitt)
         formattedData = `<?xml version="1.0" encoding="UTF-8"?>
 <${type}Data timestamp="${now.toISOString()}">
 ${Object.entries(data).map(([key, value]) => `  <${key}>${JSON.stringify(value)}</${key}>`).join('\n')}
