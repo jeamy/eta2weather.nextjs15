@@ -5,6 +5,7 @@ export async function GET() {
   try {
     // Fetch WifiAf83 data
     const wifiAf83Data = await fetchWifiAf83Data();
+
     return NextResponse.json({
       data: wifiAf83Data,
     });

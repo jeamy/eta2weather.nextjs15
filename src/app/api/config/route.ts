@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { logData } from '@/utils/logging';
 
 interface Config {
   t_soll?: string;
@@ -64,7 +65,18 @@ export async function POST(request: Request) {
     }
 
     // Ensure we have a valid config
-    let config = ensureConfigFile();
+    let config: Config = {};
+    if (fs.existsSync(configPath)) {
+      const content = fs.readFileSync(configPath, 'utf-8');
+      try {
+        config = JSON.parse(content);
+      } catch (error) {
+        return NextResponse.json(
+          { error: 'Invalid config file format' },
+          { status: 400 }
+        );
+      }
+    }
 
     // Update config with the new value
     // Convert value to string if it isn't already
@@ -72,6 +84,10 @@ export async function POST(request: Request) {
 
     // Write the updated config
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    // Log the config change
+    await logData('config', config);
+
     return NextResponse.json({ success: true, config });
   } catch (error) {
     console.error('Error updating config:', error);

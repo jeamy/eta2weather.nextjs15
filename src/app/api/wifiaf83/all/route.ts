@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { WifiAf83Api } from '@/reader/functions/WifiAf83Api';
+import { logData } from '@/utils/logging';
 
 export async function GET() {
   const wifiApi = new WifiAf83Api();
@@ -12,7 +13,8 @@ export async function GET() {
       throw new Error(`Failed to fetch WifiAf83 data: ${response?.msg || 'Unknown error'}`);
     }
 
-    // console.log("WifiAf83 data: ", response);
+    // Log all Ecowitt data
+    await logData('ecowitt', response.data);
     
     return NextResponse.json({ 
       success: true, 

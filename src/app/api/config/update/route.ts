@@ -14,14 +14,17 @@ export async function POST(request: NextRequest) {
     try {
       // Remove any trailing commas and normalize the JSON
       const cleanData = data.trim()
+        .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width spaces
         .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
         .replace(/}\s*}/g, '}') // Remove multiple closing braces
-        .replace(/\n\s*\n/g, '\n'); // Remove empty lines
+        .replace(/\n\s*\n/g, '\n') // Remove empty lines
+        .replace(/[^\x20-\x7E\n\r\t]/g, ''); // Remove non-printable characters
       
       try {
         config = JSON.parse(cleanData);
       } catch (jsonError) {
         console.error('Error parsing cleaned JSON:', jsonError);
+        console.error('Cleaned data:', cleanData);
         throw jsonError;
       }
     } catch (parseError) {

@@ -350,8 +350,8 @@ const EtaData: React.FC = () => {
           <div className="grid grid-cols-1 gap-2">
             {Object.entries(etaState.data)
               .filter(([key, value]) => {
-                // Filter out duplicate HT, AA, DT entries from etaState
-                if (['HT', 'AA', 'DT'].includes(key) && displayData[key]) {
+                // Filter out HT, AA, DT entries and empty values
+                if (value.short === 'HT' || value.short === 'DT' || value.short === 'AA') {
                   return false;
                 }
                 if (!value.strValue || value.strValue.trim() === '') return false;

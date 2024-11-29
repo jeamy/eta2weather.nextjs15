@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MenuNode } from '../types/menu';
-import MenuPopup from './MenuPopup';
+import Link from 'next/link';
 
 interface HeaderProps {
   menuData?: MenuNode[];
@@ -72,46 +72,55 @@ export default function Header({ menuData = [] }: HeaderProps) {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="relative" ref={menuRef}>
-                  <button
-                    onClick={() => setShowEtaMenu(!showEtaMenu)}
-                    onMouseEnter={handleMenuEnter}
-                    onMouseLeave={handleMenuLeave}
-                    className="text-white text-xl font-sans hover:text-gray-300 focus:outline-none py-2 px-3"
-                  >
-                    ETA Control
-                  </button>
-                  {showEtaMenu && menuData && menuData.length > 0 && (
-                    <div 
-                      className="absolute left-0 mt-1 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50"
-                      onMouseEnter={handleMenuEnter}
-                      onMouseLeave={handleMenuLeave}
-                    >
-                      <div className="py-1" role="menu">
-                        {menuData.map((item) => (
-                          <button
-                            key={item.uri}
-                            onClick={() => handleMenuItemClick(item)}
-                            className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 font-sans flex items-center justify-between"
-                            role="menuitem"
-                          >
-                            <span className="truncate">{item.name}</span>
-                            {item.children && item.children.length > 0 && (
-                              <svg className="h-4 w-4 ml-2" fill="currentColor" viewBox="0 0 20 20">
-                                <path
-                                  fillRule="evenodd"
-                                  d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+              <Link 
+                href="/" 
+                className="text-white hover:text-gray-300 font-medium"
+                style={{ fontFamily: 'var(--font-geist-sans)' }}
+              >
+                  ETA Control
+              </Link>
+                <span className="text-white text-xl" style={{ fontFamily: 'var(--font-geist-sans)' }}>
+                </span>
               </div>
+            </div>
+
+            <div className="flex items-center">
+              <Link 
+                href="/logs" 
+                className="text-white hover:text-gray-300 font-medium"
+                style={{ fontFamily: 'var(--font-geist-sans)' }}
+              >
+                System Logs
+              </Link>
+              {showEtaMenu && menuData && menuData.length > 0 && (
+                <div 
+                  className="absolute left-0 mt-1 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50"
+                  onMouseEnter={handleMenuEnter}
+                  onMouseLeave={handleMenuLeave}
+                >
+                  <div className="py-1" role="menu">
+                    {menuData.map((item) => (
+                      <button
+                        key={item.uri}
+                        onClick={() => handleMenuItemClick(item)}
+                        className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 font-sans flex items-center justify-between"
+                        role="menuitem"
+                      >
+                        <span className="truncate">{item.name}</span>
+                        {item.children && item.children.length > 0 && (
+                          <svg className="h-4 w-4 ml-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                              fillRule="evenodd"
+                              d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Mobile menu button */}
@@ -152,13 +161,6 @@ export default function Header({ menuData = [] }: HeaderProps) {
           </div>
         )}
       </nav>
-
-      <MenuPopup
-        isOpen={popupData.isOpen}
-        onClose={() => setPopupData(prev => ({ ...prev, isOpen: false }))}
-        title={popupData.title}
-        menuItems={popupData.menuItems}
-      />
     </>
   );
 }

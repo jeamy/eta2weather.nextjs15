@@ -5,6 +5,7 @@ import { Config } from '@/reader/functions/types-constants/ConfigConstants';
 import { fetchEtaData } from '@/reader/functions/EtaData';
 import { EtaData } from '@/reader/functions/types-constants/EtaConstants';
 import { Names2Id } from '@/reader/functions/types-constants/Names2IDconstants';
+import { logData } from '@/utils/logging';
 
 export async function GET() {
   try {
@@ -20,6 +21,9 @@ export async function GET() {
 
     // Fetch ETA data
     const etaData: EtaData = await fetchEtaData(config, names2id);
+
+    // Log the data
+    await logData('eta', etaData);
 
     return NextResponse.json({ success: true, data: etaData });
   } catch (error) {
