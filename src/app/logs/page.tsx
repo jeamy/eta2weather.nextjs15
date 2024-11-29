@@ -31,6 +31,15 @@ export default function LogsPage() {
         ? logs 
         : logs.filter(log => log.type === selectedType);
 
+    // Group logs by type
+    const groupedLogs = filteredLogs.reduce((acc, log) => {
+        if (!acc[log.type]) {
+            acc[log.type] = [];
+        }
+        acc[log.type].push(log);
+        return acc;
+    }, {} as Record<string, LogFile[]>);
+
     return (
         <div className="container mx-auto px-4 py-8">
             <div className="mb-4">
@@ -72,31 +81,32 @@ export default function LogsPage() {
                 </div>
             </div>
 
-            <div className="grid gap-2">
-                {filteredLogs.map((log, index) => (
-                    <div 
-                        key={index}
-                        className="p-2 border rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <span className="font-medium">{log.type.toUpperCase()}</span>
-                                <span className="mx-2">•</span>
-                                <span className="text-gray-600">{log.date}</span>
-                            </div>
-                            <Link 
-                                href={`/api/logs/${log.path}`}
-                                className="text-blue-600 hover:text-blue-800"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                View Log
-                            </Link>
+            <div className="space-y-4">
+                {Object.entries(groupedLogs).map(([type, logs]) => (
+                    <div key={type} className="border rounded-lg px-3 py-2">
+                        <h2 className="text-lg font-semibold mb-2 capitalize">{type}</h2>
+                        <div className="grid gap-1">
+                            {logs.map((log, index) => (
+                                <div 
+                                    key={index}
+                                    className={`flex justify-between items-center px-2 py-1 rounded transition-colors text-sm ${index % 2 === 0 ? 'bg-gray-200' : 'bg-gray-100'} hover:bg-gray-300`}
+                                >
+                                    <span className="text-gray-600">{log.date}</span>
+                                    <Link 
+                                        href={`/api/logs/${log.path}`}
+                                        className="text-blue-600 hover:text-blue-800"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        View
+                                    </Link>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 ))}
-                {filteredLogs.length === 0 && (
-                    <div className="text-center text-gray-500 py-8">
+                {Object.keys(groupedLogs).length === 0 && (
+                    <div className="text-center text-gray-500 py-4">
                         No logs found
                     </div>
                 )}
