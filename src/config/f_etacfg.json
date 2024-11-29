@@ -7,5 +7,14 @@
   "f_wifiaf83": "f_wifiaf89.json",
   "f_names2id": "f_names2id.json",
   "t_update_timer": "120000",
-  "diff": "4.1"
+  "diff": "4.1",
+  "channelNames": {
+    "CH1": "VK",
+    "CH2": "KU",
+    "CH3": "Garten1",
+    "CH6": "KE",
+    "CH7": "Garten",
+    "CH5": "Bad",
+    "CH8": "SZ"
+  }
 }

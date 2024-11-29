@@ -11,7 +11,8 @@ export enum ConfigKeys {
     F_WIFIAF83 = 'f_wifiaf83',
     F_NAMES2ID = 'f_names2id',
     T_UPDATE_TIMER = 't_update_timer',
-    DIFF = 'diff'
+    DIFF = 'diff',
+    CHANNEL_NAMES = 'channelNames'
 }
 
 export const defaultConfig: Config = {
@@ -23,5 +24,15 @@ export const defaultConfig: Config = {
     [ConfigKeys.F_WIFIAF83]: 'f_wifiaf89.json',
     [ConfigKeys.F_NAMES2ID]: 'f_names2id.json',
     [ConfigKeys.T_UPDATE_TIMER]: '300000',
-    [ConfigKeys.DIFF]: '0'
+    [ConfigKeys.DIFF]: '0',
+    [ConfigKeys.CHANNEL_NAMES]: JSON.stringify({
+        'CH1': 'Channel 1',
+        'CH2': 'Channel 2',
+        'CH3': 'Channel 3',
+        'CH4': 'Channel 4',
+        'CH5': 'Channel 5',
+        'CH6': 'Channel 6',
+        'CH7': 'Channel 7',
+        'CH8': 'Channel 8'
+    })
 };
