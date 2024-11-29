@@ -5,7 +5,6 @@ export interface WifiAF83Data {
     datestring: string;
     temperature: number;
     indoorTemperature: number;
-    diff?: number;
 }
 
 const formatDateTime = (data: WifiAF83Data): void => {

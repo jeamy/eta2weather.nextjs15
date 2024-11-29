@@ -22,7 +22,6 @@ interface WifiAf83ApiResponse {
         };
     };
     datestring: string;
-    diff: string;
 }
 
 export const fetchWifiAf83Data = async (): Promise<WifiAF83Data> => {
@@ -68,10 +67,10 @@ export const fetchWifiAf83Data = async (): Promise<WifiAF83Data> => {
         }
 
         const result: WifiAF83Data = {
-            time: parseInt(data.time) * 1000, // Convert to milliseconds
-            datestring: data.datestring,
-            temperature,
-            indoorTemperature
+            time: Date.now(),
+            datestring: '',
+            temperature: temperature || 0,
+            indoorTemperature: indoorTemperature || 0,
         };
 
 //        console.log('Transformed WifiAf83 data:', result);

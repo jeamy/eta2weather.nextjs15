@@ -92,8 +92,7 @@ const WifiAf83Data: React.FC = () => {
         time: Number(data.time),
         datestring: data.datestring,
         temperature: Number(data.temperature),
-        indoorTemperature: Number(data.indoorTemperature),
-        diff: 0 // Initialize with 0
+        indoorTemperature: Number(data.indoorTemperature)
       };
 
       setWifiData(transformedData);

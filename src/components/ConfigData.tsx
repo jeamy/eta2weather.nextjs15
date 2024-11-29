@@ -213,7 +213,7 @@ const ConfigData: React.FC = () => {
             
             try {
                 const valueToSave = valueConverter ? valueConverter.toStorage(editValue) : editValue;
-                const response = await fetch('/api/config/update', {
+                const response = await fetch('/api/config', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -229,9 +229,13 @@ const ConfigData: React.FC = () => {
                     throw new Error(error.message || 'Failed to update config');
                 }
 
-                const updatedConfig = await response.json();
-                dispatch(storeData(updatedConfig));
-                setIsEditing(null);
+                const result = await response.json();
+                if (result.success && result.config) {
+                    dispatch(storeData(result.config));
+                    setIsEditing(null);
+                } else {
+                    throw new Error('Invalid response format');
+                }
             } catch (error) {
                 console.error('Error updating config:', error);
                 alert('Failed to update config. Please try again.');
@@ -313,7 +317,7 @@ const ConfigData: React.FC = () => {
             }
 
             try {
-                const response = await fetch('/api/config/update', {
+                const response = await fetch('/api/config', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -329,9 +333,13 @@ const ConfigData: React.FC = () => {
                     throw new Error(error.message || 'Failed to update config');
                 }
 
-                const updatedConfig = await response.json();
-                dispatch(storeData(updatedConfig));
-                setIsEditing(null);
+                const result = await response.json();
+                if (result.success && result.config) {
+                    dispatch(storeData(result.config));
+                    setIsEditing(null);
+                } else {
+                    throw new Error('Invalid response format');
+                }
             } catch (error) {
                 console.error('Error updating config:', error);
                 alert('Failed to update config. Please try again.');
