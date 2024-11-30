@@ -360,7 +360,7 @@ const EtaData: React.FC = () => {
               .sort(([_, a], [__, b]) => {
                 const order: Record<string, number> = { 
                   SP: 1, AT: 2, KZ: 3, VT: 4, HK: 5, 
-                  IP: 6, VR: 7, SZ: 8, EAT: 9, HT: 10, AA: 11, DT: 12
+                  IP: 6, VR: 7, SZ: 8, EAT: 9
                 };
                 const aOrder = a.short in order ? order[a.short] : 99;
                 const bOrder = b.short in order ? order[b.short] : 99;

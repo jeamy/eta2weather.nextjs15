@@ -45,10 +45,14 @@ class BackgroundService {
     return BackgroundService.instance;
   }
 
+  private getTimestamp(): string {
+    return `[${new Date().toISOString()}]`;
+  }
+
   private loadConfig(): Config {
     try {
       if (!fs.existsSync(CONFIG_FILE_PATH)) {
-        console.log('Config file does not exist. Creating with default values.');
+        console.log(`${this.getTimestamp()} Config file does not exist. Creating with default values.`);
         fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(defaultConfig, null, 2));
         store.dispatch(storeConfigData(defaultConfig));
         return defaultConfig;
@@ -66,7 +70,7 @@ class BackgroundService {
           }
 
           const configData = JSON.parse(rawData);
-          console.log('Config loaded successfully');
+          console.log(`${this.getTimestamp()} Config loaded successfully`);
           store.dispatch(storeConfigData(configData));
           return configData;
         } catch (error) {
@@ -74,7 +78,7 @@ class BackgroundService {
           retries--;
           if (retries > 0) {
             // Wait a bit before retrying
-            console.log(`Retrying config load... (${retries} attempts remaining)`);
+            console.log(`${this.getTimestamp()} Retrying config load... (${retries} attempts remaining)`);
             // Sleep for 100ms
             const start = Date.now();
             while (Date.now() - start < 100) {
@@ -85,11 +89,11 @@ class BackgroundService {
       }
 
       // If we get here, all retries failed
-      console.error('Failed to load config after retries:', lastError);
+      console.error(`${this.getTimestamp()} Failed to load config after retries:`, lastError);
       store.dispatch(storeConfigData(defaultConfig));
       return defaultConfig;
     } catch (error) {
-      console.error('Error loading config:', error);
+      console.error(`${this.getTimestamp()} Error loading config:`, error);
       store.dispatch(storeConfigData(defaultConfig));
       return defaultConfig;
     }
@@ -114,19 +118,19 @@ class BackgroundService {
         }
       });
 
-      console.log('Config file watcher started');
+      console.log(`${this.getTimestamp()} Config file watcher started`);
     } catch (error) {
-      console.error('Error starting config watcher:', error);
+      console.error(`${this.getTimestamp()} Error starting config watcher:`, error);
     }
   }
 
   private async handleConfigChange() {
     try {
-      console.log('Config file changed, waiting before reload...');
+      console.log(`${this.getTimestamp()} Config file changed, waiting before reload...`);
       // Wait for 2 seconds before attempting to reload
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      console.log('Reloading config...');
+      console.log(`${this.getTimestamp()} Reloading config...`);
       const newConfig = this.loadConfig();
       const oldUpdateTimer = parseInt(this.config[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER;
       const newUpdateTimer = parseInt(newConfig[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER;
@@ -138,11 +142,11 @@ class BackgroundService {
 
       // If the update timer has changed, restart the interval
       if (oldUpdateTimer !== newUpdateTimer && this.isRunning) {
-        console.log('Update timer changed, restarting interval...');
+        console.log(`${this.getTimestamp()} Update timer changed, restarting interval...`);
         this.restartUpdateInterval();
       }
     } catch (error) {
-      console.error('Error handling config change:', error);
+      console.error(`${this.getTimestamp()} Error handling config change:`, error);
     }
   }
 
@@ -158,24 +162,24 @@ class BackgroundService {
 
     this.updateInterval = setInterval(() => {
       this.loadAndStoreData().catch(error => {
-        console.error('Error in background update:', error);
+        console.error(`${this.getTimestamp()} Error in background update:`, error);
       });
     }, updateTimer);
 
-    console.log(`Update interval restarted with timer: ${updateTimer}ms`);
+    console.log(`${this.getTimestamp()} Update interval restarted with timer: ${updateTimer}ms`);
   }
 
   async start() {
     if (this.isRunning) {
-      console.log('Background service is already running');
+      console.log(`${this.getTimestamp()} Background service is already running`);
       return;
     }
 
-    console.log('Loading configuration...');
+    console.log(`${this.getTimestamp()} Loading configuration...`);
     this.config = this.loadConfig();
-    console.log('Starting config file watcher...');
+    console.log(`${this.getTimestamp()} Starting config file watcher...`);
     this.startConfigWatcher();
-    console.log('Background service started');
+    console.log(`${this.getTimestamp()} Background service started`);
     
     try {
       // Initial load of all data
@@ -185,9 +189,9 @@ class BackgroundService {
       this.restartUpdateInterval();
 
       this.isRunning = true;
-      console.log('Background service initialization complete');
+      console.log(`${this.getTimestamp()} Background service initialization complete`);
     } catch (error) {
-      console.error('Error starting background service:', error);
+      console.error(`${this.getTimestamp()} Error starting background service:`, error);
       throw error;
     }
   }
@@ -202,7 +206,7 @@ class BackgroundService {
       this.configWatcher = null;
     }
     this.isRunning = false;
-    console.log('Background service stopped');
+    console.log(`${this.getTimestamp()} Background service stopped`);
   }
 
   isServiceRunning(): boolean {
@@ -213,7 +217,7 @@ class BackgroundService {
     try {
       // Load ETA data using default names2Id
       const etaData = await fetchEtaData(this.config, defaultNames2Id);
-      console.log('ETA data updated');
+      console.log(`${this.getTimestamp()} ETA data updated`);
       store.dispatch(storeEtaData(etaData));
       await logData('eta', etaData);
 
@@ -246,7 +250,7 @@ class BackgroundService {
         allData: allData
       };
 
-      console.log('WiFi AF83 data updated');
+      console.log(`${this.getTimestamp()} WiFi AF83 data updated`);
       store.dispatch(storeWifiAf83Data(transformedData));
       await logData('ecowitt', transformedData);
 
@@ -255,7 +259,7 @@ class BackgroundService {
 
       return { etaData, wifiData: transformedData };
     } catch (error) {
-      console.error('Error loading and storing data:', error);
+      console.error(`${this.getTimestamp()} Error loading and storing data:`, error);
       throw error;
     }
   }

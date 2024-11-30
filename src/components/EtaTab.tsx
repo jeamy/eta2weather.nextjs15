@@ -35,6 +35,7 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
       }
       
       const result = await response.json();
+      // console.log('Received data for URI:', uri, 'Data:', result.data);
       
       if (result.success && result.data) {
         setValues(prev => ({ ...prev, [uri]: result.data }));
@@ -44,7 +45,7 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred';
       setError(prev => ({ ...prev, [uri]: errorMessage }));
-      console.error('Error fetching value:', error);
+      console.error('Error fetching value for URI:', uri, 'Error:', error);
     } finally {
       setLoading(prev => ({ ...prev, [uri]: false }));
     }
@@ -57,6 +58,15 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
       const urisToFetch = new Set<string>();
       menuItems.forEach(category => {
         category.children?.forEach(item => {
+//          console.log('Menu item:', item.name);
+          if (item.name === 'Lager') {
+//            console.log('Found Lager menu:', item);
+            item.children?.forEach(subItem => {
+              if (subItem.uri) {
+                urisToFetch.add(subItem.uri);
+              }
+            });
+          }
           item.children?.forEach(subItem => {
             if (subItem.uri) {
               urisToFetch.add(subItem.uri);
@@ -65,9 +75,12 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
         });
       });
 
-      await Promise.all(
-        Array.from(urisToFetch).map(uri => fetchValues(uri))
-      );
+//      console.log('All URIs to fetch:', Array.from(urisToFetch));
+
+      // Fetch values sequentially to better track issues
+      for (const uri of urisToFetch) {
+        await fetchValues(uri);
+      }
     };
 
     fetchAllValues();
