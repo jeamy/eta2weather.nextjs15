@@ -76,16 +76,26 @@ export async function GET() {
         const menuResponse = await etaApi.getMenu();
         
         if (menuResponse.error || !menuResponse.result) {
+            console.error('Error fetching menu:', menuResponse.error);
             return NextResponse.json(
                 { success: false, error: menuResponse.error || 'No menu data received' },
+                { status: 503 }  // Service Unavailable
+            );
+        }
+
+        // Ensure we have valid XML data before parsing
+        const xmlData = menuResponse.result.trim();
+        if (!xmlData) {
+            return NextResponse.json(
+                { success: false, error: 'Empty menu data received' },
                 { status: 500 }
             );
         }
-        
-        // Parse menu XML
-        const menuItems = parseMenuXML(menuResponse.result);
 
-        return NextResponse.json({ success: true, data: menuItems });
+        // Parse the menu XML
+        const menu = parseMenuXML(xmlData);
+        
+        return NextResponse.json({ success: true, data: menu });
     } catch (error) {
         console.error('Error in eta/menu:', error);
         return NextResponse.json(

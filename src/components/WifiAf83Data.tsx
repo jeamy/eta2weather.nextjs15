@@ -6,13 +6,13 @@ import { RootState } from '@/redux';
 import { ConfigState } from '@/redux/configSlice';
 import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
-import { WifiAF83Data } from '@/reader/functions/types-constants/WifiAf83';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
 import { calculateTemperatureDiff, calculateNewSliderPosition } from '@/utils/Functions';
 import { storeData } from '@/redux/configSlice';
 import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 import Image from 'next/image';
+import { WifiAF83Data } from '@/reader/functions/types-constants/WifiAf83';
 
 interface ApiResponse {
   data: WifiAF83Data & {
@@ -92,7 +92,8 @@ const WifiAf83Data: React.FC = () => {
         time: Number(data.time),
         datestring: data.datestring,
         temperature: Number(data.temperature),
-        indoorTemperature: Number(data.indoorTemperature)
+        indoorTemperature: Number(data.indoorTemperature),
+        allData: null
       };
 
       setWifiData(transformedData);

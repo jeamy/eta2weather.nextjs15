@@ -9,6 +9,12 @@ interface Temperature {
     value: string;
 }
 
+interface Measurement {
+    time: string;
+    unit: string;
+    value: string;
+}
+
 interface WifiAf83ApiResponse {
     code: number;
     msg: string;
@@ -16,9 +22,48 @@ interface WifiAf83ApiResponse {
     data: {
         outdoor: {
             temperature: Temperature;
+            feels_like: Measurement;
+            app_temp: Measurement;
+            dew_point: Measurement;
+            humidity: Measurement;
         };
         indoor: {
             temperature: Temperature;
+            humidity: Measurement;
+        };
+        solar_and_uvi: {
+            solar: Measurement;
+            uvi: Measurement;
+        };
+        rainfall: {
+            rain_rate: Measurement;
+            daily: Measurement;
+            event: Measurement;
+            hourly: Measurement;
+            weekly: Measurement;
+            monthly: Measurement;
+            yearly: Measurement;
+        };
+        wind: {
+            wind_speed: Measurement;
+            wind_gust: Measurement;
+            wind_direction: Measurement;
+            wind_direction_cardinal: Measurement;
+        };
+        pressure: {
+            relative: Measurement;
+            absolute: Measurement;
+        };
+        battery: {
+            t_rh_p_sensor: Measurement;
+            sensor_array: Measurement;
+            temp_humidity_sensor_ch1: Measurement;
+            temp_humidity_sensor_ch2: Measurement;
+            temp_humidity_sensor_ch3: Measurement;
+            temp_humidity_sensor_ch5: Measurement;
+            temp_humidity_sensor_ch6: Measurement;
+            temp_humidity_sensor_ch7: Measurement;
+            temp_humidity_sensor_ch8: Measurement;
         };
     };
     datestring: string;
@@ -67,10 +112,11 @@ export const fetchWifiAf83Data = async (): Promise<WifiAF83Data> => {
         }
 
         const result: WifiAF83Data = {
-            time: Date.now(),
-            datestring: '',
+            time: Date.parse(data.time),
+            datestring: data.datestring,
             temperature: temperature || 0,
             indoorTemperature: indoorTemperature || 0,
+            allData: null
         };
 
 //        console.log('Transformed WifiAf83 data:', result);

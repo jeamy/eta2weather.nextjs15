@@ -29,7 +29,8 @@ export async function GET() {
         year: 'numeric',
       }),
       temperature: parseFloat(outdoorTemp),
-      indoorTemperature: parseFloat(indoorTemp)
+      indoorTemperature: parseFloat(indoorTemp),
+      allData: null
     };
 
     return NextResponse.json({ success: true, data: transformedData });

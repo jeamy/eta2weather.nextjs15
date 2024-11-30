@@ -32,9 +32,9 @@ export async function GET() {
       data: allData
     });
   } catch (error) {
-    console.error('Error in fetchWifiAf83Data:', error);
+    console.error('Error in fetchAllWifiAf83Data:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch weather data' },
+      { success: false, error: 'Failed to fetch all weather data' },
       { status: 500 }
     );
   }
