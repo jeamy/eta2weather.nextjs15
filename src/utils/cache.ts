@@ -71,11 +71,23 @@ export async function getConfig() {
 }
 
 export async function updateConfig(newConfig: any) {
-    // Write the new config to file
-    await fs.writeFile(CONFIG_PATH, JSON.stringify(newConfig, null, 2));
+    // Get existing config
+    let existingConfig = {};
+    try {
+        const configData = await fs.readFile(CONFIG_PATH, 'utf8');
+        existingConfig = JSON.parse(configData);
+    } catch (error) {
+        console.error('Error reading existing config:', error);
+    }
+
+    // Merge existing config with new config
+    const mergedConfig = { ...existingConfig, ...newConfig };
     
-    // Update cache with new config
-    configCache.set(CONFIG_CACHE_KEY, newConfig);
+    // Write the merged config to file
+    await fs.writeFile(CONFIG_PATH, JSON.stringify(mergedConfig, null, 2));
+    
+    // Update cache with merged config
+    configCache.set(CONFIG_CACHE_KEY, mergedConfig);
 }
 
 async function updateWifiAf83File(data: any) {

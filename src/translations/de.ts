@@ -35,9 +35,7 @@ export const deTranslations: Translations = {
         // Basic measurements
         'temperature': 'Temperatur',
         'humidity': 'Luftfeuchtigkeit',
-        'battery': 'Batterie',
         'signal': 'Signal',
-        'pressure': 'Luftdruck',
 
         // Outdoor specific
         'feels_like': 'Gefühlt',

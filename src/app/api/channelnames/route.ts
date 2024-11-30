@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { getConfig, updateConfig } from '@/utils/cache';
 
 interface Config {
   t_soll?: string;
@@ -18,16 +17,9 @@ interface Config {
   [key: string]: any;
 }
 
-const configPath = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
-
 export async function GET() {
   try {
-    if (!fs.existsSync(configPath)) {
-      return NextResponse.json({});
-    }
-
-    const content = fs.readFileSync(configPath, 'utf-8');
-    const config: Config = JSON.parse(content);
+    const config = await getConfig();
     return NextResponse.json(config.channelNames || {});
   } catch (error) {
     console.error('Error reading channel names:', error);
@@ -42,28 +34,21 @@ export async function POST(request: Request) {
   try {
     const newChannelNames = await request.json();
     
-    // Read existing config
-    let config: Config = {};
-    if (fs.existsSync(configPath)) {
-      const content = fs.readFileSync(configPath, 'utf-8');
-      try {
-        config = JSON.parse(content);
-      } catch (error) {
-        return NextResponse.json(
-          { error: 'Invalid config file format' },
-          { status: 400 }
-        );
-      }
-    }
-
+    // Get existing config using cache utility
+    const config = await getConfig();
+    
     // Update channel names in config
-    config.channelNames = {
-      ...(config.channelNames || {}),
-      ...newChannelNames
+    const updatedConfig = {
+      ...config,
+      channelNames: {
+        ...(config.channelNames || {}),
+        ...newChannelNames
+      }
     };
 
-    // Write the updated config
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+    // Update config using cache utility
+    await updateConfig(updatedConfig);
+    
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error writing channel names:', error);
