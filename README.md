@@ -63,7 +63,7 @@ Connect with Codeium:
 ## Project Structure
 
 ```
-eta2weather.nextjs15/
+eta2weather.nextjs/
 ├── src/
 │   ├── app/                    # Next.js app pages
 │   │   ├── page.tsx           # Main application page
@@ -199,6 +199,66 @@ The heating system data is managed through the ETA RESTful API. For comprehensiv
 - Responsive grid layout
 - Monospace fonts for values
 - Right-aligned numeric data
+
+## Docker Usage
+
+### Prerequisites
+
+1. Configure the environment file:
+   ```bash
+   cp .env.example .env
+   ```
+   Update the `.env` file with your settings:
+   ```env
+   DEFAULT_CONFIG_FILE='./config/f_etacfg.json'
+   DEFAULT_SERVER='192.x.x.x:8080'  # Your ETA server address
+   ```
+
+2. Configure Ecowitt settings:
+   ```bash
+   cp eco.example.tsx eco.tsx
+   ```
+   Update `eco.tsx` with your Ecowitt credentials:
+   ```typescript
+   config: {
+     applicationKey: "XXX", // From Ecowitt API Settings
+     apiKey: "XXX",        // Your generated API Key
+     mac: "XXX",           // Your device MAC Address
+     server: "api.ecowitt.net"
+   }
+   ```
+
+### Running with Docker
+
+You can run this application using Docker in two ways:
+
+#### Using Docker Directly
+
+1. Build the Docker image:
+   ```bash
+   docker build -t eta2weather .
+   ```
+
+2. Run the container:
+   ```bash
+   docker run -p 3000:3000 eta2weather
+   ```
+
+#### Using Docker Compose
+
+1. Build and start the container:
+   ```bash
+   docker-compose up -d
+   ```
+
+2. Stop the container:
+   ```bash
+   docker-compose down
+   ```
+
+The application will be available at `http://localhost:3000`.
+
+Note: The Docker build process will include your configured `.env` and `eco.tsx` files in the image. Make sure these files are properly configured before building the image.
 
 ## Recent Updates
 
