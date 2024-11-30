@@ -50,7 +50,7 @@ export default function Home() {
     <div className="font-sans min-h-screen p-4 pb-20 gap-8 sm:p-8 md:p-16 lg:p-20">
       <main className="space-y-8">
         {/* First row: Config, Eta, and Wifi data */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="bg-white rounded-lg shadow-sm p-4">
             <ConfigData />
           </div>
@@ -63,7 +63,7 @@ export default function Home() {
         </div>
 
         {/* Second row: EtaTab and WifiTab */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white rounded-lg shadow-sm p-4">
             <EtaTab menuItems={menuItems} />
           </div>

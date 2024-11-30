@@ -10,14 +10,15 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@reduxjs/toolkit": "^2.3.0",
+    "cross-env": "^7.0.3",
     "next": "15.0.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-redux": "^9.1.2",
     "tsx": "^4.19.2",
-    "xmldom": "^0.6.0",
-    "cross-env": "^7.0.3"
+    "xmldom": "^0.6.0"
   },
   "devDependencies": {
     "@types/node": "^20.17.8",

@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'react';
 import { WifiData } from '@/reader/functions/types-constants/WifiConstants';
-import { useSelector } from 'react-redux';
-import { RootState } from '@/redux';
-import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 import { deTranslations } from '@/translations/de';
+import {
+  HomeIcon,
+  BuildingOfficeIcon,
+  SignalIcon,
+  SunIcon,
+  CloudIcon,
+  ArrowPathIcon,
+  BeakerIcon,
+  Battery50Icon,
+} from '@heroicons/react/24/outline';
 
 interface WifiTabProps {
   data?: WifiData;
@@ -89,6 +96,17 @@ export default function WifiTab({ data }: WifiTabProps) {
 
   const categoryEntries = Object.entries(categories);
 
+  const categoryIcons = {
+    [deTranslations.categories['Outdoor']]: <BuildingOfficeIcon className="w-5 h-5" />,
+    [deTranslations.categories['Indoor']]: <HomeIcon className="w-5 h-5" />,
+    [deTranslations.categories['Channels']]: <SignalIcon className="w-5 h-5" />,
+    [deTranslations.categories['Solar & UVI']]: <SunIcon className="w-5 h-5" />,
+    [deTranslations.categories['Rainfall']]: <CloudIcon className="w-5 h-5" />,
+    [deTranslations.categories['Wind']]: <ArrowPathIcon className="w-5 h-5" />,
+    [deTranslations.categories['Pressure']]: <BeakerIcon className="w-5 h-5" />,
+    [deTranslations.categories['Battery']]: <Battery50Icon className="w-5 h-5" />,
+  };
+
   const renderChannelName = (channelKey: string) => {
     if (editingChannel === channelKey) {
       return (
@@ -164,21 +182,19 @@ export default function WifiTab({ data }: WifiTabProps) {
 
   return (
     <div className="w-full px-2 sm:px-0">
-      <div className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 h-[58px]">
+      <div className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 h-24">
         {categoryEntries.map(([category], index) => (
           <button
             key={category}
             onClick={() => setActiveTab(index)}
-            className={`
-              flex-1 rounded-lg py-2.5 text-sm font-medium leading-5
-              focus:outline-none focus:ring-2 ring-white/60 ring-offset-2 ring-offset-blue-400
-              ${activeTab === index
-                ? 'bg-white text-blue-700 shadow'
-                : 'text-gray-900 hover:bg-white/[0.12] hover:text-blue-700'
-              }
-            `}
+            className={`w-full rounded-lg py-2 text-sm font-medium leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 transition-colors flex flex-col items-center justify-center
+              ${activeTab === index 
+                ? 'bg-white text-blue-700 shadow' 
+                : 'text-black hover:bg-white/[0.12] hover:text-blue-700'}`}
+            title={category}
           >
-            {category}
+            {categoryIcons[category]}
+            <span className="hidden lg:inline-block mt-1 text-xs">{category}</span>
           </button>
         ))}
       </div>
@@ -188,7 +204,7 @@ export default function WifiTab({ data }: WifiTabProps) {
           <div
             key={idx}
             className={`
-              rounded-xl bg-white pt-3 ring-white/60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2
+              rounded-xl bg-white pt-3 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2
               ${activeTab === idx ? 'block' : 'hidden'}
             `}
           >

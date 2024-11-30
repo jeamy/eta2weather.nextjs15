@@ -2,6 +2,15 @@ import { useEffect, useState, useCallback } from 'react';
 import { MenuNode } from '@/types/menu';
 import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { formatValue } from '@/utils/formatters';
+import { 
+  ClockIcon, 
+  CalendarIcon, 
+  ChartBarIcon,
+  FireIcon,
+  CubeIcon,
+  CircleStackIcon,
+  Cog6ToothIcon
+} from '@heroicons/react/24/outline';
 
 interface EtaTabProps {
   menuItems?: MenuNode[];
@@ -69,19 +78,39 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
     return <span className={color}>{text}</span>;
   }, []);
 
+  const getTabIcon = (categoryName: string) => {
+    const name = categoryName.toLowerCase();
+    if (name.includes('kessel')) {
+      return <FireIcon className="w-5 h-5" />;
+    } else if (name.includes('lager')) {
+      return <CubeIcon className="w-5 h-5" />;
+    } else if (name.includes('speicher') || name.includes('boiler')) {
+      return <CircleStackIcon className="w-5 h-5" />;
+    } else if (name.includes('system') || name.includes('sys')) {
+      return <Cog6ToothIcon className="w-5 h-5" />;
+    } else if (name === 'heute') {
+      return <CalendarIcon className="w-5 h-5" />;
+    } else if (name === 'jetzt') {
+      return <ClockIcon className="w-5 h-5" />;
+    }
+    return <ChartBarIcon className="w-5 h-5" />;
+  };
+
   return (
     <div>
-      <div className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 h-[58px]">
+      <div className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 h-24">
         {menuItems.map((category, categoryIndex) => (
           <button
             key={`tab-${categoryIndex}-${category.name}`}
             onClick={() => setSelectedIndex(categoryIndex)}
-            className={`w-full rounded-lg py-2.5 text-sm font-medium leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 transition-colors
+            className={`w-full rounded-lg py-2 text-sm font-medium leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 transition-colors flex flex-col items-center justify-center
               ${selectedIndex === categoryIndex 
                 ? 'bg-white text-blue-700 shadow' 
                 : 'text-black hover:bg-white/[0.12] hover:text-blue-700'}`}
+            title={category.name}
           >
-            {category.name}
+            {getTabIcon(category.name)}
+            <span className="hidden lg:inline-block mt-1 text-xs">{category.name}</span>
           </button>
         ))}
       </div>
