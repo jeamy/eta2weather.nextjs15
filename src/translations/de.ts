@@ -1,4 +1,17 @@
-export const deTranslations = {
+interface Categories {
+    [key: string]: string;
+}
+
+interface Measurements {
+    [key: string]: string;
+}
+
+interface Translations {
+    categories: Categories;
+    measurements: Measurements;
+}
+
+export const deTranslations: Translations = {
     categories: {
         'Outdoor': 'Außen',
         'Indoor': 'Innen',
@@ -10,19 +23,52 @@ export const deTranslations = {
         'Battery': 'Batterie'
     },
     measurements: {
-        'TEMPERATURE': 'Temperatur',
-        'HUMIDITY': 'Luftfeuchtigkeit',
-        'BATTERY': 'Batterie',
-        'SIGNAL': 'Signal',
-        'PRESSURE': 'Luftdruck',
-        'RAIN_RATE': 'Niederschlag',
-        'RAIN_TOTAL': 'Niederschlag Total',
-        'RAIN_EVENT': 'Niederschlag Ereignis',
-        'WIND_SPEED': 'Windgeschwindigkeit',
-        'WIND_DIRECTION': 'Windrichtung',
-        'UV_INDEX': 'UV-Index',
-        'SOLAR_IRRADIATION': 'Sonneneinstrahlung',
-        'SOLAR_ENERGY': 'Solarenergie',
-        'SOLAR_POWER': 'Solarleistung'  
+        // Categories and subcategories
+        'outdoor': 'Außen',
+        'indoor': 'Innen',
+        'solar_and_uvi': 'Solar & UV-Index',
+        'rainfall': 'Niederschlag',
+        'wind': 'Wind',
+        'pressure': 'Luftdruck',
+        'battery': 'Batterie',
+
+        // Basic measurements
+        'temperature': 'Temperatur',
+        'humidity': 'Luftfeuchtigkeit',
+        'battery': 'Batterie',
+        'signal': 'Signal',
+        'pressure': 'Luftdruck',
+
+        // Outdoor specific
+        'feels_like': 'Gefühlt',
+        'app_temp': 'Gefühlte Temperatur',
+        'dew_point': 'Taupunkt',
+
+        // Rain measurements
+        'rain_rate': 'Niederschlag Rate',
+        'daily': 'Täglich',
+        'hourly': 'Stündlich',
+        'weekly': 'Wöchentlich',
+        'monthly': 'Monatlich',
+        'yearly': 'Jährlich',
+        'event': 'Ereignis',
+
+        // Wind measurements
+        'wind_speed': 'Windgeschwindigkeit',
+        'wind_gust': 'Windböen',
+        'wind_direction': 'Windrichtung',
+
+        // Solar measurements
+        'solar': 'Solar',
+        'uvi': 'UV-Index',
+
+        // Pressure measurements
+        'relative': 'Relativer Luftdruck',
+        'absolute': 'Absoluter Luftdruck',
+
+        // Battery status
+        't_rh_p_sensor': 'T/RH/P Sensor',
+        'sensor_array': 'Sensor Array',
+        'temp_humidity_sensor': 'Temperatur/Feuchte Sensor'
     }
 };

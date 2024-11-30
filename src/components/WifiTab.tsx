@@ -141,17 +141,23 @@ export default function WifiTab({ data }: WifiTabProps) {
         return `${value.value} ${value.unit}`;
       }
       // For nested objects (like in Channels)
-      return Object.entries(value).map(([subKey, subValue]: [string, any]) => (
-        <div key={subKey} className="mb-2">
-          <span className="text-xs text-gray-600">
-            {deTranslations.measurements[subKey.replace(/_/g, ' ').toUpperCase() as keyof typeof deTranslations.measurements] || 
-             subKey.replace(/_/g, ' ').toUpperCase()}: 
-          </span>
-          <span className="text-sm">
-            {typeof subValue === 'object' ? `${subValue.value} ${subValue.unit}` : subValue}
-          </span>
-        </div>
-      ));
+      return Object.entries(value).map(([subKey, subValue]: [string, any]) => {
+        // Use the original key for translation lookup
+        const translationKey = subKey.toLowerCase();
+        const translation = deTranslations.measurements[translationKey] || 
+                          subKey.replace(/_/g, ' ');
+        
+        return (
+          <div key={subKey} className="mb-2">
+            <span className="text-xs text-gray-600">
+              {translation}: {' '}
+            </span>
+            <span className="text-sm">
+              {typeof subValue === 'object' ? `${subValue.value} ${subValue.unit}` : subValue}
+            </span>
+          </div>
+        );
+      });
     }
     return value;
   };
@@ -201,16 +207,23 @@ export default function WifiTab({ data }: WifiTabProps) {
                 ))
               ) : (
                 // Regular rendering for other categories
-                Object.entries(data).map(([key, value]: [string, any]) => (
-                  <div key={key} className="p-4 rounded-lg bg-gray-50 shadow-lg">
-                    <h3 className="text-sm font-medium text-gray-900">
-                      {key.replace(/_/g, ' ').toUpperCase()} &nbsp;
-                    </h3>
-                    <div className="mt-2 text-sm text-gray-500">
-                      {renderValue(key, value)}
+                Object.entries(data).map(([key, value]: [string, any]) => {
+                  // Get translation for the category title
+                  const translationKey = key.toLowerCase();
+                  const titleTranslation = deTranslations.measurements[translationKey] || 
+                                        key.replace(/_/g, ' ');
+                  
+                  return (
+                    <div key={key} className="p-4 rounded-lg bg-gray-50 shadow-lg">
+                      <h3 className="text-sm font-medium text-gray-900">
+                        {titleTranslation} &nbsp;
+                      </h3>
+                      <div className="mt-2 text-sm text-gray-500">
+                        {renderValue(key, value)}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

@@ -47,6 +47,7 @@ export const NAMES2ID_CACHE_KEY = 'names2id_config';
 
 const CONFIG_PATH = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
 const NAMES2ID_PATH = path.join(process.cwd(), 'src', 'config', 'f_names2id.json');
+const WIFIAF83_PATH = path.join(process.cwd(), 'src', 'config', 'f_wifiaf89.json');
 
 // Create singleton cache instances with 3 seconds TTL
 export const configCache = new Cache<any>(3000);
@@ -77,25 +78,102 @@ export async function updateConfig(newConfig: any) {
     configCache.set(CONFIG_CACHE_KEY, newConfig);
 }
 
+async function updateWifiAf83File(data: any) {
+    try {
+        const fileData = {
+            code: 0,
+            msg: "success",
+            time: Math.floor(Date.now() / 1000).toString(),
+            data: data,
+            datestring: new Date().toLocaleString('de-DE', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: 'numeric',
+                second: 'numeric'
+            }),
+            diff: "0"
+        };
+        await fs.writeFile(WIFIAF83_PATH, JSON.stringify(fileData, null, 2));
+    } catch (error) {
+        console.error('Error writing to wifiaf83 file:', error);
+    }
+}
+
+async function readWifiAf83File(): Promise<any> {
+    try {
+        const data = await fs.readFile(WIFIAF83_PATH, 'utf8');
+        const jsonData = JSON.parse(data);
+        return jsonData.data;
+    } catch (error) {
+        console.error('Error reading wifiaf83 file:', error);
+        return null;
+    }
+}
+
 export async function getWifiAf83Data(fetchFn: () => Promise<any>) {
     // Try to get data from cache first
     const cachedData = wifiaf83Cache.get(WIFIAF83_CACHE_KEY);
-    if (cachedData) {
+    
+    try {
+        // If not in cache or expired, fetch new data
+        if (!cachedData) {
+            try {
+                const response = await fetchFn();
+
+                // Check if the response has the expected structure
+                if (!response || response.code !== 0) {
+                    throw new Error(`Failed to fetch WifiAf83 data: ${response?.msg || 'Unknown error'}`);
+                }
+
+                // Store in cache and file
+                wifiaf83Cache.set(WIFIAF83_CACHE_KEY, response.data);
+                await updateWifiAf83File(response.data);
+                return response.data;
+            } catch (fetchError) {
+                // If fetch fails and we have no cache, try to read from file
+                const fileData = await readWifiAf83File();
+                if (fileData) {
+                    wifiaf83Cache.set(WIFIAF83_CACHE_KEY, fileData);
+                    return fileData;
+                }
+                throw fetchError;
+            }
+        }
+        
+        // If we have cached data, try to fetch new data in the background
+        fetchFn().then(response => {
+            if (response && response.code === 0) {
+                wifiaf83Cache.set(WIFIAF83_CACHE_KEY, response.data);
+                updateWifiAf83File(response.data).catch(() => {
+                    // Ignore file write errors in background update
+                });
+            }
+        }).catch(() => {
+            // Ignore background fetch errors
+        });
+        
         return cachedData;
+    } catch (error) {
+        // If we have cached data and get a rate limit error, return the cached data
+        if (cachedData && error instanceof Error && 
+            (error.message.includes('too frequent') || error.message.includes('rate limit'))) {
+            console.log('Using cached data due to rate limit');
+            return cachedData;
+        }
+
+        // If no cache and error is not rate limit, try file as last resort
+        const fileData = await readWifiAf83File();
+        if (fileData) {
+            console.log('Using file data as fallback');
+            wifiaf83Cache.set(WIFIAF83_CACHE_KEY, fileData);
+            return fileData;
+        }
+
+        throw error;
     }
-
-    // If not in cache, fetch new data
-    const response = await fetchFn();
-
-    // Check if the response has the expected structure
-    if (!response || response.code !== 0) {
-        throw new Error(`Failed to fetch WifiAf83 data: ${response?.msg || 'Unknown error'}`);
-    }
-
-    // Store in cache
-    wifiaf83Cache.set(WIFIAF83_CACHE_KEY, response.data);
-
-    return response.data;
 }
 
 export async function getNames2Id(): Promise<Names2Id> {
