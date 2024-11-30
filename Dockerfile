@@ -12,4 +12,4 @@ RUN npm run build
 EXPOSE 3000
 ENV PORT 3000
 
-CMD ["npm", "cross-env NODE_ENV=production tsx server.ts"]
+CMD ["npm", "run", "start"]
