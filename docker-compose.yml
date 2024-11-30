@@ -11,6 +11,8 @@ services:
       - NODE_ENV=production
     volumes:
       - nodemodules:/app/node_modules
+      - ./public/log:/app/public/log
+      - ./src/config:/app/src/config
 
 volumes:
   nodemodules: {}
