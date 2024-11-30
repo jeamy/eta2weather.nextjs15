@@ -265,13 +265,13 @@ const WifiAf83Data: React.FC = () => {
           <div className="flex flex-col space-y-2">
             <div className="flex justify-between items-center">
               <span className="font-medium">Außentemperatur:</span>
-              <span className={`font-mono ${wifiData.temperature < 0 ? 'text-blue-500' : 'text-green-500'}`}>
+              <span className={`font-mono ${wifiData.temperature < 0 ? 'text-blue-500' : wifiData.temperature > 0 ? 'text-green-500' : 'text-black'}`}>
                 {wifiData.temperature}°C
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="font-medium">Innentemperatur:</span>
-              <span className="font-mono">{wifiData.indoorTemperature}°C</span>
+              <span className="font-mono text-black">{wifiData.indoorTemperature}°C</span>
             </div>
             {config.data[ConfigKeys.DIFF] && (
               <div className="flex justify-between items-center">
@@ -281,7 +281,7 @@ const WifiAf83Data: React.FC = () => {
                     ? 'text-green-600' 
                     : Number(config.data[ConfigKeys.DIFF]) < 0 
                       ? 'text-blue-600' 
-                      : ''
+                      : 'text-black'
                 }`}>
                   {Number(config.data[ConfigKeys.DIFF]).toFixed(1)}°C
                 </span>

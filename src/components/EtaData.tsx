@@ -380,12 +380,12 @@ const EtaData: React.FC = () => {
                             ? 'text-green-600' 
                             : Number(value.strValue) < 0 
                               ? 'text-blue-600' 
-                              : ''
+                              : 'text-black'
                           : value.short === 'AT'
                             ? Number(value.strValue) < 0
                               ? 'text-blue-500'
                               : 'text-green-500'
-                            : ''
+                            : 'text-black'
                       }`}>
                         {value.strValue}
                         {value.unit && <span className="text-gray-500">{value.unit}</span>}
@@ -411,7 +411,9 @@ const EtaData: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`font-mono ${
-                        value.strValue === 'Ein' ? 'text-green-500' : 'text-red-500'
+                        value.strValue === 'Ein' ? 'text-green-500' : 
+                        value.strValue === 'Aus' ? 'text-red-500' : 
+                        'text-black'
                       }`}>
                         {value.strValue}
                       </span>
