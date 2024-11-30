@@ -1,18 +1,16 @@
 import { NextResponse } from 'next/server';
-import { fetchWifiAf83Data } from '@/reader/functions/WifiAf83Data';
+import { WifiAf83Api } from '@/reader/functions/WifiAf83Api';
+import { getWifiAf83Data } from '@/utils/cache';
 
 export async function GET() {
   try {
-    // Fetch WifiAf83 data
-    const wifiAf83Data = await fetchWifiAf83Data();
-
-    return NextResponse.json({
-      data: wifiAf83Data,
-    });
+    const wifiApi = new WifiAf83Api();
+    const data = await getWifiAf83Data(() => wifiApi.getAllRealtime());
+    return NextResponse.json({ success: true, data });
   } catch (error) {
-    console.error('Error fetching WifiAf83 data:', error);
+    console.error('Error in fetchWifiAf83Data:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch WifiAf83 data' },
+      { success: false, error: 'Failed to fetch weather data' },
       { status: 500 }
     );
   }

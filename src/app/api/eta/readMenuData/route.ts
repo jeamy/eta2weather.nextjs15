@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { parseXML } from '@/reader/functions/EtaData';
+import { getConfig } from '@/utils/cache';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -16,10 +15,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Read config file
-    const configFile = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
-    const configData = await fs.readFile(configFile, 'utf8');
-    const config = JSON.parse(configData);
+    const config = await getConfig();
 
     // Create EtaApi instance
     const etaApi = new EtaApi(config.s_eta);

@@ -3,6 +3,7 @@ import { WifiData } from '@/reader/functions/types-constants/WifiConstants';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux';
 import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
+import { deTranslations } from '@/translations/de';
 
 interface WifiTabProps {
   data?: WifiData;
@@ -76,14 +77,14 @@ export default function WifiTab({ data }: WifiTabProps) {
   };
 
   const categories = {
-    'Outdoor': data?.outdoor || {},
-    'Indoor': data?.indoor || {},
-    'Channels': channelData,
-    'Solar & UVI': data?.solar_and_uvi || {},
-    'Rainfall': data?.rainfall || {},
-    'Wind': data?.wind || {},
-    'Pressure': data?.pressure || {},
-    'Battery': data?.battery || {},
+    [deTranslations.categories['Outdoor']]: data?.outdoor || {},
+    [deTranslations.categories['Indoor']]: data?.indoor || {},
+    [deTranslations.categories['Channels']]: channelData,
+    [deTranslations.categories['Solar & UVI']]: data?.solar_and_uvi || {},
+    [deTranslations.categories['Rainfall']]: data?.rainfall || {},
+    [deTranslations.categories['Wind']]: data?.wind || {},
+    [deTranslations.categories['Pressure']]: data?.pressure || {},
+    [deTranslations.categories['Battery']]: data?.battery || {},
   };
 
   const categoryEntries = Object.entries(categories);
@@ -142,7 +143,10 @@ export default function WifiTab({ data }: WifiTabProps) {
       // For nested objects (like in Channels)
       return Object.entries(value).map(([subKey, subValue]: [string, any]) => (
         <div key={subKey} className="mb-2">
-          <span className="text-xs text-gray-600">{subKey.replace(/_/g, ' ').toUpperCase()}: </span>
+          <span className="text-xs text-gray-600">
+            {deTranslations.measurements[subKey.replace(/_/g, ' ').toUpperCase() as keyof typeof deTranslations.measurements] || 
+             subKey.replace(/_/g, ' ').toUpperCase()}: 
+          </span>
           <span className="text-sm">
             {typeof subValue === 'object' ? `${subValue.value} ${subValue.unit}` : subValue}
           </span>
@@ -183,12 +187,12 @@ export default function WifiTab({ data }: WifiTabProps) {
             `}
           >
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 border-gray-200">
-              {category === 'Channels' ? (
+              {category === deTranslations.categories['Channels'] ? (
                 // Special rendering for Channels
                 Object.entries(data).map(([channelKey, channelValue]) => (
                   <div key={channelKey} className="p-4 rounded-lg bg-gray-50 shadow-lg">
                     <h3 className="text-sm font-medium text-gray-900 mb-2">
-                      {renderChannelName(channelKey)}
+                      {renderChannelName(channelKey)} &nbsp;
                     </h3>
                     <div className="space-y-">
                       {renderValue(channelKey, channelValue)}
@@ -200,7 +204,7 @@ export default function WifiTab({ data }: WifiTabProps) {
                 Object.entries(data).map(([key, value]: [string, any]) => (
                   <div key={key} className="p-4 rounded-lg bg-gray-50 shadow-lg">
                     <h3 className="text-sm font-medium text-gray-900">
-                      {key.replace(/_/g, ' ').toUpperCase()}
+                      {key.replace(/_/g, ' ').toUpperCase()} &nbsp;
                     </h3>
                     <div className="mt-2 text-sm text-gray-500">
                       {renderValue(key, value)}

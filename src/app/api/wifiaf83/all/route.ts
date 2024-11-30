@@ -1,24 +1,19 @@
 import { NextResponse } from 'next/server';
 import { WifiAf83Api } from '@/reader/functions/WifiAf83Api';
 import { logData } from '@/utils/logging';
+import { getWifiAf83Data } from '@/utils/cache';
 
 export async function GET() {
-  const wifiApi = new WifiAf83Api();
-
   try {
-    const response = await wifiApi.getAllRealtime();
+    const wifiApi = new WifiAf83Api();
+    const data = await getWifiAf83Data(() => wifiApi.getAllRealtime());
     
-    // Check if the response has the expected structure
-    if (!response || response.code !== 0) {
-      throw new Error(`Failed to fetch WifiAf83 data: ${response?.msg || 'Unknown error'}`);
-    }
-
     // Log all Ecowitt data
-    await logData('ecowitt', response.data);
+    await logData('ecowitt', data);
     
     return NextResponse.json({ 
       success: true, 
-      data: response.data 
+      data: data 
     });
   } catch (error) {
     console.error('Error in getAllRealtime:', error);

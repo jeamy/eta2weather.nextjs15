@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
 import { EtaApi } from '@/reader/functions/EtaApi';
+import { getConfig } from '@/utils/cache';
 
 interface MenuNode {
     uri: string;
@@ -67,10 +66,8 @@ function parseMenuXML(xmlString: string): MenuNode[] {
 
 export async function GET() {
     try {
-        // Read config file
-        const configFile = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
-        const configData = await fs.readFile(configFile, 'utf8');
-        const config = JSON.parse(configData);
+        // Get config using cache
+        const config = await getConfig();
 
         // Create EtaApi instance
         const etaApi = new EtaApi(config.s_eta);

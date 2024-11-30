@@ -34,7 +34,7 @@ export default function Home() {
       try {
         const response = await fetch('/api/wifiaf83/all');
         const {success, data} = await response.json();
-        console.log('API response:', success,  data);
+        //console.log('API response:', success,  data);
         setWifiData(data);
       } catch (error) {
         console.error('Error fetching weather data:', error);

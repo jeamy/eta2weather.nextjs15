@@ -1,33 +1,25 @@
 import { NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { Config } from '@/reader/functions/types-constants/ConfigConstants';
 import { fetchEtaData } from '@/reader/functions/EtaData';
-import { EtaData } from '@/reader/functions/types-constants/EtaConstants';
-import { Names2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 import { logData } from '@/utils/logging';
+import { getConfig, getNames2Id } from '@/utils/cache';
 
 export async function GET() {
   try {
-    // Read config file
-    const configFile = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
-    const configData = await fs.readFile(configFile, 'utf8');
-    const config: Config = JSON.parse(configData);
-
-    // Read names2id file
-    const names2idFile = path.join(process.cwd(), 'src', 'config', 'f_names2id.json');
-    const names2idData = await fs.readFile(names2idFile, 'utf8');
-    const names2id: Names2Id = JSON.parse(names2idData);
+    // Get both configs (cached or fresh)
+    const [config, names2id] = await Promise.all([
+        getConfig(),
+        getNames2Id()
+    ]);
 
     // Fetch ETA data
-    const etaData: EtaData = await fetchEtaData(config, names2id);
+    const etaData = await fetchEtaData(config, names2id);
 
     // Log the data
     await logData('eta', etaData);
 
     return NextResponse.json({ success: true, data: etaData });
   } catch (error) {
-    console.error('Error in eta/read:', error);
+    console.error('Error reading ETA data:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to read ETA data' },
       { status: 500 }

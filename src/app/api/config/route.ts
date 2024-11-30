@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import fs from 'fs';
+import { NextRequest, NextResponse } from 'next/server';
+import { promises as fs } from 'fs';
 import path from 'path';
 import { logData } from '@/utils/logging';
 
@@ -7,13 +7,7 @@ interface Config {
   t_soll?: string;
   t_delta?: string;
   t_slider?: string;
-  s_eta?: string;
-  f_eta?: string;
-  f_wifiaf83?: string;
-  f_names2id?: string;
-  t_update_timer?: string;
-  diff?: string;
-  channelNames?: {
+  s_eta?: {
     [key: string]: string;
   };
   [key: string]: any;
@@ -21,78 +15,35 @@ interface Config {
 
 const configPath = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
 
-// Ensure config file exists with valid JSON
-const ensureConfigFile = () => {
-  if (!fs.existsSync(configPath)) {
-    const defaultConfig: Config = {};
-    fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2), 'utf-8');
-    return defaultConfig;
-  }
-
-  try {
-    const content = fs.readFileSync(configPath, 'utf-8');
-    return JSON.parse(content) as Config;
-  } catch (error) {
-    // If JSON is invalid, create new file with empty config
-    const defaultConfig: Config = {};
-    fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2), 'utf-8');
-    return defaultConfig;
-  }
-};
-
 export async function GET() {
   try {
-    const config = ensureConfigFile();
-    return NextResponse.json(config);
+    const configData = await fs.readFile(configPath, 'utf8');
+    const config = JSON.parse(configData);
+    return NextResponse.json({ success: true, data: config });
   } catch (error) {
     console.error('Error reading config:', error);
     return NextResponse.json(
-      { error: 'Failed to read config' },
+      { success: false, error: 'Failed to read config' },
       { status: 500 }
     );
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { key, value } = await request.json();
-
-    if (!key) {
-      return NextResponse.json(
-        { error: 'Key is required' },
-        { status: 400 }
-      );
-    }
-
-    // Ensure we have a valid config
-    let config: Config = {};
-    if (fs.existsSync(configPath)) {
-      const content = fs.readFileSync(configPath, 'utf-8');
-      try {
-        config = JSON.parse(content);
-      } catch (error) {
-        return NextResponse.json(
-          { error: 'Invalid config file format' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Update config with the new value
-    // Convert value to string if it isn't already
-    config[key] = value.toString();
-
-    // Write the updated config
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+    const newConfig = await request.json();
+    
+    // Write the new config to file
+    await fs.writeFile(configPath, JSON.stringify(newConfig, null, 2));
 
     // Log the config change
-    await logData('config', config);
+    await logData('config', newConfig);
 
-    return NextResponse.json({ success: true, config });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating config:', error);
     return NextResponse.json(
-      { error: 'Failed to update config' },
+      { success: false, error: 'Failed to update config' },
       { status: 500 }
     );
   }
