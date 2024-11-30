@@ -1,26 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { logData } from '@/utils/logging';
 import { getConfig, updateConfig } from '@/utils/cache';
-
-interface Config {
-  t_soll?: string;
-  t_delta?: string;
-  t_slider?: string;
-  s_eta?: string;
-  f_eta?: string;
-  f_wifiaf83?: string;
-  f_names2id?: string;
-  t_update_timer?: string;
-  diff?: string;
-  channelNames?: {
-    [key: string]: string;
-  };
-  [key: string]: any;
-}
-
-const configPath = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
 
 export async function GET() {
   try {
@@ -50,9 +29,6 @@ export async function POST(request: NextRequest) {
     
     // Update the config using cache utility
     await updateConfig(updatedConfig);
-    
-    // Log the config change
-    await logData('config', { key, value });
     
     return NextResponse.json({ 
       success: true, 

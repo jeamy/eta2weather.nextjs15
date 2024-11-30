@@ -16,24 +16,27 @@ export async function GET() {
                 const pathParts = logPath.split('/');
                 const fileName = pathParts[pathParts.length - 1];
                 const [hour, minute] = fileName.split('.')[0].split('-');
-                const year = pathParts[1];  // year is the second part after type
-                const month = pathParts[2];
-                const day = pathParts[3];
+                const year = pathParts[pathParts.length - 4];  // Get year from path
+                const month = pathParts[pathParts.length - 3]; // Get month from path
+                const day = pathParts[pathParts.length - 2];   // Get day from path
                 
-                // Create date string in ISO format to ensure proper parsing
-                const dateStr = `${year}-${month}-${day}T${hour}:${minute}:00`;
-                const date = new Date(dateStr);
-
+                // Ensure all components are padded with zeros
+                const paddedMonth = month.padStart(2, '0');
+                const paddedDay = day.padStart(2, '0');
+                const paddedHour = hour.padStart(2, '0');
+                const paddedMinute = minute.padStart(2, '0');
+                
+                // Create ISO date string
+                const dateStr = `${year}-${paddedMonth}-${paddedDay}T${paddedHour}:${paddedMinute}:00`;
+                
                 return {
                     path: logPath,
                     type,
-                    date: date.toLocaleString('de-DE', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    })
+                    date: dateStr,  // Store as ISO string
+                    year,
+                    month: paddedMonth,
+                    day: paddedDay,
+                    time: `${paddedHour}:${paddedMinute}`
                 };
             });
         };
@@ -43,13 +46,13 @@ export async function GET() {
             ...formatLogs(ecowittLogs, 'ecowitt'),
             ...formatLogs(etaLogs, 'eta'),
             ...formatLogs(configLogs, 'config')
-        ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        ].sort((a, b) => b.date.localeCompare(a.date)); // Sort using ISO string comparison
 
         return NextResponse.json(allLogs);
     } catch (error) {
         console.error('Error handling logs request:', error);
         return NextResponse.json(
-            { error: 'Failed to get logs' },
+            { error: 'Failed to fetch logs' },
             { status: 500 }
         );
     }

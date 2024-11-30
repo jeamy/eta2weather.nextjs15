@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { Config } from '@/reader/functions/types-constants/ConfigConstants';
 import { EtaApi } from '@/reader/functions/EtaApi';
+import { getConfig } from '@/utils/cache';
 
 export async function POST(request: NextRequest) {
   try {
-    // Read config file
-    const configPath = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
-    const configData = await fs.readFile(configPath, 'utf-8');
-    const config: Config = JSON.parse(configData);
+    // Get config from cache
+    const config = await getConfig();
 
     const body = await request.json();
     const { id, value, begin = "0", end = "0" } = body;
@@ -23,21 +19,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const etaApi = new EtaApi(config.s_eta);
-    const result = await etaApi.setUserVar(id, value, begin, end);
-
-    if (result.error) {
+    if (!config.s_eta) {
       return NextResponse.json(
-        { error: result.error },
+        { error: 'ETA server address not configured' },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ success: true, data: result });
+    const etaApi = new EtaApi(config.s_eta);
+    const result = await etaApi.setUserVar(id, value, begin, end);
+
+    if (result.error) {
+      console.error('ETA API error:', result.error);
+      return NextResponse.json(
+        { error: `ETA API error: ${result.error}` },
+        { status: 500 }
+      );
+    }
+
+    if (!result.result) {
+      console.error('No result from ETA API');
+      return NextResponse.json(
+        { error: 'No response from ETA API' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true, data: result.result });
   } catch (error) {
     console.error('Error in eta/update:', error);
     return NextResponse.json(
-      { error: 'Failed to update ETA data' },
+      { error: error instanceof Error ? error.message : 'Failed to update ETA data' },
       { status: 500 }
     );
   }

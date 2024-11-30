@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { fetchEtaData } from '@/reader/functions/EtaData';
-import { logData } from '@/utils/logging';
 import { getConfig, getNames2Id } from '@/utils/cache';
 
 export async function GET() {
@@ -13,9 +12,6 @@ export async function GET() {
 
     // Fetch ETA data
     const etaData = await fetchEtaData(config, names2id);
-
-    // Log the data
-    await logData('eta', etaData);
 
     return NextResponse.json({ success: true, data: etaData });
   } catch (error) {

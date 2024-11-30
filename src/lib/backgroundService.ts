@@ -1,9 +1,10 @@
 import { ConfigKeys, defaultConfig } from '../reader/functions/types-constants/ConfigConstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '../reader/functions/types-constants/TimerConstants';
 import { fetchEtaData } from '../reader/functions/EtaData';
-import { fetchWifiAf83Data } from '../reader/functions/WifiAf83Data';
 import { defaultNames2Id } from '../reader/functions/types-constants/Names2IDconstants';
 import { Config } from '../reader/functions/types-constants/ConfigConstants';
+import { WifiAf83Api } from '../reader/functions/WifiAf83Api';
+import { WifiAF83Data } from '../reader/functions/types-constants/WifiAf83';
 import fs from 'fs';
 import path from 'path';
 import { configureStore } from '@reduxjs/toolkit';
@@ -11,6 +12,8 @@ import configReducer, { storeData as storeConfigData } from '../redux/configSlic
 import etaReducer, { storeData as storeEtaData } from '../redux/etaSlice';
 import wifiAf83Reducer, { storeData as storeWifiAf83Data } from '../redux/wifiAf83Slice';
 import names2IdReducer, { storeData as storeNames2IdData } from '../redux/names2IdSlice';
+import { logData } from '@/utils/logging';
+import { getWifiAf83Data } from '@/utils/cache';
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
 
@@ -128,6 +131,9 @@ class BackgroundService {
       const oldUpdateTimer = parseInt(this.config[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER;
       const newUpdateTimer = parseInt(newConfig[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER;
 
+      // Log the config change
+      await logData('config', newConfig);
+
       this.config = newConfig;
 
       // If the update timer has changed, restart the interval
@@ -209,16 +215,45 @@ class BackgroundService {
       const etaData = await fetchEtaData(this.config, defaultNames2Id);
       console.log('ETA data updated');
       store.dispatch(storeEtaData(etaData));
+      await logData('eta', etaData);
 
       // Load WiFi AF83 data
-      const wifiData = await fetchWifiAf83Data();
+      const wifiApi = new WifiAf83Api();
+      const allData = await getWifiAf83Data(() => wifiApi.getAllRealtime());
+      
+      // Extract and validate temperature values
+      const outdoorTemp = allData.outdoor?.temperature?.value;
+      const indoorTemp = allData.indoor?.temperature?.value;
+
+      if (!outdoorTemp || !indoorTemp) {
+        throw new Error('Invalid temperature values');
+      }
+
+      // Transform to match WifiAF83Data interface
+      const transformedData = {
+        time: Date.now(),
+        datestring: new Date().toLocaleString('de-DE', {
+          hour: 'numeric',
+          minute: 'numeric',
+          second: 'numeric',
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }),
+        temperature: parseFloat(outdoorTemp),
+        indoorTemperature: parseFloat(indoorTemp),
+        allData: allData
+      };
+
       console.log('WiFi AF83 data updated');
-      store.dispatch(storeWifiAf83Data(wifiData));
+      store.dispatch(storeWifiAf83Data(transformedData));
+      await logData('ecowitt', transformedData);
 
       // Update names2Id in store
       store.dispatch(storeNames2IdData(defaultNames2Id));
 
-      return { etaData, wifiData };
+      return { etaData, wifiData: transformedData };
     } catch (error) {
       console.error('Error loading and storing data:', error);
       throw error;

@@ -1,9 +1,15 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { LoadingState } from './interface';
-import { WifiAF83Data } from '@/reader/functions/types-constants/WifiAf83';
+import { WifiData } from '@/reader/functions/types-constants/WifiConstants';
 
-export type WifiAF83State = {
-    data: WifiAF83Data;
+export interface WifiAF83State {
+    data: {
+        time: number;
+        datestring: string;
+        temperature: number;
+        indoorTemperature: number;
+        allData: WifiData | null;
+    };
     loadingState: LoadingState;
 }
 
@@ -12,7 +18,8 @@ const initialState: WifiAF83State = {
         time: 0,
         datestring: '',
         temperature: 0,
-        indoorTemperature: 0
+        indoorTemperature: 0,
+        allData: null
     },
     loadingState: {
         error: null,
@@ -24,9 +31,7 @@ export const wifiAf83Slice = createSlice({
     name: 'wifiAf83',
     initialState,
     reducers: {
-        storeData(state, action: PayloadAction<WifiAF83Data>) {
-//            console.log('Storing WifiAf83 data:', action.payload);
-            
+        storeData(state, action: PayloadAction<WifiAF83State['data']>) {
             // Ensure numeric values
             const temperature = Number(action.payload.temperature);
             const indoorTemperature = Number(action.payload.indoorTemperature);

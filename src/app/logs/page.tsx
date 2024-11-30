@@ -7,18 +7,35 @@ interface LogFile {
     path: string;
     type: string;
     date: string;
+    year: string;
+    month: string;
+    day: string;
+    time: string;
+}
+
+interface GroupedLogs {
+    [year: string]: {
+        [month: string]: {
+            [day: string]: LogFile[];
+        };
+    };
 }
 
 export default function LogsPage() {
     const [logs, setLogs] = useState<LogFile[]>([]);
     const [selectedType, setSelectedType] = useState<string>('all');
+    const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         const fetchLogs = async () => {
             try {
                 const response = await fetch('/api/logs');
                 const data = await response.json();
-                setLogs(data);
+                if (Array.isArray(data)) {
+                    setLogs(data);
+                } else {
+                    console.error('Invalid log data format:', data);
+                }
             } catch (error) {
                 console.error('Error fetching logs:', error);
             }
@@ -27,18 +44,50 @@ export default function LogsPage() {
         fetchLogs();
     }, []);
 
+    const toggleNode = (nodeId: string) => {
+        const newExpandedNodes = new Set(expandedNodes);
+        if (expandedNodes.has(nodeId)) {
+            newExpandedNodes.delete(nodeId);
+        } else {
+            newExpandedNodes.add(nodeId);
+        }
+        setExpandedNodes(newExpandedNodes);
+    };
+
     const filteredLogs = selectedType === 'all' 
         ? logs 
         : logs.filter(log => log.type === selectedType);
 
-    // Group logs by type
+    // Group logs by type, year, month, day
     const groupedLogs = filteredLogs.reduce((acc, log) => {
-        if (!acc[log.type]) {
-            acc[log.type] = [];
-        }
-        acc[log.type].push(log);
+        if (!acc[log.type]) acc[log.type] = {};
+        if (!acc[log.type][log.year]) acc[log.type][log.year] = {};
+        if (!acc[log.type][log.year][log.month]) acc[log.type][log.year][log.month] = {};
+        if (!acc[log.type][log.year][log.month][log.day]) acc[log.type][log.year][log.month][log.day] = [];
+
+        acc[log.type][log.year][log.month][log.day].push(log);
         return acc;
-    }, {} as Record<string, LogFile[]>);
+    }, {} as Record<string, GroupedLogs>);
+
+    const ChevronIcon = ({ expanded }: { expanded: boolean }) => (
+        <svg
+            className={`w-4 h-4 transition-transform ${expanded ? 'transform rotate-90' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+        >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+    );
+
+    // Get month name
+    const getMonthName = (month: string) => {
+        const monthNames = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        return monthNames[parseInt(month, 10) - 1] || month;
+    };
 
     return (
         <div className="container mx-auto px-4 py-8">
@@ -52,8 +101,7 @@ export default function LogsPage() {
                         className="w-5 h-5 mr-2" 
                         fill="none" 
                         stroke="currentColor" 
-                        viewBox="0 0 24 24" 
-                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
                     >
                         <path 
                             strokeLinecap="round" 
@@ -82,34 +130,76 @@ export default function LogsPage() {
             </div>
 
             <div className="space-y-4">
-                {Object.entries(groupedLogs).map(([type, logs]) => (
-                    <div key={type} className="border rounded-lg px-3 py-2">
-                        <h2 className="text-lg font-semibold mb-2 capitalize">{type}</h2>
-                        <div className="grid gap-1">
-                            {logs.map((log, index) => (
-                                <div 
-                                    key={index}
-                                    className={`flex justify-between items-center px-2 py-1 rounded transition-colors text-sm ${index % 2 === 0 ? 'bg-gray-200' : 'bg-gray-100'} hover:bg-gray-300`}
-                                >
-                                    <span className="text-gray-600">{log.date}</span>
-                                    <Link 
-                                        href={`/api/logs/${log.path}`}
-                                        className="text-blue-600 hover:text-blue-800"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >
-                                        View
-                                    </Link>
-                                </div>
-                            ))}
+                {Object.entries(groupedLogs).map(([type, yearGroups]) => (
+                    <div key={type} className="border rounded-lg p-4">
+                        <div 
+                            className="flex items-center cursor-pointer"
+                            onClick={() => toggleNode(type)}
+                        >
+                            <ChevronIcon expanded={expandedNodes.has(type)} />
+                            <h2 className="text-lg font-semibold ml-2 capitalize">{type}</h2>
                         </div>
+                        
+                        {expandedNodes.has(type) && Object.entries(yearGroups).map(([year, monthGroups]) => (
+                            <div key={year} className="ml-6 mt-2">
+                                <div 
+                                    className="flex items-center cursor-pointer"
+                                    onClick={() => toggleNode(`${type}-${year}`)}
+                                >
+                                    <ChevronIcon expanded={expandedNodes.has(`${type}-${year}`)} />
+                                    <span className="ml-2 font-medium">{year}</span>
+                                </div>
+                                
+                                {expandedNodes.has(`${type}-${year}`) && Object.entries(monthGroups).map(([month, dayGroups]) => (
+                                    <div key={month} className="ml-6 mt-1">
+                                        <div 
+                                            className="flex items-center cursor-pointer"
+                                            onClick={() => toggleNode(`${type}-${year}-${month}`)}
+                                        >
+                                            <ChevronIcon expanded={expandedNodes.has(`${type}-${year}-${month}`)} />
+                                            <span className="ml-2">{getMonthName(month)}</span>
+                                        </div>
+                                        
+                                        {expandedNodes.has(`${type}-${year}-${month}`) && Object.entries(dayGroups).map(([day, logs]) => (
+                                            <div key={day} className="ml-6 mt-1">
+                                                <div 
+                                                    className="flex items-center cursor-pointer"
+                                                    onClick={() => toggleNode(`${type}-${year}-${month}-${day}`)}
+                                                >
+                                                    <ChevronIcon expanded={expandedNodes.has(`${type}-${year}-${month}-${day}`)} />
+                                                    <span className="ml-2">{parseInt(day, 10)}</span>
+                                                </div>
+                                                
+                                                {expandedNodes.has(`${type}-${year}-${month}-${day}`) && (
+                                                    <div className="ml-6 mt-1">
+                                                        {logs.sort((a, b) => b.time.localeCompare(a.time)).map((log, index) => (
+                                                            <div 
+                                                                key={index}
+                                                                className="flex justify-between items-center px-2 py-1 rounded text-sm hover:bg-gray-100"
+                                                            >
+                                                                <span className="text-gray-600">
+                                                                    {log.time}
+                                                                </span>
+                                                                <Link 
+                                                                    href={`/api/logs/${log.path}`}
+                                                                    className="text-blue-600 hover:text-blue-800"
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                >
+                                                                    View
+                                                                </Link>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))}
+                            </div>
+                        ))}
                     </div>
                 ))}
-                {Object.keys(groupedLogs).length === 0 && (
-                    <div className="text-center text-gray-500 py-4">
-                        No logs found
-                    </div>
-                )}
             </div>
         </div>
     );
