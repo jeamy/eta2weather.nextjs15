@@ -4,60 +4,92 @@ A Next.js 15 application for connecting ETA and Ecowitt Weather Station to provi
 
 Connects the temperature sensors of an Ecowitt weather station with an ETA heating system and takes over the temperature control of the heating system. Thus replaces an ETA room thermostat.
 
-Programmed in Codeium Windsurf with Claude 3.5 Sonnet. 100% Codeium. https://codeium.com
+This project was developed using Windsurf, an advanced AI-powered development environment. The entire codebase was programmed through pair programming with Claude 3.5 Sonnet, making it a showcase of modern AI-assisted development.
+
+Visit Windsurf at https://codeium.com/windsurf
+
+Connect with Codeium:
+- Twitter: https://twitter.com/codeiumdev
+- Discord: https://discord.gg/3XFf78nAx5
+- LinkedIn: https://www.linkedin.com/company/codeium
+- GitHub: https://github.com/Exafunction/codeium
 
 ## Features
 
-- **Configuration Display**: View and manage ETA system configuration
-- **ETA Data Visualization**: Display ETA data with custom sorting and formatting
-- **Ecowitt Weather Information**: Show indoor and outdoor temperature readings
-- **Real-time Updates**: Automatic data refresh capabilities
-- **Responsive Layout**: Clean, grid-based design for optimal viewing
+- **Real-time System Monitoring**
+  - Live ETA heating system data display
+  - Weather station temperature readings
+  - Background synchronization of data
+  
+- **Advanced Configuration**
+  - Comprehensive system parameter management
+  - Name-to-ID mapping functionality
+  - Configurable update intervals
+  
+- **User Interface**
+  - Modern, responsive design with Tailwind CSS
+  - Tab-based navigation system
+  - Interactive header with menu navigation
+  - Detailed logging interface
+  
+- **Data Management**
+  - Redux-based state management
+  - Efficient background data synchronization
+  - Type-safe data handling with TypeScript
+  
+- **Logging System**
+  - Organized log files by type and date
+  - Interactive log viewer interface
+  - Filterable log categories
+  - Accessible via dedicated `/logs` route
+  
+- **API Integration**
+  - ETA heating system API integration
+  - Weather station (WifiAf83) data retrieval
+  - Real-time data updates
 
-## Technology Stack
+## Technical Details
 
-- **Framework**: Next.js 15
-- **Language**: TypeScript
-- **State Management**: Redux
+- **Framework**: Next.js 15 with TypeScript
+- **State Management**: Redux with @reduxjs/toolkit
+- **UI Components**: React 19.0.0-rc.1
 - **Styling**: Tailwind CSS
-- **API**: RESTful endpoints for data retrieval
+- **Server**: Custom Node.js server with background services
+- **Development**: 
+  - TypeScript for type safety
+  - ESLint for code quality
+  - Cross-env for environment management
 
 ## Project Structure
 
 ```
 eta2weather.nextjs15/
 ├── src/
-│   ├── app/              # Next.js app directory
-│   ├── components/       # React components
-│   │   ├── ConfigData.tsx
-│   │   ├── EtaData.tsx
-│   │   └── WifiAf83Data.tsx
-│   ├── config/          # Configuration files
-│   │   ├── f_eta.json
-│   │   └── f_etacfg.json
-│   ├── pages/          # API routes
-│   │   └── api/
-│   ├── reader/         # Data processing
+│   ├── app/                    # Next.js app pages
+│   │   ├── page.tsx           # Main application page
+│   │   ├── logs/              # Logging functionality
+│   │   └── layout.tsx         # App layout component
+│   ├── components/            # React components
+│   │   ├── BackgroundSync.tsx # Background data sync
+│   │   ├── ConfigData.tsx     # Configuration display
+│   │   ├── EtaData.tsx       # ETA system data
+│   │   ├── Header.tsx        # App header with navigation
+│   │   ├── MenuPopup.tsx     # Navigation menu
+│   │   ├── Names2IdData.tsx  # Name mapping component
+│   │   ├── StoreProvider.tsx # Redux store provider
+│   │   └── WifiAf83Data.tsx  # Weather station data
+│   ├── reader/               # Data processing & API
 │   │   └── functions/
-│   └── redux/          # State management
+│   │       ├── EtaApi.tsx    # ETA system API
+│   │       ├── SetEta.tsx    # ETA control functions
+│   │       ├── WifiAf83Api.tsx # Weather station API
+│   │       └── types-constants/ # Type definitions
+│   └── redux/                # State management
+│       ├── configSlice.tsx   # Configuration state
+│       ├── dataSlice.tsx     # Data management
+│       ├── etaSlice.tsx      # ETA system state
+│       └── wifiAf83Slice.tsx # Weather data state
 ```
-
-## Data Display
-
-### Configuration Data
-- System parameters display
-- Clean tabular format
-- Right-aligned values
-
-### ETA Data
-- Custom sorting (SP, AT, KZ, VT, HK priority)
-- Filtered empty entries
-- Formatted display: `short : long: value unit`
-
-### Ecowitt Weather Data
-- Indoor/Outdoor temperature readings
-- German date format
-- Difference tracking
 
 ## Setup and Installation
 
