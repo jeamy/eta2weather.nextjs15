@@ -132,7 +132,9 @@ class BackgroundService {
         const oldUpdateTimer = parseInt(this.config[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER;
         const newUpdateTimer = parseInt(newConfig[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER;
 
+        console.log(`${this.getTimestamp()} Logging CONFIG data...`);
         await logData('config', newConfig);
+        console.log(`${this.getTimestamp()} Logging CONFIG data DONE!`);
         this.config = newConfig;
 
         if (oldUpdateTimer !== newUpdateTimer && this.isRunning) {
@@ -291,6 +293,7 @@ class BackgroundService {
       // Log all ETA data
       console.log(`${this.getTimestamp()} Logging ETA data...`);
       await logData('eta', menuData);
+      console.log(`${this.getTimestamp()} Logging ETA data DONE!`);
 
       // Load WiFi AF83 data
       const wifiApi = new WifiAf83Api();
@@ -325,6 +328,7 @@ class BackgroundService {
       store.dispatch(storeWifiAf83Data(transformedData));
       console.log(`${this.getTimestamp()} Logging ECOWITT data...`);
       await logData('ecowitt', transformedData);
+      console.log(`${this.getTimestamp()} Logging ECOWITT data DONE!`);
 
       // Update names2Id in store
       store.dispatch(storeNames2IdData(defaultNames2Id));
