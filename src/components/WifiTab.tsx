@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { WifiData } from '@/reader/functions/types-constants/WifiConstants';
 import { deTranslations } from '@/translations/de';
 import {
@@ -21,40 +21,78 @@ export default function WifiTab({ data }: WifiTabProps) {
   const [editingChannel, setEditingChannel] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [channelNames, setChannelNames] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Cleanup function for abort controller
+  const cleanupAbortController = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
 
   // Load channel names on component mount
   useEffect(() => {
     const loadChannelNames = async () => {
+      // Cleanup any existing request
+      cleanupAbortController();
+      
+      // Create new AbortController for this request
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+      
+      setIsLoading(true);
+      setError(null);
+      
       try {
-        const response = await fetch('/api/channelnames');
-        if (response.ok) {
-          const names = await response.json();
+        const response = await fetch('/api/channelnames', {
+          signal: abortController.signal
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const names = await response.json();
+        
+        // Only update state if the request wasn't aborted
+        if (!abortController.signal.aborted) {
           setChannelNames(names || {});
         }
       } catch (error) {
-        console.error('Error loading channel names:', error);
+        // Only update error state if the request wasn't aborted
+        if (error instanceof Error && error.name !== 'AbortError') {
+          console.error('Error loading channel names:', error);
+          setError(error.message);
+        }
+      } finally {
+        // Only update loading state if the request wasn't aborted
+        if (!abortController.signal.aborted) {
+          setIsLoading(false);
+        }
       }
     };
+
     loadChannelNames();
-  }, []);
 
-  // Extract all available channels from data
-  const channelData = Object.entries(data || {})
-    .filter(([key]) => key.startsWith('temp_and_humidity_ch') && parseInt(key.replace('temp_and_humidity_ch', '')) <= 8)
-    .reduce((acc, [key, value]) => {
-      const channelNum = key.replace('temp_and_humidity_ch', '');
-      const channelKey = `CH${channelNum}`;
-      acc[channelKey] = value;
-      return acc;
-    }, {} as Record<string, any>);
+    // Cleanup function
+    return () => {
+      cleanupAbortController();
+    };
+  }, [cleanupAbortController]); // Empty dependency array since we only want to load once on mount
 
-  const handleEditStart = (channelKey: string) => {
+  const handleEditStart = useCallback((channelKey: string) => {
     setEditingChannel(channelKey);
     setEditValue(channelNames[channelKey] || channelKey);
-  };
+  }, [channelNames]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!editingChannel) return;
+
+    setIsLoading(true);
+    setError(null);
 
     try {
       const updatedNames = { ...channelNames, [editingChannel]: editValue };
@@ -72,18 +110,35 @@ export default function WifiTab({ data }: WifiTabProps) {
 
       setChannelNames(updatedNames);
       setEditingChannel(null);
+      setEditValue('');
     } catch (error) {
       console.error('Error updating channel name:', error);
-      alert('Failed to update channel name');
+      setError(error instanceof Error ? error.message : 'Failed to update channel name');
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [editingChannel, editValue, channelNames]);
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     setEditingChannel(null);
     setEditValue('');
-  };
+  }, []);
 
-  const categories = {
+  // Extract all available channels from data - memoized to prevent unnecessary recalculation
+  const channelData = useMemo(() => 
+    Object.entries(data || {})
+      .filter(([key]) => key.startsWith('temp_and_humidity_ch') && parseInt(key.replace('temp_and_humidity_ch', '')) <= 8)
+      .reduce((acc, [key, value]) => {
+        const channelNum = key.replace('temp_and_humidity_ch', '');
+        const channelKey = `CH${channelNum}`;
+        acc[channelKey] = value;
+        return acc;
+      }, {} as Record<string, any>),
+    [data]
+  );
+
+  // Memoize categories to prevent unnecessary recalculation
+  const categories = useMemo(() => ({
     [deTranslations.categories['Outdoor']]: data?.outdoor || {},
     [deTranslations.categories['Indoor']]: data?.indoor || {},
     [deTranslations.categories['Channels']]: channelData,
@@ -92,9 +147,9 @@ export default function WifiTab({ data }: WifiTabProps) {
     [deTranslations.categories['Wind']]: data?.wind || {},
     [deTranslations.categories['Pressure']]: data?.pressure || {},
     [deTranslations.categories['Battery']]: data?.battery || {},
-  };
+  }), [data, channelData]);
 
-  const categoryEntries = Object.entries(categories);
+  const categoryEntries = useMemo(() => Object.entries(categories), [categories]);
 
   const categoryIcons = {
     [deTranslations.categories['Outdoor']]: <BuildingOfficeIcon className="w-5 h-5" />,
