@@ -1,6 +1,6 @@
 import { ConfigKeys, defaultConfig } from '../reader/functions/types-constants/ConfigConstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '../reader/functions/types-constants/TimerConstants';
-import { fetchEtaData } from '../reader/functions/EtaData';
+import { fetchEtaData, parseXML } from '../reader/functions/EtaData';
 import { defaultNames2Id } from '../reader/functions/types-constants/Names2IDconstants';
 import { Config } from '../reader/functions/types-constants/ConfigConstants';
 import { WifiAf83Api } from '../reader/functions/WifiAf83Api';
@@ -14,6 +14,7 @@ import wifiAf83Reducer, { storeData as storeWifiAf83Data } from '../redux/wifiAf
 import names2IdReducer, { storeData as storeNames2IdData } from '../redux/names2IdSlice';
 import { logData } from '@/utils/logging';
 import { getWifiAf83Data } from '@/utils/cache';
+import { EtaApi } from '@/reader/functions/EtaApi';
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
 
@@ -226,11 +227,69 @@ class BackgroundService {
     
     this.isUpdating = true;
     try {
-      // Load ETA data using default names2Id
-      const etaData = await fetchEtaData(this.config, defaultNames2Id);
-      console.log(`${this.getTimestamp()} ETA data updated`);
-      store.dispatch(storeEtaData(etaData));
-      await logData('eta', etaData);
+      // Create EtaApi instance
+      const etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
+
+      // Get menu data first
+      console.log(`${this.getTimestamp()} Fetching ETA data...`);
+      const menuResponse = await etaApi.getMenu();
+      if (menuResponse.error || !menuResponse.result) {
+        throw new Error(menuResponse.error || 'No ETA data received');
+      }
+
+      // Parse menu XML to get all URIs
+      const urisToFetch = new Set<string>();
+      const menuData: Record<string, any> = {};
+
+      // Helper function to collect URIs from menu nodes
+      const collectUris = (node: any) => {
+        if (node.uri) {
+          urisToFetch.add(node.uri);
+        }
+        node.children?.forEach(collectUris);
+      };
+
+      // Parse and collect URIs from menu XML
+      const parseMenuXML = (xmlString: string) => {
+        const getAttributeValue = (line: string, attr: string): string => {
+          const match = line.match(new RegExp(`${attr}="([^"]+)"`));
+          return match ? match[1] : '';
+        };
+
+        const lines = xmlString.split('\n');
+        lines.forEach(line => {
+          if (!line.trim() || line.includes('<?xml') || line.includes('</eta>') || line.includes('<eta')) {
+            return;
+          }
+          const uri = getAttributeValue(line, 'uri');
+          const name = getAttributeValue(line, 'name');
+          if (uri && name) {
+            urisToFetch.add(uri);
+          }
+        });
+      };
+
+      parseMenuXML(menuResponse.result);
+
+      // Fetch data for all URIs
+      console.log(`${this.getTimestamp()} Fetching data for ${urisToFetch.size} URIs...`);
+      for (const uri of urisToFetch) {
+        try {
+          const response = await etaApi.getUserVar(uri);
+          if (response.result) {
+            const parsedData = parseXML(response.result, uri, null);
+            menuData[uri] = parsedData;
+          }
+          // Add a small delay between requests
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error) {
+          console.error(`${this.getTimestamp()} Error fetching data for URI ${uri}:`, error);
+        }
+      }
+
+      // Log all ETA data
+      console.log(`${this.getTimestamp()} Logging ETA data...`);
+      await logData('eta', menuData);
 
       // Load WiFi AF83 data
       const wifiApi = new WifiAf83Api();
@@ -263,12 +322,13 @@ class BackgroundService {
 
       console.log(`${this.getTimestamp()} WiFi AF83 data updated`);
       store.dispatch(storeWifiAf83Data(transformedData));
+      console.log(`${this.getTimestamp()} Logging ECOWITT data...`);
       await logData('ecowitt', transformedData);
 
       // Update names2Id in store
       store.dispatch(storeNames2IdData(defaultNames2Id));
 
-      return { etaData, wifiData: transformedData };
+      return { etaData: menuData, wifiData: transformedData };
     } catch (error) {
       console.error(`${this.getTimestamp()} Error loading and storing data:`, error);
       throw error;
