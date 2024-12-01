@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { storeData as storeConfigData } from '@/redux/configSlice';
 import { storeData as storeEtaData } from '@/redux/etaSlice';
@@ -17,7 +17,7 @@ const BackgroundSync: React.FC = () => {
   const isFirstMount = useRef(true);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchBackgroundData = async () => {
+  const fetchBackgroundData = useCallback(async () => {
     try {
       const response = await fetch('/api/background/status');
       const result = await response.json();
@@ -37,7 +37,7 @@ const BackgroundSync: React.FC = () => {
     } catch (error) {
       console.error('Error fetching background data:', error);
     }
-  };
+  }, [dispatch, lastConfigRef]);
 
   useEffect(() => {
     // Only set up the interval if this is the first mount
@@ -64,7 +64,7 @@ const BackgroundSync: React.FC = () => {
         }
       };
     }
-  }, []); // Empty dependency array since we only want this to run once on mount
+  }, [config.data, fetchBackgroundData]); // Empty dependency array since we only want this to run once on mount
 
   // Handle timer updates
   useEffect(() => {
@@ -77,7 +77,7 @@ const BackgroundSync: React.FC = () => {
       clearInterval(intervalRef.current);
       intervalRef.current = setInterval(fetchBackgroundData, updateTimer);
     }
-  }, [config.data[ConfigKeys.T_UPDATE_TIMER], dispatch]);
+  }, [config.data[ConfigKeys.T_UPDATE_TIMER], fetchBackgroundData, dispatch]);
 
   return null; // This component doesn't render anything
 };

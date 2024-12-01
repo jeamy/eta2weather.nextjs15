@@ -292,6 +292,144 @@ Note: The Docker build process will include your configured `.env` and `eco.tsx`
 - Updated configuration handling to support new API parameters
 - Improved error handling for configuration loading
 
+## Automatic Startup with systemd
+
+A systemd service file is provided in the `linux` directory to automatically start the application on system boot.
+
+To set up automatic startup:
+
+1. Copy the service file to systemd:
+```bash
+sudo cp linux/docker-compose-app.service /etc/systemd/system/
+```
+
+2. Reload the systemd daemon:
+```bash
+sudo systemctl daemon-reload
+```
+
+3. Enable the service to start on boot:
+```bash
+sudo systemctl enable docker-compose-app.service
+```
+
+4. Start the service immediately (optional):
+```bash
+sudo systemctl start docker-compose-app.service
+```
+
+You can check the status of the service at any time with:
+```bash
+sudo systemctl status docker-compose-app.service
+```
+
+## Automatic Startup on Windows
+
+A PowerShell script is provided in the `windows` directory to set up the application as a Windows service using NSSM (Non-Sucking Service Manager).
+
+### Prerequisites
+
+1. Install NSSM:
+   - Download NSSM from https://nssm.cc/download
+   - Extract the appropriate version (32/64 bit) to `C:\nssm`
+   - Add `C:\nssm` to your system's PATH environment variable
+
+2. Ensure Docker Desktop is installed and set to start with Windows
+
+### Installation
+
+1. Open PowerShell as Administrator
+
+2. Navigate to the project's windows directory:
+```powershell
+cd path\to\project\windows
+```
+
+3. Run the installation script:
+```powershell
+.\install-service.ps1
+```
+
+4. Start the service:
+```powershell
+Start-Service DockerComposeETA
+```
+
+### Managing the Service
+
+- Check service status:
+```powershell
+Get-Service DockerComposeETA
+```
+
+- Stop the service:
+```powershell
+Stop-Service DockerComposeETA
+```
+
+- Uninstall the service:
+```powershell
+.\uninstall-service.ps1
+```
+
+The service is configured to start automatically with Windows and will manage the Docker Compose application lifecycle.
+
+## Automatic Startup on macOS
+
+The application can be configured to start automatically on macOS using a Launch Agent. Installation scripts are provided in the `osx` directory.
+
+### Prerequisites
+
+1. Ensure Docker Desktop for Mac is installed and configured to start at login
+2. Make sure docker-compose is installed and available at `/usr/local/bin/docker-compose`
+
+### Installation
+
+1. Open Terminal and navigate to the project's osx directory:
+```bash
+cd path/to/project/osx
+```
+
+2. Make the scripts executable:
+```bash
+chmod +x install.sh uninstall.sh
+```
+
+3. Run the installation script:
+```bash
+./install.sh
+```
+
+The service will start automatically and will be configured to launch on login.
+
+### Managing the Service
+
+- Check if the service is running:
+```bash
+launchctl list | grep com.etaweather.docker-compose
+```
+
+- Stop the service:
+```bash
+launchctl unload ~/Library/LaunchAgents/com.etaweather.docker-compose.plist
+```
+
+- Start the service:
+```bash
+launchctl load ~/Library/LaunchAgents/com.etaweather.docker-compose.plist
+```
+
+- View logs:
+```bash
+tail -f ~/Library/Logs/etaweather-docker-compose.log
+tail -f ~/Library/Logs/etaweather-docker-compose.err
+```
+
+- Uninstall the service:
+```bash
+./uninstall.sh
+```
+
 ## License
 
 MIT License

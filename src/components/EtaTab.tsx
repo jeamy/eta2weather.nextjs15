@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { MenuNode } from '@/types/menu';
 import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { formatValue } from '@/utils/formatters';
@@ -21,52 +21,101 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [error, setError] = useState<Record<string, string>>({});
+  const abortControllersRef = useRef<Record<string, AbortController>>({});
+
+  // Cleanup function for abort controllers
+  const cleanupAbortController = useCallback((uri: string) => {
+    if (abortControllersRef.current[uri]) {
+      abortControllersRef.current[uri].abort();
+      delete abortControllersRef.current[uri];
+    }
+  }, []);
+
+  // Cleanup all abort controllers
+  const cleanupAllAbortControllers = useCallback(() => {
+    Object.keys(abortControllersRef.current).forEach(cleanupAbortController);
+  }, [cleanupAbortController]);
 
   const fetchValues = useCallback(async (uri: string) => {
     if (!uri) return;
+    
+    // Cleanup any existing fetch for this URI
+    cleanupAbortController(uri);
+    
+    // Create new AbortController for this fetch
+    const abortController = new AbortController();
+    abortControllersRef.current[uri] = abortController;
     
     setLoading(prev => ({ ...prev, [uri]: true }));
     setError(prev => ({ ...prev, [uri]: '' }));
     
     try {
-      const response = await fetch(`/api/eta/readMenuData?uri=${encodeURIComponent(uri)}`);
+      const response = await fetch(
+        `/api/eta/readMenuData?uri=${encodeURIComponent(uri)}`,
+        { signal: abortController.signal }
+      );
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const result = await response.json();
-      // console.log('Received data for URI:', uri, 'Data:', result.data);
       
-      if (result.success && result.data) {
-        setValues(prev => ({ ...prev, [uri]: result.data }));
-      } else {
-        throw new Error(result.error || 'Failed to fetch data');
+      // Check if the request was aborted before updating state
+      if (!abortController.signal.aborted) {
+        if (result.success && result.data) {
+          setValues(prev => ({ ...prev, [uri]: result.data }));
+        } else {
+          throw new Error(result.error || 'Failed to fetch data');
+        }
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-      setError(prev => ({ ...prev, [uri]: errorMessage }));
-      console.error('Error fetching value for URI:', uri, 'Error:', error);
+      // Only update error state if the request wasn't aborted
+      if (error instanceof Error && error.name !== 'AbortError') {
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+        setError(prev => ({ ...prev, [uri]: errorMessage }));
+        console.error('Error fetching value for URI:', uri, 'Error:', error);
+      }
     } finally {
-      setLoading(prev => ({ ...prev, [uri]: false }));
+      if (!abortController.signal.aborted) {
+        setLoading(prev => ({ ...prev, [uri]: false }));
+      }
+      cleanupAbortController(uri);
     }
-  }, []);
+  }, [cleanupAbortController]);
 
   useEffect(() => {
     const fetchAllValues = async () => {
       if (!menuItems?.length) return;
       
+      // Clear previous state when menu items change
+      setValues({});
+      setLoading({});
+      setError({});
+      cleanupAllAbortControllers();
+      
       const urisToFetch = new Set<string>();
       menuItems.forEach(category => {
         category.children?.forEach(item => {
-//          console.log('Menu item:', item.name);
+          // Add URI for the item itself if it exists
+          if (item.uri) {
+            urisToFetch.add(item.uri);
+          }
+          
+          // Special handling for Lager category and its items
           if (item.name === 'Lager') {
-//            console.log('Found Lager menu:', item);
+            // Add URI for Lager items
+            if (item.uri) {
+              urisToFetch.add(item.uri);
+            }
             item.children?.forEach(subItem => {
               if (subItem.uri) {
                 urisToFetch.add(subItem.uri);
               }
             });
           }
+          
+          // Add URIs for children of all items
           item.children?.forEach(subItem => {
             if (subItem.uri) {
               urisToFetch.add(subItem.uri);
@@ -75,16 +124,21 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
         });
       });
 
-//      console.log('All URIs to fetch:', Array.from(urisToFetch));
-
-      // Fetch values sequentially to better track issues
+      // Fetch values sequentially to prevent overwhelming the server
       for (const uri of urisToFetch) {
         await fetchValues(uri);
+        // Add a small delay between requests to prevent overwhelming the server
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     };
 
     fetchAllValues();
-  }, [menuItems, fetchValues]);
+
+    // Cleanup function
+    return () => {
+      cleanupAllAbortControllers();
+    };
+  }, [menuItems, fetchValues, cleanupAllAbortControllers]);
 
   const renderValue = useCallback((data: ParsedXmlData) => {
     const { text, color } = formatValue(data);
@@ -139,8 +193,35 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
               {category.children?.map((item, itemIndex) => {
                 const itemId = `${categoryIndex}-${itemIndex}-${item.name}`;
                 return (
-                  <div key={itemId} className="space-y-2 ">
-                    <h3 className="text-lg font-medium text-gray-900">{item.name}</h3>
+                  <div key={itemId} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium text-gray-900">{item.name}</h3>
+                      {item.uri && (
+                        <div className="flex justify-end min-w-[8rem]">
+                          {loading[item.uri] ? (
+                            <span className="text-gray-400">Loading...</span>
+                          ) : error[item.uri] ? (
+                            <span className="text-red-500 text-sm" title={error[item.uri]}>Error</span>
+                          ) : values[item.uri] ? (
+                            <div 
+                              className="tabular-nums cursor-help"
+                              title={item.uri}
+                            >
+                              <span className="inline-block min-w-[3rem] text-right">
+                                {renderValue(values[item.uri])}
+                              </span>
+                              {values[item.uri].unit && (
+                                <span className="text-gray-500 ml-1 inline-block">
+                                  {values[item.uri].unit}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">No data</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     {item.children?.map((subItem, subItemIndex) => {
                       const subItemId = `${itemId}-${subItemIndex}-${subItem.name}`;
                       return (

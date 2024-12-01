@@ -35,6 +35,8 @@ class BackgroundService {
   private configWatcher: fs.FSWatcher | null = null;
   private lastConfigCheck = 0;
   private configCheckInterval = 1000; // Check config file every second
+  private isUpdating = false;
+  private configChangeTimeout: NodeJS.Timeout | null = null;
 
   private constructor() {}
 
@@ -49,7 +51,7 @@ class BackgroundService {
     return `[${new Date().toISOString()}]`;
   }
 
-  private loadConfig(): Config {
+  private async loadConfig(): Promise<Config> {
     try {
       if (!fs.existsSync(CONFIG_FILE_PATH)) {
         console.log(`${this.getTimestamp()} Config file does not exist. Creating with default values.`);
@@ -58,7 +60,6 @@ class BackgroundService {
         return defaultConfig;
       }
 
-      // Add retry logic for reading the file
       let retries = 3;
       let lastError: Error | null = null;
 
@@ -77,18 +78,12 @@ class BackgroundService {
           lastError = error as Error;
           retries--;
           if (retries > 0) {
-            // Wait a bit before retrying
             console.log(`${this.getTimestamp()} Retrying config load... (${retries} attempts remaining)`);
-            // Sleep for 100ms
-            const start = Date.now();
-            while (Date.now() - start < 100) {
-              // Busy wait
-            }
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
         }
       }
 
-      // If we get here, all retries failed
       console.error(`${this.getTimestamp()} Failed to load config after retries:`, lastError);
       store.dispatch(storeConfigData(defaultConfig));
       return defaultConfig;
@@ -124,30 +119,31 @@ class BackgroundService {
     }
   }
 
-  private async handleConfigChange() {
-    try {
-      console.log(`${this.getTimestamp()} Config file changed, waiting before reload...`);
-      // Wait for 2 seconds before attempting to reload
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      console.log(`${this.getTimestamp()} Reloading config...`);
-      const newConfig = this.loadConfig();
-      const oldUpdateTimer = parseInt(this.config[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER;
-      const newUpdateTimer = parseInt(newConfig[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER;
-
-      // Log the config change
-      await logData('config', newConfig);
-
-      this.config = newConfig;
-
-      // If the update timer has changed, restart the interval
-      if (oldUpdateTimer !== newUpdateTimer && this.isRunning) {
-        console.log(`${this.getTimestamp()} Update timer changed, restarting interval...`);
-        this.restartUpdateInterval();
-      }
-    } catch (error) {
-      console.error(`${this.getTimestamp()} Error handling config change:`, error);
+  private handleConfigChange() {
+    if (this.configChangeTimeout) {
+      clearTimeout(this.configChangeTimeout);
     }
+    
+    this.configChangeTimeout = setTimeout(async () => {
+      try {
+        console.log(`${this.getTimestamp()} Config file changed, reloading...`);
+        const newConfig = await this.loadConfig();
+        const oldUpdateTimer = parseInt(this.config[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER;
+        const newUpdateTimer = parseInt(newConfig[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER;
+
+        await logData('config', newConfig);
+        this.config = newConfig;
+
+        if (oldUpdateTimer !== newUpdateTimer && this.isRunning) {
+          console.log(`${this.getTimestamp()} Update timer changed, restarting interval...`);
+          this.restartUpdateInterval();
+        }
+      } catch (error) {
+        console.error(`${this.getTimestamp()} Error handling config change:`, error);
+      } finally {
+        this.configChangeTimeout = null;
+      }
+    }, 2000);
   }
 
   private restartUpdateInterval() {
@@ -176,7 +172,7 @@ class BackgroundService {
     }
 
     console.log(`${this.getTimestamp()} Loading configuration...`);
-    this.config = this.loadConfig();
+    this.config = await this.loadConfig();
     console.log(`${this.getTimestamp()} Starting config file watcher...`);
     this.startConfigWatcher();
     console.log(`${this.getTimestamp()} Background service started`);
@@ -202,10 +198,19 @@ class BackgroundService {
       this.updateInterval = null;
     }
     if (this.configWatcher) {
-      this.configWatcher.close();
+      try {
+        this.configWatcher.close();
+      } catch (error) {
+        console.error(`${this.getTimestamp()} Error closing config watcher:`, error);
+      }
       this.configWatcher = null;
     }
+    if (this.configChangeTimeout) {
+      clearTimeout(this.configChangeTimeout);
+      this.configChangeTimeout = null;
+    }
     this.isRunning = false;
+    this.isUpdating = false;
     console.log(`${this.getTimestamp()} Background service stopped`);
   }
 
@@ -214,6 +219,12 @@ class BackgroundService {
   }
 
   private async loadAndStoreData() {
+    if (this.isUpdating) {
+      console.log(`${this.getTimestamp()} Update already in progress, skipping...`);
+      return;
+    }
+    
+    this.isUpdating = true;
     try {
       // Load ETA data using default names2Id
       const etaData = await fetchEtaData(this.config, defaultNames2Id);
@@ -261,6 +272,8 @@ class BackgroundService {
     } catch (error) {
       console.error(`${this.getTimestamp()} Error loading and storing data:`, error);
       throw error;
+    } finally {
+      this.isUpdating = false;
     }
   }
 }
