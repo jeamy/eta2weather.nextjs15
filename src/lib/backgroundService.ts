@@ -275,13 +275,14 @@ class BackgroundService {
       console.log(`${this.getTimestamp()} Fetching data for ${urisToFetch.size} URIs...`);
       for (const uri of urisToFetch) {
         try {
+          console.error(`${this.getTimestamp()} Fetching data for URI ${uri}:`);
           const response = await etaApi.getUserVar(uri);
           if (response.result) {
             const parsedData = parseXML(response.result, uri, null);
             menuData[uri] = parsedData;
           }
           // Add a small delay between requests
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 1));
         } catch (error) {
           console.error(`${this.getTimestamp()} Error fetching data for URI ${uri}:`, error);
         }

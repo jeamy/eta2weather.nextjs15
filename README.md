@@ -105,7 +105,7 @@ eta2weather.nextjs/
    ```
 3. Configure Ecowitt API (if using weather station):
    ```bash
-   cp eco.example.tsx eco.tsx
+   cp eco.example.tsx eco.ts
    ```
    Update with your Ecowitt credentials:
    ```typescript
@@ -116,7 +116,7 @@ eta2weather.nextjs/
      server: "api.ecowitt.net"
    }
    ```
-   See `eco.example.tsx` for detailed instructions on obtaining API credentials.
+   See `eco.example.ts` for detailed instructions on obtaining API credentials.
 
 4. Install dependencies:
    ```bash

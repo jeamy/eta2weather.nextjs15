@@ -101,20 +101,7 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
           if (item.uri) {
             urisToFetch.add(item.uri);
           }
-          
-          // Special handling for Lager category and its items
-          if (item.name === 'Lager') {
-            // Add URI for Lager items
-            if (item.uri) {
-              urisToFetch.add(item.uri);
-            }
-            item.children?.forEach(subItem => {
-              if (subItem.uri) {
-                urisToFetch.add(subItem.uri);
-              }
-            });
-          }
-          
+
           // Add URIs for children of all items
           item.children?.forEach(subItem => {
             if (subItem.uri) {
