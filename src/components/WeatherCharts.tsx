@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import dynamic from 'next/dynamic';
+import { useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -15,16 +14,11 @@ import {
   ChartOptions,
   TimeSeriesScale,
 } from 'chart.js';
+import { Line } from 'react-chartjs-2';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { de } from 'date-fns/locale';
 import 'chartjs-adapter-date-fns';
-
-// Dynamically import Line component with SSR disabled
-const Line = dynamic(
-  () => import('react-chartjs-2').then(mod => mod.Line),
-  { ssr: false }
-);
 
 // Initialize Chart.js in useEffect
 const initChart = () => {
@@ -42,24 +36,57 @@ const initChart = () => {
   );
 };
 
+interface WeatherData {
+  timestamp: string;
+  temperature: number;
+  humidity: number;
+  pressure: number;
+  channels: {
+    [key: string]: {
+      temperature: number;
+      humidity: number;
+    };
+  };
+}
+
 interface WeatherChartsProps {
-  weatherData: any[];
+  weatherData: WeatherData[];
+  timeRange: '24h' | '7d' | '30d';
+  onTimeRangeChange: (range: '24h' | '7d' | '30d') => void;
   resetZoom: (chartRef: any) => void;
-  mainChartRef: any;
-  channelTempChartRef: any;
-  channelHumidityChartRef: any;
+  mainChartRef: React.RefObject<ChartJS<'line'>>;
+  channelTempChartRef: React.RefObject<ChartJS<'line'>>;
+  channelHumidityChartRef: React.RefObject<ChartJS<'line'>>;
   mainChartOptions: any;
   channelTempChartOptions: any;
   channelHumidityChartOptions: any;
   mainChartData: any;
   channelTempChartData: any;
   channelHumidityChartData: any;
-  timeRange: '24h' | '7d' | '30d';
-  onTimeRangeChange: (range: '24h' | '7d' | '30d') => void;
 }
 
-const WeatherCharts = ({
+// Colors for different channels - using a function to generate colors dynamically
+const getChannelColor = (index: number) => {
+  // Base colors that will be cycled through
+  const baseColors = [
+    { border: 'rgb(255, 99, 132)', background: 'rgba(255, 99, 132, 0.5)' },
+    { border: 'rgb(53, 162, 235)', background: 'rgba(53, 162, 235, 0.5)' },
+    { border: 'rgb(255, 159, 64)', background: 'rgba(255, 159, 64, 0.5)' },
+    { border: 'rgb(75, 192, 192)', background: 'rgba(75, 192, 192, 0.5)' },
+    { border: 'rgb(153, 102, 255)', background: 'rgba(153, 102, 255, 0.5)' },
+    { border: 'rgb(255, 205, 86)', background: 'rgba(255, 205, 86, 0.5)' },
+    { border: 'rgb(201, 203, 207)', background: 'rgba(201, 203, 207, 0.5)' },
+    { border: 'rgb(54, 162, 235)', background: 'rgba(54, 162, 235, 0.5)' },
+  ];
+  
+  // Cycle through the colors if we have more channels than colors
+  return baseColors[index % baseColors.length];
+};
+
+export default function WeatherCharts({
   weatherData,
+  timeRange,
+  onTimeRangeChange,
   resetZoom,
   mainChartRef,
   channelTempChartRef,
@@ -67,20 +94,18 @@ const WeatherCharts = ({
   mainChartOptions,
   channelTempChartOptions,
   channelHumidityChartOptions,
+  mainChartData,
   channelTempChartData,
   channelHumidityChartData,
-  timeRange,
-  onTimeRangeChange,
-}: WeatherChartsProps) => {
+}: WeatherChartsProps) {
+  type ChartRef = ChartJS<'line'>;
+
   useEffect(() => {
     initChart();
   }, []);
 
-  if (!weatherData || weatherData.length === 0) {
-    return <div>Loading...</div>;
-  }
-
-  const mainChartData = {
+  // Memoize main chart data
+  const mainChartDataUpdated = useMemo(() => ({
     labels: weatherData.map((data) => data.timestamp),
     datasets: [
       {
@@ -89,6 +114,9 @@ const WeatherCharts = ({
         borderColor: 'rgb(255, 99, 132)',
         backgroundColor: 'rgba(255, 99, 132, 0.5)',
         yAxisID: 'y-temperature',
+        borderWidth: 1,
+        pointRadius: 1,
+        pointHoverRadius: 3,
       },
       {
         label: 'Luftfeuchtigkeit (%)',
@@ -96,6 +124,9 @@ const WeatherCharts = ({
         borderColor: 'rgb(53, 162, 235)',
         backgroundColor: 'rgba(53, 162, 235, 0.5)',
         yAxisID: 'y-humidity',
+        borderWidth: 1,
+        pointRadius: 1,
+        pointHoverRadius: 3,
       },
       {
         label: 'Luftdruck (hPa)',
@@ -103,11 +134,15 @@ const WeatherCharts = ({
         borderColor: 'rgb(75, 192, 192)',
         backgroundColor: 'rgba(75, 192, 192, 0.5)',
         yAxisID: 'y-pressure',
+        borderWidth: 1,
+        pointRadius: 1,
+        pointHoverRadius: 3,
       },
     ],
-  };
+  }), [weatherData]);
 
-  const mainChartOptionsUpdated: ChartOptions<'line'> = {
+  // Memoize chart options
+  const mainChartOptionsUpdated: ChartOptions<'line'> = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     interaction: {
@@ -131,6 +166,8 @@ const WeatherCharts = ({
         },
         ticks: {
           maxRotation: 0,
+          source: 'auto',
+          autoSkip: true,
         },
       },
       'y-temperature': {
@@ -207,9 +244,33 @@ const WeatherCharts = ({
         }
       }
     },
-  };
+  }), [timeRange]);
 
-  const channelTempChartOptionsUpdated: ChartOptions<'line'> = {
+  // Memoize channel datasets creation
+  const createChannelDatasets = useCallback((type: 'temperature' | 'humidity') => {
+    if (!weatherData.length) return { labels: [], datasets: [] };
+    
+    const channels = Object.keys(weatherData[0].channels).sort((a, b) => Number(a) - Number(b));
+    
+    return {
+      labels: weatherData.map((data) => data.timestamp),
+      datasets: channels.map((channel, index) => {
+        const color = getChannelColor(index);
+        return {
+          label: `CH${channel}`,
+          data: weatherData.map((data) => data.channels[channel]?.[type]),
+          borderColor: color.border,
+          backgroundColor: color.background,
+          borderWidth: 1,
+          pointRadius: 1,
+          pointHoverRadius: 3,
+        };
+      }),
+    };
+  }, [weatherData]);
+
+  // Memoize channel options creation
+  const createChannelOptions = useCallback((title: string, unit: string): ChartOptions<'line'> => ({
     responsive: true,
     maintainAspectRatio: false,
     interaction: {
@@ -233,6 +294,8 @@ const WeatherCharts = ({
         },
         ticks: {
           maxRotation: 0,
+          source: 'auto',
+          autoSkip: true,
         },
       },
       y: {
@@ -241,10 +304,7 @@ const WeatherCharts = ({
         position: 'left' as const,
         title: {
           display: true,
-          text: 'Temperatur (°C)',
-        },
-        grid: {
-          drawOnChartArea: true,
+          text: `${title} (${unit})`,
         },
       },
     },
@@ -272,186 +332,122 @@ const WeatherCharts = ({
               label += ': ';
             }
             if (context.parsed.y !== null) {
-              label += context.parsed.y.toFixed(1) + ' °C';
+              label += context.parsed.y.toFixed(1) + ' ' + unit;
             }
             return label;
           }
         }
       }
     },
-  };
+  }), [timeRange]);
 
-  const channelHumidityChartOptionsUpdated: ChartOptions<'line'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: {
-      mode: 'index' as const,
-      intersect: false,
-    },
-    scales: {
-      x: {
-        type: 'time' as const,
-        adapters: {
-          date: {
-            locale: de,
-          },
-        },
-        time: {
-          unit: timeRange === '24h' ? 'hour' : 'day',
-          displayFormats: {
-            hour: 'HH:mm',
-            day: 'MMM d',
-          },
-        },
-        ticks: {
-          maxRotation: 0,
-        },
-      },
-      y: {
-        type: 'linear' as const,
-        display: true,
-        position: 'left' as const,
-        title: {
-          display: true,
-          text: 'Luftfeuchtigkeit (%)',
-        },
-        grid: {
-          drawOnChartArea: true,
-        },
-      },
-    },
-    plugins: {
-      zoom: {
-        zoom: {
-          wheel: {
-            enabled: true,
-          },
-          pinch: {
-            enabled: true,
-          },
-          mode: 'x',
-        },
-        pan: {
-          enabled: true,
-          mode: 'x',
-        },
-      },
-      tooltip: {
-        callbacks: {
-          label: function(context) {
-            let label = context.dataset.label || '';
-            if (label) {
-              label += ': ';
-            }
-            if (context.parsed.y !== null) {
-              label += context.parsed.y.toFixed(1) + ' %';
-            }
-            return label;
-          }
-        }
-      }
-    },
-  };
+  if (!weatherData || weatherData.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <p className="text-gray-500">No weather data available</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
       <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold mb-4 text-center" style={{ fontFamily: 'var(--font-geist-mono)' }}>
-            Zeitraum auswählen
-          </h2>
-          <div className="flex justify-center space-x-4">
-            <button
-              onClick={() => onTimeRangeChange('24h')}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                timeRange === '24h'
-                  ? 'text-blue-500'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              style={{ fontFamily: 'var(--font-geist-mono)' }}
-            >
-              24 Stunden
-            </button>
-            <button
-              onClick={() => onTimeRangeChange('7d')}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                timeRange === '7d'
-                  ? 'text-blue-500'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              style={{ fontFamily: 'var(--font-geist-mono)' }}
-            >
-              7 Tage
-            </button>
-            <button
-              onClick={() => onTimeRangeChange('30d')}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                timeRange === '30d'
-                  ? 'text-blue-500'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              style={{ fontFamily: 'var(--font-geist-mono)' }}
-            >
-              30 Tage
-            </button>
-          </div>
-        </div>
-
-        <div className="relative">
-          <div className="absolute right-0 top-0 z-10">
-            <button
-              onClick={() => resetZoom(mainChartRef)}
-              className="p-2 text-gray-600 hover:text-gray-800"
-              title="Reset zoom"
-            >
-              <ArrowPathIcon className="h-5 w-5" />
-            </button>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold">Übersicht</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onTimeRangeChange('24h')}
+                className={`px-3 py-1 rounded ${
+                  timeRange === '24h'
+                    ? 'bg-blue-100 text-blue-600'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                24h
+              </button>
+              <button
+                onClick={() => onTimeRangeChange('7d')}
+                className={`px-3 py-1 rounded ${
+                  timeRange === '7d'
+                    ? 'bg-blue-100 text-blue-600'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                7d
+              </button>
+              <button
+                onClick={() => onTimeRangeChange('30d')}
+                className={`px-3 py-1 rounded ${
+                  timeRange === '30d'
+                    ? 'bg-blue-100 text-blue-600'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                30d
+              </button>
+              <button
+                onClick={() => resetZoom(mainChartRef)}
+                className="p-1 text-gray-600 hover:bg-gray-100 rounded"
+                aria-label="Reset zoom"
+              >
+                <ArrowPathIcon className="w-5 h-5" />
+              </button>
+            </div>
           </div>
           <div className="h-[400px]">
-            <Line ref={mainChartRef} options={mainChartOptionsUpdated} data={mainChartData} />
+            <Line 
+              ref={mainChartRef}
+              options={mainChartOptionsUpdated} 
+              data={mainChartDataUpdated} 
+            />
           </div>
         </div>
+      </div>
 
-        <div className="relative">
-          <div className="absolute right-0 top-0 z-10">
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold">Channel Temperatur</h2>
             <button
               onClick={() => resetZoom(channelTempChartRef)}
-              className="p-2 text-gray-600 hover:text-gray-800"
-              title="Reset zoom"
+              className="p-1 text-gray-600 hover:bg-gray-100 rounded"
+              aria-label="Reset zoom"
             >
-              <ArrowPathIcon className="h-5 w-5" />
+              <ArrowPathIcon className="w-5 h-5" />
             </button>
           </div>
           <div className="h-[400px]">
             <Line
               ref={channelTempChartRef}
-              options={channelTempChartOptionsUpdated}
-              data={channelTempChartData}
+              options={createChannelOptions('Temperatur', '°C')}
+              data={createChannelDatasets('temperature')}
             />
           </div>
         </div>
+      </div>
 
-        <div className="relative">
-          <div className="absolute right-0 top-0 z-10">
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold">Channel Luftfeuchtigkeit</h2>
             <button
               onClick={() => resetZoom(channelHumidityChartRef)}
-              className="p-2 text-gray-600 hover:text-gray-800"
-              title="Reset zoom"
+              className="p-1 text-gray-600 hover:bg-gray-100 rounded"
+              aria-label="Reset zoom"
             >
-              <ArrowPathIcon className="h-5 w-5" />
+              <ArrowPathIcon className="w-5 h-5" />
             </button>
           </div>
           <div className="h-[400px]">
             <Line
               ref={channelHumidityChartRef}
-              options={channelHumidityChartOptionsUpdated}
-              data={channelHumidityChartData}
+              options={createChannelOptions('Luftfeuchtigkeit', '%')}
+              data={createChannelDatasets('humidity')}
             />
           </div>
         </div>
       </div>
     </div>
   );
-};
-
-export default WeatherCharts;
+}
