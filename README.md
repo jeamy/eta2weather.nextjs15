@@ -36,6 +36,27 @@ Connect with Codeium:
   - Redux-based state management
   - Efficient background data synchronization
   - Type-safe data handling with TypeScript
+
+- **Interactive Charts**
+  - Real-time visualization of temperature and humidity data
+  - Responsive Chart.js integration with zoom functionality
+  - Custom styling with Geist Mono font
+  - Multiple chart views:
+    - Main chart (temperature, pressure, humidity)
+    - Channel temperature chart
+    - Channel humidity chart
+  - Interactive features:
+    - Zoom reset functionality
+    - Custom tooltips with formatted timestamps
+    - Zero line indicators for temperature charts
+  
+- **Performance Optimization**
+  - Client-side only chart rendering to prevent SSR issues
+  - Memory leak prevention through:
+    - Proper cleanup of chart instances
+    - Dynamic imports for heavy components
+    - Efficient data structure management
+  - TypeScript for enhanced type safety
   
 - **Logging System**
   - Organized log files by type and date
