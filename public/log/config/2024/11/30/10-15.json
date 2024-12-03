@@ -1,9 +1,0 @@
-{
-  "key": "t_soll",
-  "value": "20.5",
-  "newConfig": {
-    "key": "t_soll",
-    "value": "22",
-    "t_soll": "20.5"
-  }
-}
