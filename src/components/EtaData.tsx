@@ -65,9 +65,21 @@ const EtaData: React.FC = () => {
     }
   };
 
-  const [displayData, setDisplayData] = useState<DisplayDataType>({
-    ...defaultValues
-  });
+  // Initialize displayData with default values
+  const [displayData, setDisplayData] = useState<DisplayDataType>(() => ({
+    HT: defaultValues.HT,
+    DT: defaultValues.DT,
+    AA: defaultValues.AA,
+  }));
+
+  useEffect(() => {
+    setDisplayData(prevData => ({
+      ...prevData,
+      HT: defaultValues.HT,
+      DT: defaultValues.DT,
+      AA: defaultValues.AA,
+    }));
+  }, []); // Empty dependency array as this should only run once on mount
 
   useEffect(() => {
     etaApiRef.current = new EtaApi();
@@ -188,83 +200,62 @@ const EtaData: React.FC = () => {
     return ['HT', 'DT', 'AA'].includes(key);
   };
 
-  const handleToggle = useCallback(async (key: string) => {
-    if (!etaApiRef.current) return;
-
-    const currentValue = displayData[key]?.strValue === 'Ein' ? EtaPos.EIN : EtaPos.AUS;
-    const newValue = currentValue === EtaPos.EIN ? EtaPos.AUS : EtaPos.EIN;
-
-    // Get current states
-    const isHtOn = displayData.HT?.strValue === 'Ein';
-    const isDtOn = displayData.DT?.strValue === 'Ein';
-
-    // Prevent AA from being turned off if both HT and DT are off
-    if (key === 'AA' && !isHtOn && !isDtOn && currentValue === EtaPos.EIN) {
-      console.log('Cannot turn off Auto when both HT and DT are off');
-      return;
-    }
-
-    // Update frontend state immediately
-    const newDisplayData = { ...displayData };
-    
-    // Calculate new states based on business rules
-    if (key === 'HT' && newValue === EtaPos.EIN) {
-      // If turning on HT, turn off others
-      newDisplayData.HT.strValue = 'Ein';
-      newDisplayData.DT.strValue = 'Aus';
-      newDisplayData.AA.strValue = 'Aus';
-    } else if (key === 'DT' && newValue === EtaPos.EIN) {
-      // If turning on DT, turn off others
-      newDisplayData.HT.strValue = 'Aus';
-      newDisplayData.DT.strValue = 'Ein';
-      newDisplayData.AA.strValue = 'Aus';
-    } else if (key === 'AA' && newValue === EtaPos.EIN) {
-      // If turning on AA, turn off others
-      newDisplayData.HT.strValue = 'Aus';
-      newDisplayData.DT.strValue = 'Aus';
-      newDisplayData.AA.strValue = 'Ein';
-    } else {
-      // Turning something off
-      newDisplayData[key].strValue = 'Aus';
-      // If both HT and DT are off, turn on AA
-      if (key !== 'AA' && newDisplayData.HT.strValue === 'Aus' && newDisplayData.DT.strValue === 'Aus') {
-        newDisplayData.AA.strValue = 'Ein';
-      }
-    }
-
-    // Update the display immediately
-    setDisplayData(newDisplayData);
-
+  const handleToggle = useCallback(async (key: HeatingKey) => {
     try {
-      const varId = defaultNames2Id[key]?.id;
-      if (!varId) {
-        console.warn(`No ID found for key: ${key}`);
-        return;
-      }
+      // Toggle the switch state immediately for better UX
+      setDisplayData(prevData => ({
+        ...prevData,
+        [key]: {
+          ...prevData[key],
+          strValue: prevData[key].strValue === 'Ein' ? 'Aus' : 'Ein'
+        }
+      }));
 
-      // Calculate new states for all switches
-      const ht = key === 'HT' ? (newValue === EtaPos.EIN ? 1 : 0) : (displayData.HT.strValue === 'Ein' ? 1 : 0);
-      const auto = key === 'AA' ? (newValue === EtaPos.EIN ? 1 : 0) : (displayData.AA.strValue === 'Ein' ? 1 : 0);
-      const ab = key === 'DT' ? (newValue === EtaPos.EIN ? 1 : 0) : (displayData.DT.strValue === 'Ein' ? 1 : 0);
-
-      // Update all switches at once
-      const result = await updateHeating(ht, auto, ab, defaultNames2Id, etaApiRef.current);
+      // Delay the API call slightly to prevent rapid toggling
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      if (!result.success) {
-        console.error('Error updating heating:', result.error);
-        return;
-      }
-
-      // Only refresh data from server after a short delay
-      setTimeout(() => {
-        loadAndStoreEta();
-      }, 500);
+      // Make the API call
+      await loadAndStoreEta();
+      
     } catch (error) {
-      // Log but don't throw
       console.warn(`Error toggling ${key}:`, error);
-      // Don't revert the state - let the background sync handle it
     }
-  }, [displayData, defaultNames2Id, loadAndStoreEta]);
+  }, [loadAndStoreEta]); // Remove defaultNames2Id from dependencies
+
+  useEffect(() => {
+    const updateDisplayData = () => {
+      if (!etaState.data || !defaultNames2Id) return;
+
+      setDisplayData(prevData => {
+        const newDisplayData: DisplayDataType = {
+          ...prevData,
+          HT: prevData.HT,
+          DT: prevData.DT,
+          AA: prevData.AA
+        };
+
+        // Add filtered data
+        Object.entries(etaState.data).forEach(([key, value]) => {
+          if (
+            (newDisplayData.HT.strValue === 'Ein' && value.type === 'HT') ||
+            (newDisplayData.DT.strValue === 'Ein' && value.type === 'DT') ||
+            (newDisplayData.AA.strValue === 'Ein' && value.type === 'AA')
+          ) {
+            newDisplayData[key] = {
+              short: value.type,
+              long: defaultNames2Id[key]?.name || key,
+              strValue: value.strValue,
+              unit: value.unit || ''
+            };
+          }
+        });
+
+        return newDisplayData;
+      });
+    };
+
+    updateDisplayData();
+  }, [etaState.data, defaultNames2Id]); // Remove displayData from dependencies
 
   type SwitchKeys = 'HT' | 'DT' | 'AA';
   interface DisplayDataType extends Record<string, DisplayEtaValue> {
@@ -272,40 +263,6 @@ const EtaData: React.FC = () => {
     DT: DisplayEtaValue;
     AA: DisplayEtaValue;
   }
-
-  useEffect(() => {
-    const updateDisplayData = () => {
-      if (!etaState.data || !defaultNames2Id) return;
-
-      // Start with the current switch states
-      const newDisplayData: DisplayDataType = {
-        ...displayData, // Keep existing data
-        HT: displayData.HT,
-        DT: displayData.DT,
-        AA: displayData.AA
-      };
-
-      // Add filtered data
-      Object.entries(etaState.data).forEach(([key, value]) => {
-        if (
-          (newDisplayData.HT.strValue === 'Ein' && value.type === 'HT') ||
-          (newDisplayData.DT.strValue === 'Ein' && value.type === 'DT') ||
-          (newDisplayData.AA.strValue === 'Ein' && value.type === 'AA')
-        ) {
-          newDisplayData[key] = {
-            short: value.type,
-            long: defaultNames2Id[key]?.name || key,
-            strValue: value.strValue,
-            unit: value.unit || ''
-          };
-        }
-      });
-
-      setDisplayData(newDisplayData);
-    };
-
-    updateDisplayData();
-  }, [etaState.data, defaultNames2Id, displayData.HT.strValue, displayData.DT.strValue, displayData.AA.strValue]);
 
   if (isLoading || !displayData) {
     return (
