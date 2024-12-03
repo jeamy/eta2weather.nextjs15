@@ -26,6 +26,8 @@ interface WeatherChartsProps {
   mainChartData: any;
   channelTempChartData: any;
   channelHumidityChartData: any;
+  timeRange: '24h' | '7d' | '30d';
+  onTimeRangeChange: (range: '24h' | '7d' | '30d') => void;
 }
 
 const WeatherCharts = ({
@@ -40,6 +42,8 @@ const WeatherCharts = ({
   mainChartData,
   channelTempChartData,
   channelHumidityChartData,
+  timeRange,
+  onTimeRangeChange,
 }: WeatherChartsProps) => {
   if (!weatherData || weatherData.length === 0) {
     return <div>Loading...</div>;
@@ -47,56 +51,99 @@ const WeatherCharts = ({
 
   return (
     <div className="space-y-8">
-      <div className="relative">
-        <div className="absolute right-0 top-0 z-10">
-          <button
-            onClick={() => resetZoom(mainChartRef)}
-            className="p-2 text-gray-600 hover:text-gray-800"
-            title="Reset zoom"
-          >
-            <ArrowPathIcon className="h-5 w-5" />
-          </button>
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-4 text-center" style={{ fontFamily: 'var(--font-geist-mono)' }}>
+            Zeitraum auswählen
+          </h2>
+          <div className="flex justify-center space-x-4">
+            <button
+              onClick={() => onTimeRangeChange('24h')}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                timeRange === '24h'
+                  ? 'text-blue-500'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              style={{ fontFamily: 'var(--font-geist-mono)' }}
+            >
+              24 Stunden
+            </button>
+            <button
+              onClick={() => onTimeRangeChange('7d')}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                timeRange === '7d'
+                  ? 'text-blue-500'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              style={{ fontFamily: 'var(--font-geist-mono)' }}
+            >
+              7 Tage
+            </button>
+            <button
+              onClick={() => onTimeRangeChange('30d')}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                timeRange === '30d'
+                  ? 'text-blue-500'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              style={{ fontFamily: 'var(--font-geist-mono)' }}
+            >
+              30 Tage
+            </button>
+          </div>
         </div>
-        <div className="h-[400px]">
-          <Line ref={mainChartRef} options={mainChartOptions} data={mainChartData} />
-        </div>
-      </div>
 
-      <div className="relative">
-        <div className="absolute right-0 top-0 z-10">
-          <button
-            onClick={() => resetZoom(channelTempChartRef)}
-            className="p-2 text-gray-600 hover:text-gray-800"
-            title="Reset zoom"
-          >
-            <ArrowPathIcon className="h-5 w-5" />
-          </button>
+        <div className="relative">
+          <div className="absolute right-0 top-0 z-10">
+            <button
+              onClick={() => resetZoom(mainChartRef)}
+              className="p-2 text-gray-600 hover:text-gray-800"
+              title="Reset zoom"
+            >
+              <ArrowPathIcon className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="h-[400px]">
+            <Line ref={mainChartRef} options={mainChartOptions} data={mainChartData} />
+          </div>
         </div>
-        <div className="h-[400px]">
-          <Line
-            ref={channelTempChartRef}
-            options={channelTempChartOptions}
-            data={channelTempChartData}
-          />
-        </div>
-      </div>
 
-      <div className="relative">
-        <div className="absolute right-0 top-0 z-10">
-          <button
-            onClick={() => resetZoom(channelHumidityChartRef)}
-            className="p-2 text-gray-600 hover:text-gray-800"
-            title="Reset zoom"
-          >
-            <ArrowPathIcon className="h-5 w-5" />
-          </button>
+        <div className="relative">
+          <div className="absolute right-0 top-0 z-10">
+            <button
+              onClick={() => resetZoom(channelTempChartRef)}
+              className="p-2 text-gray-600 hover:text-gray-800"
+              title="Reset zoom"
+            >
+              <ArrowPathIcon className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="h-[400px]">
+            <Line
+              ref={channelTempChartRef}
+              options={channelTempChartOptions}
+              data={channelTempChartData}
+            />
+          </div>
         </div>
-        <div className="h-[400px]">
-          <Line
-            ref={channelHumidityChartRef}
-            options={channelHumidityChartOptions}
-            data={channelHumidityChartData}
-          />
+
+        <div className="relative">
+          <div className="absolute right-0 top-0 z-10">
+            <button
+              onClick={() => resetZoom(channelHumidityChartRef)}
+              className="p-2 text-gray-600 hover:text-gray-800"
+              title="Reset zoom"
+            >
+              <ArrowPathIcon className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="h-[400px]">
+            <Line
+              ref={channelHumidityChartRef}
+              options={channelHumidityChartOptions}
+              data={channelHumidityChartData}
+            />
+          </div>
         </div>
       </div>
     </div>
