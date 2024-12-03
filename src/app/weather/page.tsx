@@ -2,8 +2,6 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { RootState } from '@/redux';
 
 // Dynamically import WeatherCharts component
 const WeatherCharts = dynamic(
@@ -26,6 +24,7 @@ interface WeatherData {
 
 const WeatherPage = () => {
   const [weatherData, setWeatherData] = useState<WeatherData[]>([]);
+  const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
   const mainChartRef = useRef(null);
   const channelTempChartRef = useRef(null);
   const channelHumidityChartRef = useRef(null);
@@ -39,7 +38,7 @@ const WeatherPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('/api/weather');
+        const response = await fetch(`/api/weather?range=${timeRange}`);
         if (!response.ok) throw new Error('Failed to fetch weather data');
         const data = await response.json();
         setWeatherData(data);
@@ -52,7 +51,32 @@ const WeatherPage = () => {
     const interval = setInterval(fetchData, 60000); // Update every minute
 
     return () => clearInterval(interval);
-  }, []);
+  }, [timeRange]); // Re-fetch when timeRange changes
+
+  const formatDate = (timestamp: string) => {
+    const date = new Date(timestamp);
+    switch (timeRange) {
+      case '24h':
+        return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      case '7d':
+        return date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+      case '30d':
+        return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+      default:
+        return date.toLocaleString('de-DE');
+    }
+  };
+
+  const getTitleText = () => {
+    switch (timeRange) {
+      case '24h':
+        return 'Wetterdaten der letzten 24 Stunden';
+      case '7d':
+        return 'Wetterdaten der letzten 7 Tage';
+      case '30d':
+        return 'Wetterdaten der letzten 30 Tage';
+    }
+  };
 
   const mainChartOptions = {
     responsive: true,
@@ -66,13 +90,7 @@ const WeatherPage = () => {
         callbacks: {
           title: (context: any[]) => {
             const timestamp = weatherData[context[0].dataIndex].timestamp;
-            return new Date(timestamp).toLocaleString('de-DE', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            });
+            return formatDate(timestamp);
           },
           label: (context: any) => {
             let label = context.dataset.label || '';
@@ -91,7 +109,7 @@ const WeatherPage = () => {
       },
       title: {
         display: true,
-        text: 'Wetterdaten',
+        text: getTitleText(),
         font: {
           family: "var(--font-geist-mono)"
         }
@@ -213,13 +231,7 @@ const WeatherPage = () => {
         callbacks: {
           title: (context: any[]) => {
             const timestamp = weatherData[context[0].dataIndex].timestamp;
-            return new Date(timestamp).toLocaleString('de-DE', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            });
+            return formatDate(timestamp);
           }
         }
       },
@@ -307,13 +319,7 @@ const WeatherPage = () => {
         callbacks: {
           title: (context: any[]) => {
             const timestamp = weatherData[context[0].dataIndex].timestamp;
-            return new Date(timestamp).toLocaleString('de-DE', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            });
+            return formatDate(timestamp);
           }
         }
       },
@@ -387,13 +393,7 @@ const WeatherPage = () => {
   };
 
   const mainChartData = {
-    labels: weatherData.map(d => new Date(d.timestamp).toLocaleString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })),
+    labels: weatherData.map(d => formatDate(d.timestamp)),
     datasets: [
       {
         label: 'Temperatur',
@@ -429,13 +429,7 @@ const WeatherPage = () => {
   };
 
   const channelTempChartData = {
-    labels: weatherData.map(d => new Date(d.timestamp).toLocaleString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })),
+    labels: weatherData.map(d => formatDate(d.timestamp)),
     datasets: Object.entries(channelColors).map(([channel, colors]) => ({
       label: channel.toUpperCase(),
       data: weatherData.map(d => d.channels?.[channel]?.temperature ?? null),
@@ -449,13 +443,7 @@ const WeatherPage = () => {
   };
 
   const channelHumidityChartData = {
-    labels: weatherData.map(d => new Date(d.timestamp).toLocaleString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })),
+    labels: weatherData.map(d => formatDate(d.timestamp)),
     datasets: Object.entries(channelColors).map(([channel, colors]) => ({
       label: channel.toUpperCase(),
       data: weatherData.map(d => d.channels?.[channel]?.humidity ?? null),
@@ -482,6 +470,8 @@ const WeatherPage = () => {
         mainChartData={mainChartData}
         channelTempChartData={channelTempChartData}
         channelHumidityChartData={channelHumidityChartData}
+        timeRange={timeRange}
+        onTimeRangeChange={setTimeRange}
       />
     </div>
   );
