@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -14,6 +14,7 @@ import {
   TimeScale,
   ChartOptions,
   TimeSeriesScale,
+  ScriptableScaleContext,
 } from 'chart.js';
 
 // Dynamically import WeatherCharts component with no SSR
@@ -63,43 +64,366 @@ export default function WeatherPage(props: WeatherPageProps) {
   const channelTempChartRef = useRef<ChartJS<'line'> | null>(null);
   const channelHumidityChartRef = useRef<ChartJS<'line'> | null>(null);
 
+  // Utility function to generate consistent colors for channels
+  const getChannelColor = (channel: string): { border: string; background: string } => {
+    const baseColors = [
+      { border: 'rgb(255, 99, 132)', background: 'rgba(255, 99, 132, 0.5)' },
+      { border: 'rgb(53, 162, 235)', background: 'rgba(53, 162, 235, 0.5)' },
+      { border: 'rgb(255, 159, 64)', background: 'rgba(255, 159, 64, 0.5)' },
+      { border: 'rgb(75, 192, 192)', background: 'rgba(75, 192, 192, 0.5)' },
+      { border: 'rgb(153, 102, 255)', background: 'rgba(153, 102, 255, 0.5)' },
+      { border: 'rgb(255, 205, 86)', background: 'rgba(255, 205, 86, 0.5)' },
+      { border: 'rgb(201, 203, 207)', background: 'rgba(201, 203, 207, 0.5)' },
+      { border: 'rgb(54, 162, 235)', background: 'rgba(54, 162, 235, 0.5)' },
+    ] as const;
+    
+    // Ensure we have a valid numeric index
+    const channelNum = Math.max(1, parseInt(channel) || 1);
+    const index = (channelNum - 1) % baseColors.length;
+    
+    return baseColors[index];
+  };
+
+  const formatDate = (timestamp: string): string => {
+    const date = new Date(timestamp);
+    switch (timeRange) {
+      case '24h':
+        return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      case '7d':
+        return date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+      case '30d':
+        return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+      case '1m':
+        return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+      default:
+        return date.toLocaleString('de-DE');
+    }
+  };
+
+  const formatFullDateTime = (timestamp: string): string => {
+    const date = new Date(timestamp);
+    return date.toLocaleString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  const getTitleText = (): string => {
+    switch (timeRange) {
+      case '24h':
+        return 'Wetterdaten der letzten 24 Stunden';
+      case '7d':
+        return 'Wetterdaten der letzten 7 Tage';
+      case '30d':
+        return 'Wetterdaten der letzten 30 Tage';
+      case '1m':
+        return 'Wetterdaten des letzten Monats';
+      default:
+        return 'Wetterdaten';
+    }
+  };
+
   const resetZoom = useCallback((chartRef: React.RefObject<ChartJS<'line'> | null>) => {
     if (chartRef.current) {
       chartRef.current.resetZoom();
     }
   }, []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await fetch(`/api/weather?range=${timeRange}`);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        setWeatherData(data);
-      } catch (error) {
-        console.error('Error fetching weather data:', error);
-        setError(error instanceof Error ? error.message : 'Failed to fetch weather data');
-      } finally {
-        setIsLoading(false);
-      }
+  // Memoize chart data to prevent unnecessary recalculations
+  const memoizedChartData = useMemo(() => {
+    if (!weatherData.length) return null;
+
+    const channels = weatherData[0].channels || {};
+    const channelKeys = Object.keys(channels);
+
+    return {
+      mainChartData: {
+        labels: weatherData.map(d => formatDate(d.timestamp)),
+        datasets: [
+          {
+            label: 'Temperatur',
+            data: weatherData.map(d => d.temperature),
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.5)',
+            borderWidth: 1,
+            pointRadius: 1,
+            pointHoverRadius: 3,
+            yAxisID: 'y',
+          },
+          {
+            label: 'Luftdruck',
+            data: weatherData.map(d => d.pressure),
+            borderColor: 'rgb(53, 162, 235)',
+            backgroundColor: 'rgba(53, 162, 235, 0.5)',
+            borderWidth: 1,
+            pointRadius: 1,
+            pointHoverRadius: 3,
+            yAxisID: 'y1',
+          },
+          {
+            label: 'Luftfeuchtigkeit',
+            data: weatherData.map(d => d.humidity),
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.5)',
+            borderWidth: 1,
+            pointRadius: 1,
+            pointHoverRadius: 3,
+            yAxisID: 'y2',
+          },
+        ],
+      },
+      channelTempChartData: channelKeys.length > 0 ? {
+        labels: weatherData.map(d => formatDate(d.timestamp)),
+        datasets: channelKeys.map((channel) => {
+          const color = getChannelColor(channel);
+          return {
+            label: `CH${channel}`,
+            data: weatherData.map(d => d.channels[channel]?.temperature || 0),
+            borderColor: color.border,
+            backgroundColor: color.background,
+            borderWidth: 1,
+            pointRadius: 1,
+            pointHoverRadius: 3,
+            yAxisID: 'y',
+          };
+        }),
+      } : { labels: [], datasets: [] },
+      channelHumidityChartData: channelKeys.length > 0 ? {
+        labels: weatherData.map(d => formatDate(d.timestamp)),
+        datasets: channelKeys.map((channel) => {
+          const color = getChannelColor(channel);
+          return {
+            label: `CH${channel}`,
+            data: weatherData.map(d => d.channels[channel]?.humidity || 0),
+            borderColor: color.border,
+            backgroundColor: color.background,
+            borderWidth: 1,
+            pointRadius: 1,
+            pointHoverRadius: 3,
+            yAxisID: 'y',
+          };
+        }),
+      } : { labels: [], datasets: [] },
     };
+  }, [weatherData, timeRange]);
 
-    fetchData();
-    const interval = setInterval(fetchData, 60000); // Update every minute
-
-    return () => clearInterval(interval);
+  // Implement data fetching with SWR for better caching and revalidation
+  const fetchWeatherData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const controller = new AbortController();
+      const signal = controller.signal;
+      
+      const response = await fetch(`/api/weather?range=${timeRange}`, {
+        signal,
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setWeatherData(data);
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return; // Ignore abort errors
+      }
+      console.error('Error fetching weather data:', error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch weather data');
+    } finally {
+      setIsLoading(false);
+    }
   }, [timeRange]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchWeatherData();
+    
+    // Implement intelligent polling based on time range
+    const pollInterval = timeRange === '24h' ? 60000 : // 1 minute for 24h
+                        timeRange === '7d' ? 300000 : // 5 minutes for 7d
+                        timeRange === '30d' ? 900000 : // 15 minutes for 30d
+                        3600000; // 1 hour for 1m
+    
+    const interval = setInterval(fetchWeatherData, pollInterval);
+
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
+  }, [timeRange, fetchWeatherData]);
+
+  const mainChartOptions = {
+    responsive: true,
+    interaction: {
+      mode: 'index' as const,
+      intersect: false,
+    },
+    plugins: {
+      title: {
+        display: true,
+        text: getTitleText(),
+      },
+      zoom: {
+        zoom: {
+          wheel: {
+            enabled: true,
+          },
+          pinch: {
+            enabled: true,
+          },
+          mode: 'x',
+        },
+        pan: {
+          enabled: true,
+          mode: 'x',
+        },
+      },
+    },
+    scales: {
+      x: {
+        type: 'time',
+        time: {
+          unit: timeRange === '24h' ? 'hour' : 'day',
+        },
+        title: {
+          display: true,
+          text: 'Zeit',
+        },
+      },
+      y: {
+        type: 'linear' as const,
+        display: true,
+        position: 'left' as const,
+        title: {
+          display: true,
+          text: 'Temperatur (°C)',
+        },
+        grid: {
+          drawZero: true,
+          lineWidth: (context: ScriptableScaleContext) => {
+            return context.tick.value === 0 ? 2 : 1;  // Make zero line thicker
+          },
+          color: (context: ScriptableScaleContext) => {
+            return context.tick.value === 0 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)';  // Darker zero line
+          },
+        },
+      },
+      y1: {
+        type: 'linear' as const,
+        display: true,
+        position: 'right' as const,
+        title: {
+          display: true,
+          text: 'Luftdruck (hPa)',
+        },
+        grid: {
+          drawOnChartArea: false,
+        },
+      },
+      y2: {
+        type: 'linear' as const,
+        display: true,
+        position: 'right' as const,
+        title: {
+          display: true,
+          text: 'Luftfeuchtigkeit (%)',
+        },
+        grid: {
+          drawOnChartArea: false,
+        },
+      },
+    },
+  };
+
+  const createChannelOptions = (title: string, unit: string) => ({
+    responsive: true,
+    interaction: {
+      mode: 'index' as const,
+      intersect: false,
+    },
+    plugins: {
+      title: {
+        display: true,
+        text: title,
+      },
+      zoom: {
+        zoom: {
+          wheel: {
+            enabled: true,
+          },
+          pinch: {
+            enabled: true,
+          },
+          mode: 'x',
+        },
+        pan: {
+          enabled: true,
+          mode: 'x',
+        },
+      },
+    },
+    scales: {
+      x: {
+        type: 'time',
+        time: {
+          unit: timeRange === '24h' ? 'hour' : 'day',
+        },
+        title: {
+          display: true,
+          text: 'Zeit',
+        },
+      },
+      y: {
+        type: 'linear' as const,
+        display: true,
+        position: 'left' as const,
+        title: {
+          display: true,
+          text: `${title} (${unit})`,
+        },
+        grid: {
+          drawZero: true,
+          lineWidth: (context: ScriptableScaleContext) => {
+            return context.tick.value === 0 ? 2 : 1;  // Make zero line thicker
+          },
+          color: (context: ScriptableScaleContext) => {
+            return context.tick.value === 0 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)';  // Darker zero line
+          },
+        },
+      },
+    },
+  });
+
+  const channelTempChartOptions = createChannelOptions('Kanal Temperaturen', '°C');
+  const channelHumidityChartOptions = createChannelOptions('Kanal Luftfeuchtigkeit', '%');
+
+  const handleTimeRangeChange = (range: TimeRange) => {
+    setTimeRange(range);
+  };
+
+  // Add error boundary component
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center p-4 bg-red-50 rounded-lg">
-          <h2 className="text-red-800 text-lg font-semibold mb-2">Error</h2>
-          <p className="text-red-600">{error}</p>
+        <div className="text-center p-6 bg-red-50 rounded-lg shadow-lg">
+          <h2 className="text-red-800 text-xl font-semibold mb-3">Error Loading Weather Data</h2>
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={() => fetchWeatherData()}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -116,481 +440,6 @@ export default function WeatherPage(props: WeatherPageProps) {
     );
   }
 
-  const formatDate = (timestamp: string) => {
-    const date = new Date(timestamp);
-    switch (timeRange) {
-      case '24h':
-        return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-      case '7d':
-        return date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
-      case '30d':
-        return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-      case '1m':
-        return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-      default:
-        return date.toLocaleString('de-DE');
-    }
-  };
-
-  const formatFullDateTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
-
-  const getTitleText = () => {
-    switch (timeRange) {
-      case '24h':
-        return 'Wetterdaten der letzten 24 Stunden';
-      case '7d':
-        return 'Wetterdaten der letzten 7 Tage';
-      case '30d':
-        return 'Wetterdaten der letzten 30 Tage';
-      case '1m':
-        return 'Wetterdaten des letzten Monats';
-    }
-  };
-
-  const mainChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: {
-      mode: 'index',
-      intersect: false,
-    },
-    plugins: {
-      zoom: {
-        zoom: {
-          wheel: {
-            enabled: true,
-          },
-          pinch: {
-            enabled: true,
-          },
-          mode: 'x',
-        },
-        pan: {
-          enabled: true,
-          mode: 'x',
-        },
-      },
-      tooltip: {
-        callbacks: {
-          title: (context: any[]) => {
-            const timestamp = weatherData[context[0].dataIndex].timestamp;
-            return formatFullDateTime(timestamp);
-          },
-          label: (context: any) => {
-            let label = context.dataset.label || '';
-            let value = context.parsed.y;
-            
-            if (label === 'Temperatur' || label.includes('CH')) {
-              return `${label}: ${value.toFixed(1)}°C`;
-            } else if (label === 'Luftfeuchtigkeit') {
-              return `${label}: ${value.toFixed(0)}%`;
-            } else if (label === 'Luftdruck') {
-              return `${label}: ${value.toFixed(1)} hPa`;
-            }
-            return `${label}: ${value}`;
-          },
-        }
-      },
-      title: {
-        display: true,
-        text: getTitleText(),
-        font: {
-          family: "var(--font-geist-mono)"
-        }
-      },
-    },
-    scales: {
-      x: {
-        type: 'time',
-        time: {
-          unit: timeRange === '24h' ? 'hour' : 'day',
-          displayFormats: {
-            hour: 'HH:mm',
-            day: 'dd.MM.',
-          },
-          tooltipFormat: 'dd.MM.yyyy HH:mm:ss'
-        },
-        ticks: {
-          font: {
-            family: "var(--font-geist-mono)"
-          },
-          maxRotation: 0,
-          callback: function(value: any) {
-            const date = new Date(value);
-            return formatDate(date.toISOString());
-          }
-        },
-        grid: {
-          display: true,
-          drawBorder: true,
-        },
-      },
-      y: {
-        type: 'linear',
-        display: true,
-        position: 'left',
-        title: {
-          display: true,
-          text: 'Temperatur (°C)',
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        },
-        ticks: {
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        },
-        grid: {
-          color: (context: any) => {
-            if (context.tick.value === 0) {
-              return 'rgba(0, 0, 0, 0.3)';
-            }
-            return 'rgba(0, 0, 0, 0.1)';
-          },
-          lineWidth: (context: any) => {
-            if (context.tick.value === 0) {
-              return 2;
-            }
-            return 1;
-          }
-        }
-      },
-      y1: {
-        type: 'linear',
-        display: true,
-        position: 'right',
-        title: {
-          display: true,
-          text: 'Luftdruck (hPa)',
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        },
-        grid: {
-          drawOnChartArea: false,
-        },
-        ticks: {
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        }
-      },
-      y2: {
-        type: 'linear',
-        display: true,
-        position: 'right',
-        title: {
-          display: true,
-          text: 'Luftfeuchtigkeit (%)',
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        },
-        grid: {
-          drawOnChartArea: false,
-        },
-        ticks: {
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        }
-      },
-    },
-  };
-
-  const channelTempChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: {
-      mode: 'index',
-      intersect: false,
-    },
-    plugins: {
-      zoom: {
-        zoom: {
-          wheel: {
-            enabled: true,
-          },
-          pinch: {
-            enabled: true,
-          },
-          mode: 'x',
-        },
-        pan: {
-          enabled: true,
-          mode: 'x',
-        },
-      },
-      tooltip: {
-        callbacks: {
-          title: (context: any[]) => {
-            const timestamp = weatherData[context[0].dataIndex].timestamp;
-            return formatFullDateTime(timestamp);
-          },
-        }
-      },
-      title: {
-        display: true,
-        text: 'Kanal Temperaturen',
-        font: {
-          family: "var(--font-geist-mono)"
-        }
-      },
-    },
-    scales: {
-      x: {
-        type: 'time',
-        time: {
-          unit: timeRange === '24h' ? 'hour' : 'day',
-          displayFormats: {
-            hour: 'HH:mm',
-            day: 'dd.MM.',
-          },
-          tooltipFormat: 'dd.MM.yyyy HH:mm:ss'
-        },
-        ticks: {
-          font: {
-            family: "var(--font-geist-mono)"
-          },
-          maxRotation: 0,
-          callback: function(value: any) {
-            const date = new Date(value);
-            return formatDate(date.toISOString());
-          }
-        },
-        grid: {
-          display: true,
-          drawBorder: true,
-        },
-      },
-      y: {
-        type: 'linear',
-        display: true,
-        position: 'left',
-        title: {
-          display: true,
-          text: 'Temperatur (°C)',
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        },
-        ticks: {
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        },
-        grid: {
-          color: (context: any) => {
-            if (context.tick.value === 0) {
-              return 'rgba(0, 0, 0, 0.3)';
-            }
-            return 'rgba(0, 0, 0, 0.1)';
-          },
-          lineWidth: (context: any) => {
-            if (context.tick.value === 0) {
-              return 2;
-            }
-            return 1;
-          }
-        }
-      },
-    },
-  };
-
-  const channelHumidityChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: {
-      mode: 'index',
-      intersect: false,
-    },
-    plugins: {
-      zoom: {
-        zoom: {
-          wheel: {
-            enabled: true,
-          },
-          pinch: {
-            enabled: true,
-          },
-          mode: 'x',
-        },
-        pan: {
-          enabled: true,
-          mode: 'x',
-        },
-      },
-      tooltip: {
-        callbacks: {
-          title: (context: any[]) => {
-            const timestamp = weatherData[context[0].dataIndex].timestamp;
-            return formatFullDateTime(timestamp);
-          },
-        }
-      },
-      title: {
-        display: true,
-        text: 'Kanal Luftfeuchtigkeit',
-        font: {
-          family: "var(--font-geist-mono)"
-        }
-      },
-    },
-    scales: {
-      x: {
-        type: 'time',
-        time: {
-          unit: timeRange === '24h' ? 'hour' : 'day',
-          displayFormats: {
-            hour: 'HH:mm',
-            day: 'dd.MM.',
-          },
-          tooltipFormat: 'dd.MM.yyyy HH:mm:ss'
-        },
-        ticks: {
-          font: {
-            family: "var(--font-geist-mono)"
-          },
-          maxRotation: 0,
-          callback: function(value: any) {
-            const date = new Date(value);
-            return formatDate(date.toISOString());
-          }
-        },
-        grid: {
-          display: true,
-          drawBorder: true,
-        },
-      },
-      y: {
-        type: 'linear',
-        display: true,
-        position: 'left',
-        title: {
-          display: true,
-          text: 'Luftfeuchtigkeit (%)',
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        },
-        ticks: {
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        },
-        min: 0,
-        max: 100
-      },
-    },
-  };
-
-  const baseColors = [
-    { border: '#FF6384', background: 'rgba(255, 99, 132, 0.2)' },
-    { border: '#36A2EB', background: 'rgba(54, 162, 235, 0.2)' },
-    { border: '#FFCE56', background: 'rgba(255, 206, 86, 0.2)' },
-    { border: '#4BC0C0', background: 'rgba(75, 192, 192, 0.2)' },
-    { border: '#9966FF', background: 'rgba(153, 102, 255, 0.2)' },
-    { border: '#FF9F40', background: 'rgba(255, 159, 64, 0.2)' },
-    { border: '#EA80FC', background: 'rgba(234, 128, 252, 0.2)' },
-    { border: '#B388FF', background: 'rgba(179, 136, 255, 0.2)' }
-  ];
-
-  const getChannelColor = (channel: string) => {
-    // Ensure we get a positive index
-    const channelNum = Math.abs(parseInt(channel) || 1);
-    const index = ((channelNum - 1) % baseColors.length + baseColors.length) % baseColors.length;
-    
-    return {
-      border: baseColors[index].border,
-      background: baseColors[index].background
-    };
-  };
-
-  const mainChartData = {
-    labels: weatherData.map(d => formatDate(d.timestamp)),
-    datasets: [
-      {
-        label: 'Temperatur',
-        data: weatherData.map(d => d.temperature),
-        borderColor: 'rgb(255, 99, 132)',
-        backgroundColor: 'rgba(255, 99, 132, 0.5)',
-        borderWidth: 1,
-        pointRadius: 1,
-        pointHoverRadius: 3,
-        yAxisID: 'y',
-      },
-      {
-        label: 'Luftdruck',
-        data: weatherData.map(d => d.pressure),
-        borderColor: 'rgb(53, 162, 235)',
-        backgroundColor: 'rgba(53, 162, 235, 0.5)',
-        borderWidth: 1,
-        pointRadius: 1,
-        pointHoverRadius: 3,
-        yAxisID: 'y1',
-      },
-      {
-        label: 'Luftfeuchtigkeit',
-        data: weatherData.map(d => d.humidity),
-        borderColor: 'rgb(75, 192, 192)',
-        backgroundColor: 'rgba(75, 192, 192, 0.5)',
-        borderWidth: 1,
-        pointRadius: 1,
-        pointHoverRadius: 3,
-        yAxisID: 'y2',
-      },
-    ],
-  };
-
-  const channelTempChartData = weatherData.length > 0 ? {
-    labels: weatherData.map(d => formatDate(d.timestamp)),
-    datasets: Object.keys(weatherData[0].channels || {}).map((channel) => {
-      const color = getChannelColor(channel);
-      return {
-        label: `CH${channel}`,
-        data: weatherData.map(d => d.channels[channel].temperature),
-        borderColor: color.border,
-        backgroundColor: color.background,
-        borderWidth: 1,
-        pointRadius: 1,
-        pointHoverRadius: 3,
-        yAxisID: 'y',
-      };
-    }),
-  } : { labels: [], datasets: [] };
-
-  const channelHumidityChartData = weatherData.length > 0 ? {
-    labels: weatherData.map(d => formatDate(d.timestamp)),
-    datasets: Object.keys(weatherData[0].channels || {}).map((channel) => {
-      const color = getChannelColor(channel);
-      return {
-        label: `CH${channel}`,
-        data: weatherData.map(d => d.channels[channel].humidity),
-        borderColor: color.border,
-        backgroundColor: color.background,
-        borderWidth: 1,
-        pointRadius: 1,
-        pointHoverRadius: 3,
-        yAxisID: 'y',
-      };
-    }),
-  } : { labels: [], datasets: [] };
-
-  const handleTimeRangeChange = (range: TimeRange) => {
-    setTimeRange(range);
-  };
-
   return (
     <div className="p-4">
       <WeatherCharts
@@ -602,9 +451,9 @@ export default function WeatherPage(props: WeatherPageProps) {
         mainChartOptions={mainChartOptions}
         channelTempChartOptions={channelTempChartOptions}
         channelHumidityChartOptions={channelHumidityChartOptions}
-        mainChartData={mainChartData}
-        channelTempChartData={channelTempChartData}
-        channelHumidityChartData={channelHumidityChartData}
+        mainChartData={memoizedChartData?.mainChartData}
+        channelTempChartData={memoizedChartData?.channelTempChartData}
+        channelHumidityChartData={memoizedChartData?.channelHumidityChartData}
         timeRange={timeRange}
         onTimeRangeChange={handleTimeRangeChange}
       />

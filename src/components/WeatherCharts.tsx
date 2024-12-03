@@ -100,9 +100,49 @@ export default function WeatherCharts({
 }: WeatherChartsProps) {
   type ChartRef = ChartJS<'line'>;
 
+  // Initialize Chart.js only once on component mount
   useEffect(() => {
     initChart();
   }, []);
+
+  // Memoize time range buttons to prevent unnecessary re-renders
+  const TimeRangeButtons = useMemo(() => {
+    const timeRanges: { value: '24h' | '7d' | '30d' | '1m'; label: string }[] = [
+      { value: '24h', label: '24h' },
+      { value: '7d', label: '7d' },
+      { value: '30d', label: '30d' },
+      { value: '1m', label: '1m' },
+    ];
+
+    return (
+      <div className="flex space-x-2 mb-4">
+        {timeRanges.map(({ value, label }) => (
+          <button
+            key={value}
+            onClick={() => onTimeRangeChange(value)}
+            className={`px-3 py-1 rounded ${
+              timeRange === value
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            } transition-colors duration-200`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    );
+  }, [timeRange, onTimeRangeChange]);
+
+  // Memoize reset zoom buttons
+  const ResetZoomButton = useCallback(({ chartRef }: { chartRef: React.RefObject<ChartRef> }) => (
+    <button
+      onClick={() => resetZoom(chartRef)}
+      className="ml-2 p-1 rounded hover:bg-gray-100 transition-colors"
+      title="Reset Zoom"
+    >
+      <ArrowPathIcon className="h-5 w-5 text-gray-600" />
+    </button>
+  ), [resetZoom]);
 
   // Memoize main chart data
   const mainChartDataUpdated = useMemo(() => ({
@@ -357,111 +397,35 @@ export default function WeatherCharts({
 
   return (
     <div className="space-y-8">
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Übersicht</h2>
-            <div className="flex gap-2">
-              <button
-                onClick={() => onTimeRangeChange('24h')}
-                className={`px-3 py-1 rounded ${
-                  timeRange === '24h'
-                    ? 'bg-blue-100 text-blue-600'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                24h
-              </button>
-              <button
-                onClick={() => onTimeRangeChange('7d')}
-                className={`px-3 py-1 rounded ${
-                  timeRange === '7d'
-                    ? 'bg-blue-100 text-blue-600'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                7d
-              </button>
-              <button
-                onClick={() => onTimeRangeChange('30d')}
-                className={`px-3 py-1 rounded ${
-                  timeRange === '30d'
-                    ? 'bg-blue-100 text-blue-600'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                30d
-              </button>
-              <button
-                onClick={() => onTimeRangeChange('1m')}
-                className={`px-3 py-1 rounded ${
-                  timeRange === '1m'
-                    ? 'bg-blue-100 text-blue-600'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                1m
-              </button>
-              <button
-                onClick={() => resetZoom(mainChartRef)}
-                className="p-1 text-gray-600 hover:bg-gray-100 rounded"
-                aria-label="Reset zoom"
-              >
-                <ArrowPathIcon className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-          <div className="h-[400px]">
-            <Line 
-              ref={mainChartRef}
-              options={mainChartOptionsUpdated} 
-              data={mainChartDataUpdated} 
-            />
-          </div>
+      {TimeRangeButtons}
+      
+      <div className="bg-white rounded-lg shadow-lg p-4">
+        <div className="flex items-center mb-4">
+          <h2 className="text-xl font-semibold flex-grow">Hauptsensoren</h2>
+          <ResetZoomButton chartRef={mainChartRef} />
+        </div>
+        <div className="relative aspect-[21/9]">
+          <Line ref={mainChartRef} options={mainChartOptionsUpdated} data={mainChartDataUpdated} />
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Channel Temperatur</h2>
-            <button
-              onClick={() => resetZoom(channelTempChartRef)}
-              className="p-1 text-gray-600 hover:bg-gray-100 rounded"
-              aria-label="Reset zoom"
-            >
-              <ArrowPathIcon className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="h-[400px]">
-            <Line
-              ref={channelTempChartRef}
-              options={createChannelOptions('Temperatur', '°C')}
-              data={createChannelDatasets('temperature')}
-            />
-          </div>
+      <div className="bg-white rounded-lg shadow-lg p-4">
+        <div className="flex items-center mb-4">
+          <h2 className="text-xl font-semibold flex-grow">Temperatur Kanäle</h2>
+          <ResetZoomButton chartRef={channelTempChartRef} />
+        </div>
+        <div className="relative aspect-[21/9]">
+          <Line ref={channelTempChartRef} options={createChannelOptions('Temperatur', '°C')} data={createChannelDatasets('temperature')} />
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Channel Luftfeuchtigkeit</h2>
-            <button
-              onClick={() => resetZoom(channelHumidityChartRef)}
-              className="p-1 text-gray-600 hover:bg-gray-100 rounded"
-              aria-label="Reset zoom"
-            >
-              <ArrowPathIcon className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="h-[400px]">
-            <Line
-              ref={channelHumidityChartRef}
-              options={createChannelOptions('Luftfeuchtigkeit', '%')}
-              data={createChannelDatasets('humidity')}
-            />
-          </div>
+      <div className="bg-white rounded-lg shadow-lg p-4">
+        <div className="flex items-center mb-4">
+          <h2 className="text-xl font-semibold flex-grow">Luftfeuchtigkeit Kanäle</h2>
+          <ResetZoomButton chartRef={channelHumidityChartRef} />
+        </div>
+        <div className="relative aspect-[21/9]">
+          <Line ref={channelHumidityChartRef} options={createChannelOptions('Luftfeuchtigkeit', '%')} data={createChannelDatasets('humidity')} />
         </div>
       </div>
     </div>
