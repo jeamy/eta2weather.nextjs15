@@ -1,5 +1,18 @@
 // Typdefinition für die Konfiguration
-export type Config = Record<ConfigKeys, string>;
+export type Config = {
+    [ConfigKeys.T_SOLL]: string;
+    [ConfigKeys.T_DELTA]: string;
+    [ConfigKeys.T_SLIDER]: string;
+    [ConfigKeys.F_ETA]: string;
+    [ConfigKeys.S_ETA]: string;
+    [ConfigKeys.F_WIFIAF83]: string;
+    [ConfigKeys.F_NAMES2ID]: string;
+    [ConfigKeys.T_UPDATE_TIMER]: string;
+    [ConfigKeys.DIFF]: string;
+    [ConfigKeys.CHANNEL_NAMES]: {
+        [key: string]: string;
+    };
+};
 
 // Konstanten als Enum definieren
 export enum ConfigKeys {
@@ -25,7 +38,7 @@ export const defaultConfig: Config = {
     [ConfigKeys.F_NAMES2ID]: 'f_names2id.json',
     [ConfigKeys.T_UPDATE_TIMER]: '300000',
     [ConfigKeys.DIFF]: '0',
-    [ConfigKeys.CHANNEL_NAMES]: JSON.stringify({
+    [ConfigKeys.CHANNEL_NAMES]: {
         'CH1': 'Channel 1',
         'CH2': 'Channel 2',
         'CH3': 'Channel 3',
@@ -34,5 +47,5 @@ export const defaultConfig: Config = {
         'CH6': 'Channel 6',
         'CH7': 'Channel 7',
         'CH8': 'Channel 8'
-    })
+    }
 };

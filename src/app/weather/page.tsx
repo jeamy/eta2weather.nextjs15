@@ -2,6 +2,8 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/redux';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -63,6 +65,26 @@ export default function WeatherPage(props: WeatherPageProps) {
   const mainChartRef = useRef<ChartJS<'line'> | null>(null);
   const channelTempChartRef = useRef<ChartJS<'line'> | null>(null);
   const channelHumidityChartRef = useRef<ChartJS<'line'> | null>(null);
+
+  
+  // Get channel names from Redux store at the top level
+  const reduxConfig = useSelector((state: RootState) => state.config);
+
+  console.log('Weather page config state:', {
+    isInitialized: reduxConfig.isInitialized,
+    channelNames: reduxConfig?.data?.channelNames
+  });
+
+  // Function to get channel name from config
+  const getChannelName = useCallback((channel: string) => {
+    // Only use config if it's initialized
+    if (reduxConfig.isInitialized && reduxConfig.data.channelNames) {
+      const channelKey = `CH${channel}`.toUpperCase();
+      const configName = reduxConfig.data.channelNames[channelKey];
+      if (configName) return configName;
+    }
+    return `CH${channel}`;
+  }, [reduxConfig]);
 
   // Utility function to generate consistent colors for channels
   const getChannelColor = (channel: string): { border: string; background: string } => {
@@ -179,9 +201,14 @@ export default function WeatherPage(props: WeatherPageProps) {
       channelTempChartData: channelKeys.length > 0 ? {
         labels: weatherData.map(d => formatDate(d.timestamp)),
         datasets: channelKeys.map((channel) => {
+          console.log('Processing channel:', channel);
           const color = getChannelColor(channel);
+          // Extract the channel number and convert to uppercase for consistent lookup
+          const channelNum = channel.replace(/[^\d]/g, '');
+          const name = getChannelName(channelNum);
+          console.log('Channel name result:', name);
           return {
-            label: `CH${channel}`,
+            label: `${name} (°C)`,
             data: weatherData.map(d => d.channels[channel]?.temperature || 0),
             borderColor: color.border,
             backgroundColor: color.background,
@@ -195,9 +222,14 @@ export default function WeatherPage(props: WeatherPageProps) {
       channelHumidityChartData: channelKeys.length > 0 ? {
         labels: weatherData.map(d => formatDate(d.timestamp)),
         datasets: channelKeys.map((channel) => {
+          console.log('Processing channel (humidity):', channel);
           const color = getChannelColor(channel);
+          // Extract the channel number and convert to uppercase for consistent lookup
+          const channelNum = channel.replace(/[^\d]/g, '');
+          const name = getChannelName(channelNum);
+          console.log('Channel name result (humidity):', name);
           return {
-            label: `CH${channel}`,
+            label: `${name} (%)`,
             data: weatherData.map(d => d.channels[channel]?.humidity || 0),
             borderColor: color.border,
             backgroundColor: color.background,
@@ -209,7 +241,7 @@ export default function WeatherPage(props: WeatherPageProps) {
         }),
       } : { labels: [], datasets: [] },
     };
-  }, [weatherData, timeRange]);
+  }, [weatherData, timeRange, getChannelName]);
 
   // Implement data fetching with SWR for better caching and revalidation
   const fetchWeatherData = useCallback(async () => {
@@ -310,11 +342,14 @@ export default function WeatherPage(props: WeatherPageProps) {
         },
         grid: {
           drawZero: true,
+          borderWidth: (context: ScriptableScaleContext) => {
+            return context.tick.value === 0 ? 5 : 1;  // Much thicker zero line
+          },
           lineWidth: (context: ScriptableScaleContext) => {
-            return context.tick.value === 0 ? 2 : 1;  // Make zero line thicker
+            return context.tick.value === 0 ? 5 : 1;  // Much thicker zero line
           },
           color: (context: ScriptableScaleContext) => {
-            return context.tick.value === 0 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)';  // Darker zero line
+            return context.tick.value === 0 ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.1)';  // Even darker zero line
           },
         },
       },
@@ -393,11 +428,14 @@ export default function WeatherPage(props: WeatherPageProps) {
         },
         grid: {
           drawZero: true,
+          borderWidth: (context: ScriptableScaleContext) => {
+            return context.tick.value === 0 ? 5 : 1;  // Much thicker zero line
+          },
           lineWidth: (context: ScriptableScaleContext) => {
-            return context.tick.value === 0 ? 2 : 1;  // Make zero line thicker
+            return context.tick.value === 0 ? 5 : 1;  // Much thicker zero line
           },
           color: (context: ScriptableScaleContext) => {
-            return context.tick.value === 0 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)';  // Darker zero line
+            return context.tick.value === 0 ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.1)';  // Even darker zero line
           },
         },
       },

@@ -13,7 +13,6 @@ import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types
 import Image from 'next/image';
 import { defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 import { EtaApi } from '@/reader/functions/EtaApi';
-import { updateHeating } from '@/utils/Functions';
 
 // Constants
 
