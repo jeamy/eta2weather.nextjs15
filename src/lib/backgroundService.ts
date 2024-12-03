@@ -38,6 +38,10 @@ class BackgroundService {
   private configCheckInterval = 1000; // Check config file every second
   private isUpdating = false;
   private configChangeTimeout: NodeJS.Timeout | null = null;
+  private memoryMonitorInterval: NodeJS.Timeout | null = null;
+  private readonly MEMORY_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+  private readonly MAX_HEAP_SIZE = 1024 * 1024 * 1024; // 1GB
+  private readonly DATA_RETENTION_PERIOD = 24 * 60 * 60 * 1000; // 24 hours
 
   private constructor() {}
 
@@ -168,6 +172,65 @@ class BackgroundService {
     console.log(`${this.getTimestamp()} Update interval restarted with timer: ${updateTimer}ms`);
   }
 
+  private monitorMemoryUsage() {
+    const used = process.memoryUsage();
+    const heapUsedMB = Math.round(used.heapUsed / 1024 / 1024);
+    const heapTotalMB = Math.round(used.heapTotal / 1024 / 1024);
+    
+    console.log(`${this.getTimestamp()} Memory usage - heapTotal: ${heapTotalMB}MB, heapUsed: ${heapUsedMB}MB`);
+    
+    // Alert if memory usage is too high
+    if (used.heapUsed > this.MAX_HEAP_SIZE) {
+      console.warn(`${this.getTimestamp()} High memory usage detected! Running emergency cleanup...`);
+      this.cleanupOldData(true).catch(error => {
+        console.error(`${this.getTimestamp()} Error during emergency cleanup:`, error);
+      });
+      global.gc?.(); // Optional: Force garbage collection if --expose-gc flag is set
+    }
+  }
+
+  private async cleanupOldData(emergency: boolean = false) {
+    console.log(`${this.getTimestamp()} Running data cleanup${emergency ? ' (emergency)' : ''}...`);
+    
+    try {
+      const state = store.getState();
+      const retentionPeriod = emergency ? this.DATA_RETENTION_PERIOD / 2 : this.DATA_RETENTION_PERIOD;
+      const cutoffTime = Date.now() - retentionPeriod;
+
+      let needsRefresh = false;
+
+      // Check WiFi AF83 data
+      const wifiData = state.wifiAf83.data;
+      if (wifiData?.time && wifiData.time < cutoffTime) {
+        console.log(`${this.getTimestamp()} WiFi AF83 data is outdated`);
+        needsRefresh = true;
+      }
+
+      // Check ETA data
+      const etaData = state.eta;
+      if (etaData) {
+        const hasOldData = Object.values(etaData).some((value: any) => 
+          value?.timestamp && value.timestamp < cutoffTime
+        );
+        if (hasOldData) {
+          console.log(`${this.getTimestamp()} ETA data is outdated`);
+          needsRefresh = true;
+        }
+      }
+
+      // If any data is outdated, refresh all data
+      if (needsRefresh) {
+        console.log(`${this.getTimestamp()} Refreshing all data...`);
+        await this.loadAndStoreData();
+        console.log(`${this.getTimestamp()} Data refresh complete`);
+      } else {
+        console.log(`${this.getTimestamp()} All data is current, no refresh needed`);
+      }
+    } catch (error) {
+      console.error(`${this.getTimestamp()} Error during data cleanup and refresh:`, error);
+    }
+  }
+
   async start() {
     if (this.isRunning) {
       console.log(`${this.getTimestamp()} Background service is already running`);
@@ -178,6 +241,12 @@ class BackgroundService {
     this.config = await this.loadConfig();
     console.log(`${this.getTimestamp()} Starting config file watcher...`);
     this.startConfigWatcher();
+    
+    // Start memory monitoring
+    this.memoryMonitorInterval = setInterval(() => {
+      this.monitorMemoryUsage();
+    }, this.MEMORY_CHECK_INTERVAL);
+    
     console.log(`${this.getTimestamp()} Background service started`);
     
     try {
@@ -212,6 +281,10 @@ class BackgroundService {
       clearTimeout(this.configChangeTimeout);
       this.configChangeTimeout = null;
     }
+    if (this.memoryMonitorInterval) {
+      clearInterval(this.memoryMonitorInterval);
+      this.memoryMonitorInterval = null;
+    }
     this.isRunning = false;
     this.isUpdating = false;
     console.log(`${this.getTimestamp()} Background service stopped`);
@@ -229,6 +302,9 @@ class BackgroundService {
     
     this.isUpdating = true;
     try {
+      // Run cleanup before loading new data
+      await this.cleanupOldData();
+      
       // Create EtaApi instance
       const etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
 

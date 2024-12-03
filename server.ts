@@ -3,6 +3,7 @@ import { parse } from 'node:url';
 import next from 'next';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { Server } from 'node:http';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,6 +11,8 @@ const __dirname = path.dirname(__filename);
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
 const port = 3000;
+
+let server: Server | null = null;
 
 async function startServer() {
   const app = next({ dev, hostname, port });
@@ -24,7 +27,7 @@ async function startServer() {
     await backgroundService.start();
     console.log('Background service initialized successfully');
 
-    createServer(async (req, res) => {
+    server = createServer(async (req, res) => {
       try {
         const parsedUrl = parse(req.url!, true);
         await handle(req, res, parsedUrl);
@@ -41,5 +44,23 @@ async function startServer() {
     process.exit(1);
   }
 }
+
+// Add cleanup function for graceful shutdown
+async function cleanup() {
+  console.log('Shutting down server...');
+  if (server) {
+    await new Promise((resolve) => server!.close(resolve));
+    server = null;
+  }
+  
+  const { backgroundService } = await import('./src/lib/backgroundService.js');
+  await backgroundService.stop();
+  console.log('Server shutdown complete');
+  process.exit(0);
+}
+
+// Handle graceful shutdown
+process.on('SIGTERM', cleanup);
+process.on('SIGINT', cleanup);
 
 startServer();
