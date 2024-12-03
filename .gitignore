@@ -36,6 +36,6 @@ yarn-error.log*
 next-env.d.ts
 
 eco.ts
-#public/log/ecowitt/*
-#public/log/config/*
-#public/log/eta/*
+public/log/ecowitt/*
+public/log/config/*
+public/log/eta/*
