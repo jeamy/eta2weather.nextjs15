@@ -35,7 +35,7 @@ interface WeatherData {
   };
 }
 
-type TimeRange = '24h' | '7d' | '30d';
+type TimeRange = '24h' | '7d' | '30d' | '1m';
 
 interface WeatherPageProps {
   // Add any props that WeatherPage component might receive
@@ -125,6 +125,8 @@ export default function WeatherPage(props: WeatherPageProps) {
         return date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
       case '30d':
         return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+      case '1m':
+        return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
       default:
         return date.toLocaleString('de-DE');
     }
@@ -150,6 +152,8 @@ export default function WeatherPage(props: WeatherPageProps) {
         return 'Wetterdaten der letzten 7 Tage';
       case '30d':
         return 'Wetterdaten der letzten 30 Tage';
+      case '1m':
+        return 'Wetterdaten des letzten Monats';
     }
   };
 
@@ -209,11 +213,10 @@ export default function WeatherPage(props: WeatherPageProps) {
       x: {
         type: 'time',
         time: {
-          unit: timeRange === '24h' ? 'hour' : timeRange === '7d' ? 'day' : 'week',
+          unit: timeRange === '24h' ? 'hour' : 'day',
           displayFormats: {
             hour: 'HH:mm',
             day: 'dd.MM.',
-            week: 'dd.MM.'
           },
           tooltipFormat: 'dd.MM.yyyy HH:mm:ss'
         },
@@ -349,11 +352,10 @@ export default function WeatherPage(props: WeatherPageProps) {
       x: {
         type: 'time',
         time: {
-          unit: timeRange === '24h' ? 'hour' : timeRange === '7d' ? 'day' : 'week',
+          unit: timeRange === '24h' ? 'hour' : 'day',
           displayFormats: {
             hour: 'HH:mm',
             day: 'dd.MM.',
-            week: 'dd.MM.'
           },
           tooltipFormat: 'dd.MM.yyyy HH:mm:ss'
         },
@@ -449,11 +451,10 @@ export default function WeatherPage(props: WeatherPageProps) {
       x: {
         type: 'time',
         time: {
-          unit: timeRange === '24h' ? 'hour' : timeRange === '7d' ? 'day' : 'week',
+          unit: timeRange === '24h' ? 'hour' : 'day',
           displayFormats: {
             hour: 'HH:mm',
             day: 'dd.MM.',
-            week: 'dd.MM.'
           },
           tooltipFormat: 'dd.MM.yyyy HH:mm:ss'
         },
@@ -607,6 +608,48 @@ export default function WeatherPage(props: WeatherPageProps) {
         timeRange={timeRange}
         onTimeRangeChange={handleTimeRangeChange}
       />
+      <div className="flex gap-2">
+        <button
+          onClick={() => handleTimeRangeChange('24h')}
+          className={`px-3 py-1 rounded ${
+            timeRange === '24h'
+              ? 'bg-blue-100 text-blue-600'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          24h
+        </button>
+        <button
+          onClick={() => handleTimeRangeChange('7d')}
+          className={`px-3 py-1 rounded ${
+            timeRange === '7d'
+              ? 'bg-blue-100 text-blue-600'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          7d
+        </button>
+        <button
+          onClick={() => handleTimeRangeChange('30d')}
+          className={`px-3 py-1 rounded ${
+            timeRange === '30d'
+              ? 'bg-blue-100 text-blue-600'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          30d
+        </button>
+        <button
+          onClick={() => handleTimeRangeChange('1m')}
+          className={`px-3 py-1 rounded ${
+            timeRange === '1m'
+              ? 'bg-blue-100 text-blue-600'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          1m
+        </button>
+      </div>
     </div>
   );
 }
