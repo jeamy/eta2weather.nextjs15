@@ -116,12 +116,68 @@ async function updateWifiAf83File(data: any) {
 
 async function readWifiAf83File(): Promise<any> {
     try {
+        // Check if file exists
+        try {
+            await fs.access(WIFIAF83_PATH);
+        } catch {
+            // File doesn't exist, create it with initial structure
+            const initialData = {
+                code: 0,
+                msg: "success",
+                time: Math.floor(Date.now() / 1000).toString(),
+                data: {},
+                datestring: new Date().toLocaleString('de-DE', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: 'numeric',
+                    second: 'numeric'
+                }),
+                diff: "0"
+            };
+            await fs.writeFile(WIFIAF83_PATH, JSON.stringify(initialData, null, 2));
+            return initialData.data;
+        }
+
+        // Read and parse file
         const data = await fs.readFile(WIFIAF83_PATH, 'utf8');
-        const jsonData = JSON.parse(data);
-        return jsonData.data;
+        if (!data.trim()) {
+            throw new Error('File is empty');
+        }
+
+        try {
+            const jsonData = JSON.parse(data);
+            if (!jsonData || typeof jsonData !== 'object') {
+                throw new Error('Invalid JSON structure');
+            }
+            return jsonData.data || {};
+        } catch (parseError) {
+            console.error('Error parsing wifiaf83 file:', parseError);
+            // If JSON is invalid, reinitialize the file
+            const initialData = {
+                code: 0,
+                msg: "success",
+                time: Math.floor(Date.now() / 1000).toString(),
+                data: {},
+                datestring: new Date().toLocaleString('de-DE', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: 'numeric',
+                    second: 'numeric'
+                }),
+                diff: "0"
+            };
+            await fs.writeFile(WIFIAF83_PATH, JSON.stringify(initialData, null, 2));
+            return initialData.data;
+        }
     } catch (error) {
         console.error('Error reading wifiaf83 file:', error);
-        return null;
+        return {};
     }
 }
 

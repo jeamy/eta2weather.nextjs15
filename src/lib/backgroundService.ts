@@ -1,7 +1,7 @@
 import { ConfigKeys, defaultConfig } from '../reader/functions/types-constants/ConfigConstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '../reader/functions/types-constants/TimerConstants';
 import { fetchEtaData, parseXML } from '../reader/functions/EtaData';
-import { defaultNames2Id } from '../reader/functions/types-constants/Names2IDconstants';
+import { defaultNames2Id, EtaConstants } from '../reader/functions/types-constants/Names2IDconstants';
 import { Config } from '../reader/functions/types-constants/ConfigConstants';
 import { WifiAf83Api } from '../reader/functions/WifiAf83Api';
 import { WifiAF83Data } from '../reader/functions/types-constants/WifiAf83';
@@ -15,6 +15,7 @@ import names2IdReducer, { storeData as storeNames2IdData } from '../redux/names2
 import { logData } from '@/utils/logging';
 import { getWifiAf83Data } from '@/utils/cache';
 import { EtaApi } from '@/reader/functions/EtaApi';
+import Diff from '@/reader/functions/Diff';
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
 
@@ -231,6 +232,82 @@ class BackgroundService {
     }
   }
 
+  private calculateTemperatureDiff(wifiData: WifiAF83Data): { diff: number | null; twa: number; twi: number } {
+    const state = store.getState();
+    const config = state.config;
+
+    const twi = wifiData.indoorTemperature;
+    const twa = wifiData.temperature ?? 0;
+    const { t_soll, t_delta } = config.data;
+
+    const tSollNum = Number(t_soll);
+    const tDeltaNum = Number(t_delta);
+
+    if (isNaN(tSollNum) || isNaN(tDeltaNum) || isNaN(twi)) {
+      console.error(`${this.getTimestamp()} Invalid temperature values:`, { t_soll, t_delta, twi });
+      return { diff: null, twa, twi };
+    }
+
+    const diff = Math.min(tSollNum + tDeltaNum - twi, 5.0);
+    return { diff: Number(diff.toFixed(1)), twa, twi };
+  }
+
+  private calculateNewSliderPosition(etaValues: { einaus: string; schaltzustand: string; heizentaste: string }, diff: number): string {
+    return (etaValues.einaus === "Aus" || (etaValues.schaltzustand === "Aus" && etaValues.heizentaste === "Aus"))
+      ? "0.0"
+      : new Diff().getDiff(diff, 1.25, 5.0, 0.0, 100.0).toString();
+  }
+
+  private async updateTemperatureDiff(wifiData: WifiAF83Data) {
+    try {
+      const state = store.getState();
+      const etaState = state.eta;
+      const config = state.config;
+
+      if (!config || !wifiData || !etaState) {
+        return;
+      }
+
+      const { diff: numericDiff } = this.calculateTemperatureDiff(wifiData);
+      
+      if (numericDiff !== null) {
+        const newDiffValue = numericDiff.toString();
+        // Only update if the diff value has changed
+        if (newDiffValue !== config.data[ConfigKeys.DIFF]) {
+          const etaValues = {
+            einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
+            schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
+            heizentaste: etaState.data[defaultNames2Id[EtaConstants.HEIZENTASTE].id]?.strValue || '0',
+            tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
+            tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
+          };
+
+          const newSliderPosition = this.calculateNewSliderPosition(etaValues, numericDiff);
+          
+          if (newSliderPosition !== config.data[ConfigKeys.T_SLIDER] || newDiffValue !== config.data[ConfigKeys.DIFF]) {
+            store.dispatch(storeConfigData({
+              ...config.data,
+              [ConfigKeys.DIFF]: newDiffValue,
+              [ConfigKeys.T_SLIDER]: newSliderPosition
+            }));
+
+            // Log the temperature diff update
+            console.log(`${this.getTimestamp()} Updated temperature diff - Diff: ${newDiffValue}, Slider: ${newSliderPosition}`);
+            await logData('temp_diff', { 
+              timestamp: Date.now(),
+              diff: newDiffValue,
+              sliderPosition: newSliderPosition,
+              indoor: wifiData.indoorTemperature,
+              outdoor: wifiData.temperature
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`${this.getTimestamp()} Error updating temperature diff:`, error);
+    }
+  }
+
   async start() {
     if (this.isRunning) {
       console.log(`${this.getTimestamp()} Background service is already running`);
@@ -405,6 +482,9 @@ class BackgroundService {
       console.log(`${this.getTimestamp()} Logging ECOWITT data...`);
       await logData('ecowitt', transformedData);
       console.log(`${this.getTimestamp()} Logging ECOWITT data DONE!`);
+
+      // Update temperature diff after new data is loaded
+      await this.updateTemperatureDiff(transformedData);
 
       // Update names2Id in store
       store.dispatch(storeNames2IdData(defaultNames2Id));

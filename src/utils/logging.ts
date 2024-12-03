@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-type LogType = 'ecowitt' | 'eta' | 'config';
+type LogType = 'ecowitt' | 'eta' | 'config' | 'temp_diff';
 
 export const logData = async (type: LogType, data: any) => {
     const now = new Date();
