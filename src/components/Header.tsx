@@ -72,26 +72,17 @@ export default function Header({ menuData = [] }: HeaderProps) {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-              <Link 
-                href="/" 
-                className="text-white hover:text-gray-300 font-medium"
-                style={{ fontFamily: 'var(--font-geist-sans)' }}
-              >
+                <Link 
+                  href="/" 
+                  className="text-white hover:text-gray-300 font-medium"
+                  style={{ fontFamily: 'var(--font-geist-sans)' }}
+                >
                   ETA Control
-              </Link>
+                </Link>
                 <span className="text-white text-xl" style={{ fontFamily: 'var(--font-geist-sans)' }}>
                 </span>
               </div>
-            </div>
-
-            <div className="flex items-center">
-              <Link 
-                href="/logs" 
-                className="text-white hover:text-gray-300 font-medium"
-                style={{ fontFamily: 'var(--font-geist-sans)' }}
-              >
-                System Logs
-              </Link>
+              
               {showEtaMenu && menuData && menuData.length > 0 && (
                 <div 
                   className="absolute left-0 mt-1 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50"
@@ -121,6 +112,23 @@ export default function Header({ menuData = [] }: HeaderProps) {
                   </div>
                 </div>
               )}
+            </div>
+
+            <div className="flex items-center space-x-6">
+              <Link 
+                href="/logs" 
+                className="text-white hover:text-gray-300 font-medium"
+                style={{ fontFamily: 'var(--font-geist-sans)' }}
+              >
+                System Logs
+              </Link>
+              <Link 
+                href="/weather" 
+                className="text-white hover:text-gray-300 font-medium"
+                style={{ fontFamily: 'var(--font-geist-sans)' }}
+              >
+                Weather
+              </Link>
             </div>
 
             {/* Mobile menu button */}

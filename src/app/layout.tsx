@@ -4,6 +4,7 @@ import "./globals.css";
 import StoreProvider from "@/components/StoreProvider";
 import HeaderWithMenu from "@/components/HeaderWithMenu";
 import BackgroundSync from "@/components/BackgroundSync";
+import Header from "@/components/Header";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -29,7 +30,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <StoreProvider>
           <BackgroundSync />
-          <HeaderWithMenu />
+          <Header />
           <div className="min-h-screen bg-gray-100">
             <main className="container mx-auto px-4 py-8">
               {children}

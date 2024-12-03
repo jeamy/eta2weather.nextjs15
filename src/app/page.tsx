@@ -74,6 +74,12 @@ export default function Home() {
       </main>
 
       <footer className="mt-8 flex gap-6 flex-wrap items-center justify-center">
+        <a
+          href="/weather"
+          className="text-sm text-muted-foreground hover:text-blue-600 transition-colors"
+        >
+          Weather
+        </a>
         <p className="text-sm text-muted-foreground">
           created by{" "}
           <a

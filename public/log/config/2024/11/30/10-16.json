@@ -1,0 +1,10 @@
+{
+  "key": "t_soll",
+  "value": "21.5",
+  "newConfig": {
+    "key": "t_soll",
+    "value": "22",
+    "t_soll": "21.5",
+    "t_delta": "0"
+  }
+}
