@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 
-// Dynamically import WeatherCharts component
+// Dynamically import WeatherCharts component with no SSR
 const WeatherCharts = dynamic(
   () => import('@/components/WeatherCharts'),
   { ssr: false }
@@ -67,6 +67,18 @@ const WeatherPage = () => {
     }
   };
 
+  const formatFullDateTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
   const getTitleText = () => {
     switch (timeRange) {
       case '24h':
@@ -82,30 +94,45 @@ const WeatherPage = () => {
     responsive: true,
     maintainAspectRatio: false,
     interaction: {
-      mode: 'index' as const,
+      mode: 'index',
       intersect: false,
     },
     plugins: {
+      zoom: {
+        zoom: {
+          wheel: {
+            enabled: true,
+          },
+          pinch: {
+            enabled: true,
+          },
+          mode: 'x',
+        },
+        pan: {
+          enabled: true,
+          mode: 'x',
+        },
+      },
       tooltip: {
         callbacks: {
           title: (context: any[]) => {
             const timestamp = weatherData[context[0].dataIndex].timestamp;
-            return formatDate(timestamp);
+            return formatFullDateTime(timestamp);
           },
           label: (context: any) => {
             let label = context.dataset.label || '';
             let value = context.parsed.y;
             
-            if (label === 'Temperatur') {
+            if (label === 'Temperatur' || label.includes('CH')) {
               return `${label}: ${value.toFixed(1)}°C`;
+            } else if (label === 'Luftfeuchtigkeit') {
+              return `${label}: ${value.toFixed(0)}%`;
             } else if (label === 'Luftdruck') {
               return `${label}: ${value.toFixed(1)} hPa`;
-            } else if (label === 'Luftfeuchtigkeit') {
-              return `${label}: ${value.toFixed(1)}%`;
             }
-            return label;
-          }
-        }
+            return `${label}: ${value}`;
+          },
+        },
       },
       title: {
         display: true,
@@ -114,34 +141,38 @@ const WeatherPage = () => {
           family: "var(--font-geist-mono)"
         }
       },
-      legend: {
-        labels: {
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        }
-      },
-      zoom: {
-        pan: {
-          enabled: true,
-          mode: 'x' as const,
-        },
-        zoom: {
-          wheel: {
-            enabled: true,
-          },
-          pinch: {
-            enabled: true,
-          },
-          mode: 'x' as const,
-        },
-      },
     },
     scales: {
+      x: {
+        type: 'time',
+        time: {
+          unit: timeRange === '24h' ? 'hour' : timeRange === '7d' ? 'day' : 'week',
+          displayFormats: {
+            hour: 'HH:mm',
+            day: 'dd.MM.',
+            week: 'dd.MM.'
+          },
+          tooltipFormat: 'dd.MM.yyyy HH:mm:ss'
+        },
+        ticks: {
+          font: {
+            family: "var(--font-geist-mono)"
+          },
+          maxRotation: 0,
+          callback: function(value: any) {
+            const date = new Date(value);
+            return formatDate(date.toISOString());
+          }
+        },
+        grid: {
+          display: true,
+          drawBorder: true,
+        },
+      },
       y: {
-        type: 'linear' as const,
+        type: 'linear',
         display: true,
-        position: 'left' as const,
+        position: 'left',
         title: {
           display: true,
           text: 'Temperatur (°C)',
@@ -170,9 +201,9 @@ const WeatherPage = () => {
         }
       },
       y1: {
-        type: 'linear' as const,
+        type: 'linear',
         display: true,
-        position: 'right' as const,
+        position: 'right',
         title: {
           display: true,
           text: 'Luftdruck (hPa)',
@@ -190,9 +221,9 @@ const WeatherPage = () => {
         }
       },
       y2: {
-        type: 'linear' as const,
+        type: 'linear',
         display: true,
-        position: 'right' as const,
+        position: 'right',
         title: {
           display: true,
           text: 'Luftfeuchtigkeit (%)',
@@ -209,13 +240,6 @@ const WeatherPage = () => {
           }
         }
       },
-      x: {
-        ticks: {
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        }
-      }
     },
   };
 
@@ -223,37 +247,11 @@ const WeatherPage = () => {
     responsive: true,
     maintainAspectRatio: false,
     interaction: {
-      mode: 'index' as const,
+      mode: 'index',
       intersect: false,
     },
     plugins: {
-      tooltip: {
-        callbacks: {
-          title: (context: any[]) => {
-            const timestamp = weatherData[context[0].dataIndex].timestamp;
-            return formatDate(timestamp);
-          }
-        }
-      },
-      title: {
-        display: true,
-        text: 'Temperatur Kanäle',
-        font: {
-          family: "var(--font-geist-mono)"
-        }
-      },
-      legend: {
-        labels: {
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        }
-      },
       zoom: {
-        pan: {
-          enabled: true,
-          mode: 'x' as const,
-        },
         zoom: {
           wheel: {
             enabled: true,
@@ -261,15 +259,60 @@ const WeatherPage = () => {
           pinch: {
             enabled: true,
           },
-          mode: 'x' as const,
+          mode: 'x',
         },
+        pan: {
+          enabled: true,
+          mode: 'x',
+        },
+      },
+      tooltip: {
+        callbacks: {
+          title: (context: any[]) => {
+            const timestamp = weatherData[context[0].dataIndex].timestamp;
+            return formatFullDateTime(timestamp);
+          },
+        }
+      },
+      title: {
+        display: true,
+        text: 'Kanal Temperaturen',
+        font: {
+          family: "var(--font-geist-mono)"
+        }
       },
     },
     scales: {
+      x: {
+        type: 'time',
+        time: {
+          unit: timeRange === '24h' ? 'hour' : timeRange === '7d' ? 'day' : 'week',
+          displayFormats: {
+            hour: 'HH:mm',
+            day: 'dd.MM.',
+            week: 'dd.MM.'
+          },
+          tooltipFormat: 'dd.MM.yyyy HH:mm:ss'
+        },
+        ticks: {
+          font: {
+            family: "var(--font-geist-mono)"
+          },
+          maxRotation: 0,
+          callback: function(value: any) {
+            const date = new Date(value);
+            return formatDate(date.toISOString());
+          }
+        },
+        grid: {
+          display: true,
+          drawBorder: true,
+        },
+      },
       y: {
-        type: 'linear' as const,
+        type: 'linear',
         display: true,
-        position: 'left' as const,
+        position: 'left',
         title: {
           display: true,
           text: 'Temperatur (°C)',
@@ -297,13 +340,6 @@ const WeatherPage = () => {
           }
         }
       },
-      x: {
-        ticks: {
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        }
-      }
     },
   };
 
@@ -311,37 +347,11 @@ const WeatherPage = () => {
     responsive: true,
     maintainAspectRatio: false,
     interaction: {
-      mode: 'index' as const,
+      mode: 'index',
       intersect: false,
     },
     plugins: {
-      tooltip: {
-        callbacks: {
-          title: (context: any[]) => {
-            const timestamp = weatherData[context[0].dataIndex].timestamp;
-            return formatDate(timestamp);
-          }
-        }
-      },
-      title: {
-        display: true,
-        text: 'Luftfeuchtigkeit Kanäle',
-        font: {
-          family: "var(--font-geist-mono)"
-        }
-      },
-      legend: {
-        labels: {
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        }
-      },
       zoom: {
-        pan: {
-          enabled: true,
-          mode: 'x' as const,
-        },
         zoom: {
           wheel: {
             enabled: true,
@@ -349,15 +359,60 @@ const WeatherPage = () => {
           pinch: {
             enabled: true,
           },
-          mode: 'x' as const,
+          mode: 'x',
         },
+        pan: {
+          enabled: true,
+          mode: 'x',
+        },
+      },
+      tooltip: {
+        callbacks: {
+          title: (context: any[]) => {
+            const timestamp = weatherData[context[0].dataIndex].timestamp;
+            return formatFullDateTime(timestamp);
+          },
+        }
+      },
+      title: {
+        display: true,
+        text: 'Kanal Luftfeuchtigkeit',
+        font: {
+          family: "var(--font-geist-mono)"
+        }
       },
     },
     scales: {
+      x: {
+        type: 'time',
+        time: {
+          unit: timeRange === '24h' ? 'hour' : timeRange === '7d' ? 'day' : 'week',
+          displayFormats: {
+            hour: 'HH:mm',
+            day: 'dd.MM.',
+            week: 'dd.MM.'
+          },
+          tooltipFormat: 'dd.MM.yyyy HH:mm:ss'
+        },
+        ticks: {
+          font: {
+            family: "var(--font-geist-mono)"
+          },
+          maxRotation: 0,
+          callback: function(value: any) {
+            const date = new Date(value);
+            return formatDate(date.toISOString());
+          }
+        },
+        grid: {
+          display: true,
+          drawBorder: true,
+        },
+      },
       y: {
-        type: 'linear' as const,
+        type: 'linear',
         display: true,
-        position: 'left' as const,
+        position: 'left',
         title: {
           display: true,
           text: 'Luftfeuchtigkeit (%)',
@@ -373,13 +428,6 @@ const WeatherPage = () => {
         min: 0,
         max: 100
       },
-      x: {
-        ticks: {
-          font: {
-            family: "var(--font-geist-mono)"
-          }
-        }
-      }
     },
   };
 
