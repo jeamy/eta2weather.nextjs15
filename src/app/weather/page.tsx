@@ -1,7 +1,20 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  TimeScale,
+  ChartOptions,
+  TimeSeriesScale,
+} from 'chart.js';
 
 // Dynamically import WeatherCharts component with no SSR
 const WeatherCharts = dynamic(
@@ -22,28 +35,56 @@ interface WeatherData {
   };
 }
 
-const WeatherPage = () => {
-  const [weatherData, setWeatherData] = useState<WeatherData[]>([]);
-  const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
-  const mainChartRef = useRef(null);
-  const channelTempChartRef = useRef(null);
-  const channelHumidityChartRef = useRef(null);
+type TimeRange = '24h' | '7d' | '30d';
 
-  const resetZoom = (chartRef: any) => {
+interface WeatherPageProps {
+  // Add any props that WeatherPage component might receive
+}
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  TimeScale,
+  TimeSeriesScale
+);
+
+export default function WeatherPage(props: WeatherPageProps) {
+  const [weatherData, setWeatherData] = useState<WeatherData[]>([]);
+  const [timeRange, setTimeRange] = useState<TimeRange>('24h');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const mainChartRef = useRef<ChartJS<'line'> | null>(null);
+  const channelTempChartRef = useRef<ChartJS<'line'> | null>(null);
+  const channelHumidityChartRef = useRef<ChartJS<'line'> | null>(null);
+
+  const resetZoom = useCallback((chartRef: React.RefObject<ChartJS<'line'> | null>) => {
     if (chartRef.current) {
       chartRef.current.resetZoom();
     }
-  };
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setIsLoading(true);
+        setError(null);
         const response = await fetch(`/api/weather?range=${timeRange}`);
-        if (!response.ok) throw new Error('Failed to fetch weather data');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const data = await response.json();
         setWeatherData(data);
       } catch (error) {
         console.error('Error fetching weather data:', error);
+        setError(error instanceof Error ? error.message : 'Failed to fetch weather data');
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -51,7 +92,29 @@ const WeatherPage = () => {
     const interval = setInterval(fetchData, 60000); // Update every minute
 
     return () => clearInterval(interval);
-  }, [timeRange]); // Re-fetch when timeRange changes
+  }, [timeRange]);
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center p-4 bg-red-50 rounded-lg">
+          <h2 className="text-red-800 text-lg font-semibold mb-2">Error</h2>
+          <p className="text-red-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading && weatherData.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading weather data...</p>
+        </div>
+      </div>
+    );
+  }
 
   const formatDate = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -132,7 +195,7 @@ const WeatherPage = () => {
             }
             return `${label}: ${value}`;
           },
-        },
+        }
       },
       title: {
         display: true,
@@ -431,13 +494,26 @@ const WeatherPage = () => {
     },
   };
 
-  const channelColors = {
-    ch1: { border: 'rgb(255, 99, 132)', background: 'rgba(255, 99, 132, 0.5)' },
-    ch2: { border: 'rgb(53, 162, 235)', background: 'rgba(53, 162, 235, 0.5)' },
-    ch3: { border: 'rgb(75, 192, 192)', background: 'rgba(75, 192, 192, 0.5)' },
-    ch5: { border: 'rgb(255, 159, 64)', background: 'rgba(255, 159, 64, 0.5)' },
-    ch6: { border: 'rgb(153, 102, 255)', background: 'rgba(153, 102, 255, 0.5)' },
-    ch7: { border: 'rgb(201, 203, 207)', background: 'rgba(201, 203, 207, 0.5)' }
+  const baseColors = [
+    { border: '#FF6384', background: 'rgba(255, 99, 132, 0.2)' },
+    { border: '#36A2EB', background: 'rgba(54, 162, 235, 0.2)' },
+    { border: '#FFCE56', background: 'rgba(255, 206, 86, 0.2)' },
+    { border: '#4BC0C0', background: 'rgba(75, 192, 192, 0.2)' },
+    { border: '#9966FF', background: 'rgba(153, 102, 255, 0.2)' },
+    { border: '#FF9F40', background: 'rgba(255, 159, 64, 0.2)' },
+    { border: '#EA80FC', background: 'rgba(234, 128, 252, 0.2)' },
+    { border: '#B388FF', background: 'rgba(179, 136, 255, 0.2)' }
+  ];
+
+  const getChannelColor = (channel: string) => {
+    // Ensure we get a positive index
+    const channelNum = Math.abs(parseInt(channel) || 1);
+    const index = ((channelNum - 1) % baseColors.length + baseColors.length) % baseColors.length;
+    
+    return {
+      border: baseColors[index].border,
+      background: baseColors[index].background
+    };
   };
 
   const mainChartData = {
@@ -476,32 +552,42 @@ const WeatherPage = () => {
     ],
   };
 
-  const channelTempChartData = {
+  const channelTempChartData = weatherData.length > 0 ? {
     labels: weatherData.map(d => formatDate(d.timestamp)),
-    datasets: Object.entries(channelColors).map(([channel, colors]) => ({
-      label: channel.toUpperCase(),
-      data: weatherData.map(d => d.channels?.[channel]?.temperature ?? null),
-      borderColor: colors.border,
-      backgroundColor: colors.background,
-      borderWidth: 1,
-      pointRadius: 1,
-      pointHoverRadius: 3,
-      yAxisID: 'y',
-    })),
-  };
+    datasets: Object.keys(weatherData[0].channels || {}).map((channel) => {
+      const color = getChannelColor(channel);
+      return {
+        label: `CH${channel}`,
+        data: weatherData.map(d => d.channels[channel].temperature),
+        borderColor: color.border,
+        backgroundColor: color.background,
+        borderWidth: 1,
+        pointRadius: 1,
+        pointHoverRadius: 3,
+        yAxisID: 'y',
+      };
+    }),
+  } : { labels: [], datasets: [] };
 
-  const channelHumidityChartData = {
+  const channelHumidityChartData = weatherData.length > 0 ? {
     labels: weatherData.map(d => formatDate(d.timestamp)),
-    datasets: Object.entries(channelColors).map(([channel, colors]) => ({
-      label: channel.toUpperCase(),
-      data: weatherData.map(d => d.channels?.[channel]?.humidity ?? null),
-      borderColor: colors.border,
-      backgroundColor: colors.background,
-      borderWidth: 1,
-      pointRadius: 1,
-      pointHoverRadius: 3,
-      yAxisID: 'y',
-    })),
+    datasets: Object.keys(weatherData[0].channels || {}).map((channel) => {
+      const color = getChannelColor(channel);
+      return {
+        label: `CH${channel}`,
+        data: weatherData.map(d => d.channels[channel].humidity),
+        borderColor: color.border,
+        backgroundColor: color.background,
+        borderWidth: 1,
+        pointRadius: 1,
+        pointHoverRadius: 3,
+        yAxisID: 'y',
+      };
+    }),
+  } : { labels: [], datasets: [] };
+
+  const handleTimeRangeChange = (range: TimeRange) => {
+    setTimeRange(range);
   };
 
   return (
@@ -519,10 +605,8 @@ const WeatherPage = () => {
         channelTempChartData={channelTempChartData}
         channelHumidityChartData={channelHumidityChartData}
         timeRange={timeRange}
-        onTimeRangeChange={setTimeRange}
+        onTimeRangeChange={handleTimeRangeChange}
       />
     </div>
   );
-};
-
-export default WeatherPage;
+}
