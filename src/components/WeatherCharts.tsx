@@ -51,8 +51,8 @@ interface WeatherData {
 
 interface WeatherChartsProps {
   weatherData: WeatherData[];
-  timeRange: '24h' | '7d' | '30d';
-  onTimeRangeChange: (range: '24h' | '7d' | '30d') => void;
+  timeRange: '24h' | '7d' | '30d' | '1m';
+  onTimeRangeChange: (range: '24h' | '7d' | '30d' | '1m') => void;
   resetZoom: (chartRef: any) => void;
   mainChartRef: React.RefObject<ChartJS<'line'>>;
   channelTempChartRef: React.RefObject<ChartJS<'line'>>;
@@ -158,16 +158,19 @@ export default function WeatherCharts({
           },
         },
         time: {
-          unit: timeRange === '24h' ? 'hour' : 'day',
+          unit: timeRange === '24h' ? 'hour' : timeRange === '7d' ? 'day' : timeRange === '30d' ? 'day' : 'month',
           displayFormats: {
             hour: 'HH:mm',
-            day: 'MMM d',
+            day: 'dd.MM.',
+            month: 'MMM yyyy'
           },
+          tooltipFormat: 'dd.MM.yyyy HH:mm',
         },
         ticks: {
           maxRotation: 0,
           source: 'auto',
           autoSkip: true,
+          maxTicksLimit: timeRange === '24h' ? 12 : timeRange === '7d' ? 7 : timeRange === '30d' ? 15 : 31,
         },
       },
       'y-temperature': {
@@ -286,16 +289,19 @@ export default function WeatherCharts({
           },
         },
         time: {
-          unit: timeRange === '24h' ? 'hour' : 'day',
+          unit: timeRange === '24h' ? 'hour' : timeRange === '7d' ? 'day' : timeRange === '30d' ? 'day' : 'month',
           displayFormats: {
             hour: 'HH:mm',
-            day: 'MMM d',
+            day: 'dd.MM.',
+            month: 'MMM yyyy'
           },
+          tooltipFormat: 'dd.MM.yyyy HH:mm',
         },
         ticks: {
           maxRotation: 0,
           source: 'auto',
           autoSkip: true,
+          maxTicksLimit: timeRange === '24h' ? 12 : timeRange === '7d' ? 7 : timeRange === '30d' ? 15 : 31,
         },
       },
       y: {
@@ -385,6 +391,16 @@ export default function WeatherCharts({
                 }`}
               >
                 30d
+              </button>
+              <button
+                onClick={() => onTimeRangeChange('1m')}
+                className={`px-3 py-1 rounded ${
+                  timeRange === '1m'
+                    ? 'bg-blue-100 text-blue-600'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                1m
               </button>
               <button
                 onClick={() => resetZoom(mainChartRef)}
