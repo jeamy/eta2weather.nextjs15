@@ -1,32 +1,20 @@
 import { NextResponse } from 'next/server';
 import { getConfig, updateConfig } from '@/utils/cache';
 
-interface Config {
-  t_soll?: string;
-  t_delta?: string;
-  t_slider?: string;
-  s_eta?: string;
-  f_eta?: string;
-  f_wifiaf83?: string;
-  f_names2id?: string;
-  t_update_timer?: string;
-  diff?: string;
-  channelNames?: {
-    [key: string]: string;
-  };
-  [key: string]: any;
-}
-
 export async function GET() {
   try {
     const config = await getConfig();
-    return NextResponse.json(config.channelNames || {});
+    const response = NextResponse.json(config.channelNames || {});
+    response.headers.set('Content-Type', 'application/json; charset=utf-8');
+    return response;
   } catch (error) {
     console.error('Error reading channel names:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { error: 'Failed to read channel names' },
       { status: 500 }
     );
+    errorResponse.headers.set('Content-Type', 'application/json; charset=utf-8');
+    return errorResponse;
   }
 }
 
@@ -45,16 +33,20 @@ export async function POST(request: Request) {
         ...newChannelNames
       }
     };
-
+    
     // Update config using cache utility
     await updateConfig(updatedConfig);
     
-    return NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true });
+    response.headers.set('Content-Type', 'application/json; charset=utf-8');
+    return response;
   } catch (error) {
-    console.error('Error writing channel names:', error);
-    return NextResponse.json(
-      { error: 'Failed to write channel names' },
+    console.error('Error updating channel names:', error);
+    const errorResponse = NextResponse.json(
+      { error: 'Failed to update channel names' },
       { status: 500 }
     );
+    errorResponse.headers.set('Content-Type', 'application/json; charset=utf-8');
+    return errorResponse;
   }
 }

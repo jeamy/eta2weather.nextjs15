@@ -66,25 +66,32 @@ export default function WeatherPage(props: WeatherPageProps) {
   const channelTempChartRef = useRef<ChartJS<'line'> | null>(null);
   const channelHumidityChartRef = useRef<ChartJS<'line'> | null>(null);
 
-  
-  // Get channel names from Redux store at the top level
-  const reduxConfig = useSelector((state: RootState) => state.config);
+  const [channelNames, setChannelNames] = useState<{[key: string]: string}>({});
 
-  console.log('Weather page config state:', {
-    isInitialized: reduxConfig.isInitialized,
-    channelNames: reduxConfig?.data?.channelNames
-  });
+  // Get channel names from API route
+  useEffect(() => {
+    const fetchChannelNames = async () => {
+      try {
+        console.log('WeatherPage: Fetching channel names from API route...'); ;
+        const response = await fetch('/api/channelnames');
+        console.log('WeatherPage: Fetched channel names from API route.');
+        if (!response.ok) throw new Error('Failed to fetch channel names');
+        const data = await response.json();
+        console.log('WeatherPage: Fetched channel names:', data);
+        setChannelNames(data);
+      } catch (error) {
+        console.error('Error fetching channel names:', error);
+      }
+    };
+    fetchChannelNames();
+  }, []);
 
-  // Function to get channel name from config
+  // Function to get channel name from fetched data
   const getChannelName = useCallback((channel: string) => {
-    // Only use config if it's initialized
-    if (reduxConfig.isInitialized && reduxConfig.data.channelNames) {
-      const channelKey = `CH${channel}`.toUpperCase();
-      const configName = reduxConfig.data.channelNames[channelKey];
-      if (configName) return configName;
-    }
-    return `CH${channel}`;
-  }, [reduxConfig]);
+    const channelKey = `CH${channel}`;
+    console.log('WeatherPage: getChannelName1:', channelKey, channelNames[channelKey]);
+    return channelNames[channelKey]|| channelKey;
+  }, [channelNames]);
 
   // Utility function to generate consistent colors for channels
   const getChannelColor = (channel: string): { border: string; background: string } => {
@@ -161,6 +168,7 @@ export default function WeatherPage(props: WeatherPageProps) {
 
     const channels = weatherData[0].channels || {};
     const channelKeys = Object.keys(channels);
+    console.log('WeatherPage: Available channels:', channelKeys);
 
     return {
       mainChartData: {
@@ -203,10 +211,11 @@ export default function WeatherPage(props: WeatherPageProps) {
         datasets: channelKeys.map((channel) => {
           console.log('Processing channel:', channel);
           const color = getChannelColor(channel);
-          // Extract the channel number and convert to uppercase for consistent lookup
-          const channelNum = channel.replace(/[^\d]/g, '');
-          const name = getChannelName(channelNum);
-          console.log('Channel name result:', name);
+          // Use the channel key directly since it's already in the right format (ch1, ch2, etc)
+          const channelNum = channel;
+          // Convert to uppercase CH format for config lookup
+          const name = getChannelName(channelNum.replace('ch', ''));
+          console.log('WeatherPage: Channel:', channelNum, 'Channel name result:', name);
           return {
             label: `${name} (°C)`,
             data: weatherData.map(d => d.channels[channel]?.temperature || 0),
@@ -224,10 +233,11 @@ export default function WeatherPage(props: WeatherPageProps) {
         datasets: channelKeys.map((channel) => {
           console.log('Processing channel (humidity):', channel);
           const color = getChannelColor(channel);
-          // Extract the channel number and convert to uppercase for consistent lookup
-          const channelNum = channel.replace(/[^\d]/g, '');
-          const name = getChannelName(channelNum);
-          console.log('Channel name result (humidity):', name);
+          // Use the channel key directly since it's already in the right format (ch1, ch2, etc)
+          const channelNum = channel;
+          // Convert to uppercase CH format for config lookup
+          const name = getChannelName(channelNum.replace('ch', ''));
+          console.log('WeatherPage: Channel:', channelNum, 'Channel name result:', name);
           return {
             label: `${name} (%)`,
             data: weatherData.map(d => d.channels[channel]?.humidity || 0),
@@ -241,7 +251,7 @@ export default function WeatherPage(props: WeatherPageProps) {
         }),
       } : { labels: [], datasets: [] },
     };
-  }, [weatherData, timeRange, getChannelName]);
+  }, [weatherData, timeRange, getChannelName, getChannelColor]);
 
   // Implement data fetching with SWR for better caching and revalidation
   const fetchWeatherData = useCallback(async () => {
@@ -482,6 +492,8 @@ export default function WeatherPage(props: WeatherPageProps) {
     <div className="p-4">
       <WeatherCharts
         weatherData={weatherData}
+        timeRange={timeRange}
+        onTimeRangeChange={handleTimeRangeChange}
         resetZoom={resetZoom}
         mainChartRef={mainChartRef}
         channelTempChartRef={channelTempChartRef}
@@ -492,8 +504,7 @@ export default function WeatherPage(props: WeatherPageProps) {
         mainChartData={memoizedChartData?.mainChartData}
         channelTempChartData={memoizedChartData?.channelTempChartData}
         channelHumidityChartData={memoizedChartData?.channelHumidityChartData}
-        timeRange={timeRange}
-        onTimeRangeChange={handleTimeRangeChange}
+        getChannelName={getChannelName}
       />
       <div className="flex gap-2">
         <button

@@ -8,11 +8,11 @@ import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
 import { storeData as storeEtaData, storeError } from '@/redux/etaSlice';
 import { storeData as storeConfigData } from '@/redux/configSlice';
-import { EtaData as EtaDataType, ParsedXmlData, EtaText, EtaPos } from '@/reader/functions/types-constants/EtaConstants';
+import { EtaData as EtaDataType, EtaPos } from '@/reader/functions/types-constants/EtaConstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
-import { defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 import { EtaApi } from '@/reader/functions/EtaApi';
+import { defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 
 // Constants
 
@@ -193,6 +193,39 @@ const EtaData: React.FC = () => {
     };
   }, [loadAndStoreEta, config.data.t_update_timer]);
 
+  useEffect(() => {
+    const updateDisplayData = () => {
+      if (!etaState.data || !defaultNames2Id) return;
+
+      setDisplayData(prevData => {
+        const newDisplayData: DisplayDataType = {
+          ...prevData
+        };
+
+        // Update values from etaState
+        Object.entries(etaState.data).forEach(([key, value]) => {
+          if (
+            value &&
+            typeof value === 'object' &&
+            'type' in value &&
+            'strValue' in value
+          ) {
+            newDisplayData[key] = {
+              short: value.type,
+              long: defaultNames2Id[key]?.name || key,
+              strValue: value.strValue,
+              unit: value.unit || ''
+            };
+          }
+        });
+
+        return newDisplayData;
+      });
+    };
+
+    updateDisplayData();
+  }, [etaState.data, defaultNames2Id]);
+
   type HeatingKey = 'HT' | 'DT' | 'AA';
 
   const isHeatingKey = (key: string): key is HeatingKey => {
@@ -219,49 +252,7 @@ const EtaData: React.FC = () => {
     } catch (error) {
       console.warn(`Error toggling ${key}:`, error);
     }
-  }, [loadAndStoreEta]); // Remove defaultNames2Id from dependencies
-
-  useEffect(() => {
-    const updateDisplayData = () => {
-      if (!etaState.data || !defaultNames2Id) return;
-
-      setDisplayData(prevData => {
-        const newDisplayData: DisplayDataType = {
-          ...prevData,
-          HT: prevData.HT,
-          DT: prevData.DT,
-          AA: prevData.AA
-        };
-
-        // Add filtered data
-        Object.entries(etaState.data).forEach(([key, value]) => {
-          if (
-            (newDisplayData.HT.strValue === 'Ein' && value.type === 'HT') ||
-            (newDisplayData.DT.strValue === 'Ein' && value.type === 'DT') ||
-            (newDisplayData.AA.strValue === 'Ein' && value.type === 'AA')
-          ) {
-            newDisplayData[key] = {
-              short: value.type,
-              long: defaultNames2Id[key]?.name || key,
-              strValue: value.strValue,
-              unit: value.unit || ''
-            };
-          }
-        });
-
-        return newDisplayData;
-      });
-    };
-
-    updateDisplayData();
-  }, [etaState.data, defaultNames2Id]); // Remove displayData from dependencies
-
-  type SwitchKeys = 'HT' | 'DT' | 'AA';
-  interface DisplayDataType extends Record<string, DisplayEtaValue> {
-    HT: DisplayEtaValue;
-    DT: DisplayEtaValue;
-    AA: DisplayEtaValue;
-  }
+  }, [loadAndStoreEta]);
 
   if (isLoading || !displayData) {
     return (
