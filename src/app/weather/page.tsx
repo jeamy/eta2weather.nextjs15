@@ -1,23 +1,15 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  TimeScale,
-  TimeSeriesScale,
-  TooltipItem,
-  ChartOptions,
-} from 'chart.js';
-import Zoom from 'chartjs-plugin-zoom';
-import WeatherCharts from '@/components/WeatherCharts';
 import { de } from 'date-fns/locale';
+import dynamic from 'next/dynamic';
+import type { ChartOptions, TooltipItem } from 'chart.js';
+
+// Create a dynamic component for the charts
+const WeatherCharts = dynamic(
+  () => import('@/components/WeatherCharts'),
+  { ssr: false }
+);
 
 type ZoomOptions = {
   pan: {
@@ -58,29 +50,14 @@ interface WeatherPageProps {
   // Add any props that WeatherPage component might receive
 }
 
-// Register ChartJS components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  TimeScale,
-  TimeSeriesScale,
-  Title,
-  Tooltip,
-  Legend,
-  Zoom
-);
-
 export default function WeatherPage(props: WeatherPageProps) {
   const [weatherData, setWeatherData] = useState<WeatherData[]>([]);
   const [timeRange, setTimeRange] = useState<string>('24h');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const mainChartRef = useRef<ChartJS<'line'> | null>(null);
-  const channelTempChartRef = useRef<ChartJS<'line'> | null>(null);
-  const channelHumidityChartRef = useRef<ChartJS<'line'> | null>(null);
-
+  const mainChartRef = useRef<any>(null);
+  const channelTempChartRef = useRef<any>(null);
+  const channelHumidityChartRef = useRef<any>(null);
   const [channelNames, setChannelNames] = useState<{[key: string]: string}>({});
 
   // Get channel names from API route
@@ -320,7 +297,7 @@ export default function WeatherPage(props: WeatherPageProps) {
     plugins: {
       title: {
         display: true,
-        text: getTitleText(),
+        text: 'Temperature, Humidity & Pressure',
       },
       zoom: {
         pan: {
@@ -340,72 +317,61 @@ export default function WeatherPage(props: WeatherPageProps) {
     },
     scales: {
       x: {
-        type: 'time',
-        grid: {
+        type: 'time' as const,
+        display: true,
+        title: {
           display: true,
-          color: '#E2E8F0',
-          drawOnChartArea: true,
-          lineWidth: 1,
+          text: 'Time'
+        },
+        ticks: {
+          autoSkip: true,
+          maxRotation: 0
+        },
+        time: {
+          unit: 'hour',
+          displayFormats: {
+            hour: 'HH:mm',
+            day: 'dd.MM'
+          },
+          tooltipFormat: 'dd.MM.yyyy HH:mm'
         },
         adapters: {
           date: {
-            locale: de,
-          },
-        },
-        time: {
-          unit: timeRange === '24h' ? 'hour' : 'day',
-        },
-        title: {
-          display: true,
-          text: 'Zeit',
-        },
+            locale: de
+          }
+        }
       },
       y: {
         type: 'linear' as const,
         display: true,
         position: 'left' as const,
-        grid: {
-          display: true,
-          color: '#E2E8F0',
-          drawOnChartArea: true,
-          lineWidth: 1,
-          z: 1,
-        },
         title: {
           display: true,
-          text: 'Temperatur (°C)',
+          text: 'Temperature (°C)',
         },
       },
       y1: {
         type: 'linear' as const,
         display: true,
         position: 'right' as const,
-        grid: {
-          display: true,
-          color: '#E2E8F0',
-          drawOnChartArea: true,
-          lineWidth: 1,
-          z: 1,
-        },
         title: {
           display: true,
-          text: 'Luftdruck (hPa)',
+          text: 'Humidity (%)',
+        },
+        grid: {
+          drawOnChartArea: false,
         },
       },
       y2: {
         type: 'linear' as const,
         display: true,
         position: 'right' as const,
-        grid: {
-          display: true,
-          color: '#E2E8F0',
-          drawOnChartArea: true,
-          lineWidth: 1,
-          z: 1,
-        },
         title: {
           display: true,
-          text: 'Luftfeuchtigkeit (%)',
+          text: 'Pressure (hPa)',
+        },
+        grid: {
+          drawOnChartArea: false,
         },
       },
     },
@@ -421,7 +387,7 @@ export default function WeatherPage(props: WeatherPageProps) {
       },
       scales: {
         x: {
-          type: 'time',
+          type: 'timeseries',
           grid: {
             display: true,
             color: '#E2E8F0',
@@ -484,7 +450,7 @@ export default function WeatherPage(props: WeatherPageProps) {
         },
         tooltip: {
           callbacks: {
-            label: function(context: TooltipItem<'line'>) {
+            label: function(context: any) {
               let label = context.dataset.label || '';
               if (label) {
                 label += ': ';
