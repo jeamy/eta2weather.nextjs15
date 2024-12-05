@@ -1,9 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { RootState } from '@/redux';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -14,16 +11,35 @@ import {
   Tooltip,
   Legend,
   TimeScale,
-  ChartOptions,
   TimeSeriesScale,
-  ScriptableScaleContext,
+  TooltipItem,
+  ChartOptions,
 } from 'chart.js';
+import Zoom from 'chartjs-plugin-zoom';
+import WeatherCharts from '@/components/WeatherCharts';
+import { de } from 'date-fns/locale';
 
-// Dynamically import WeatherCharts component with no SSR
-const WeatherCharts = dynamic(
-  () => import('@/components/WeatherCharts'),
-  { ssr: false }
-);
+type ZoomOptions = {
+  pan: {
+    enabled: boolean;
+    mode: 'x' | 'y' | 'xy';
+  };
+  zoom: {
+    wheel: {
+      enabled: boolean;
+    };
+    pinch: {
+      enabled: boolean;
+    };
+    mode: 'x' | 'y' | 'xy';
+  };
+};
+
+type ChartOptionsWithZoom = Omit<ChartOptions<'line'>, 'plugins'> & {
+  plugins: NonNullable<ChartOptions<'line'>['plugins']> & {
+    zoom: ZoomOptions;
+  };
+};
 
 interface WeatherData {
   timestamp: string;
@@ -38,8 +54,6 @@ interface WeatherData {
   };
 }
 
-type TimeRange = '24h' | '7d' | '30d' | '1m';
-
 interface WeatherPageProps {
   // Add any props that WeatherPage component might receive
 }
@@ -50,16 +64,17 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  TimeScale,
+  TimeSeriesScale,
   Title,
   Tooltip,
   Legend,
-  TimeScale,
-  TimeSeriesScale
+  Zoom
 );
 
 export default function WeatherPage(props: WeatherPageProps) {
   const [weatherData, setWeatherData] = useState<WeatherData[]>([]);
-  const [timeRange, setTimeRange] = useState<TimeRange>('24h');
+  const [timeRange, setTimeRange] = useState<string>('24h');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mainChartRef = useRef<ChartJS<'line'> | null>(null);
@@ -72,15 +87,12 @@ export default function WeatherPage(props: WeatherPageProps) {
   useEffect(() => {
     const fetchChannelNames = async () => {
       try {
-        console.log('WeatherPage: Fetching channel names from API route...'); ;
         const response = await fetch('/api/channelnames');
-        console.log('WeatherPage: Fetched channel names from API route.');
         if (!response.ok) throw new Error('Failed to fetch channel names');
         const data = await response.json();
-        console.log('WeatherPage: Fetched channel names:', data);
         setChannelNames(data);
       } catch (error) {
-        console.error('Error fetching channel names:', error);
+        setError('Failed to fetch channel names');
       }
     };
     fetchChannelNames();
@@ -89,7 +101,6 @@ export default function WeatherPage(props: WeatherPageProps) {
   // Function to get channel name from fetched data
   const getChannelName = useCallback((channel: string) => {
     const channelKey = `CH${channel}`;
-    console.log('WeatherPage: getChannelName1:', channelKey, channelNames[channelKey]);
     return channelNames[channelKey]|| channelKey;
   }, [channelNames]);
 
@@ -156,9 +167,15 @@ export default function WeatherPage(props: WeatherPageProps) {
     }
   };
 
-  const resetZoom = useCallback((chartRef: React.RefObject<ChartJS<'line'> | null>) => {
-    if (chartRef.current) {
-      chartRef.current.resetZoom();
+  const resetZoom = useCallback(() => {
+    if (mainChartRef.current) {
+      mainChartRef.current.resetZoom();
+    }
+    if (channelTempChartRef.current) {
+      channelTempChartRef.current.resetZoom();
+    }
+    if (channelHumidityChartRef.current) {
+      channelHumidityChartRef.current.resetZoom();
     }
   }, []);
 
@@ -168,7 +185,6 @@ export default function WeatherPage(props: WeatherPageProps) {
 
     const channels = weatherData[0].channels || {};
     const channelKeys = Object.keys(channels);
-    console.log('WeatherPage: Available channels:', channelKeys);
 
     return {
       mainChartData: {
@@ -209,13 +225,9 @@ export default function WeatherPage(props: WeatherPageProps) {
       channelTempChartData: channelKeys.length > 0 ? {
         labels: weatherData.map(d => formatDate(d.timestamp)),
         datasets: channelKeys.map((channel) => {
-          console.log('Processing channel:', channel);
           const color = getChannelColor(channel);
-          // Use the channel key directly since it's already in the right format (ch1, ch2, etc)
           const channelNum = channel;
-          // Convert to uppercase CH format for config lookup
           const name = getChannelName(channelNum.replace('ch', ''));
-          console.log('WeatherPage: Channel:', channelNum, 'Channel name result:', name);
           return {
             label: `${name} (°C)`,
             data: weatherData.map(d => d.channels[channel]?.temperature || 0),
@@ -231,13 +243,9 @@ export default function WeatherPage(props: WeatherPageProps) {
       channelHumidityChartData: channelKeys.length > 0 ? {
         labels: weatherData.map(d => formatDate(d.timestamp)),
         datasets: channelKeys.map((channel) => {
-          console.log('Processing channel (humidity):', channel);
           const color = getChannelColor(channel);
-          // Use the channel key directly since it's already in the right format (ch1, ch2, etc)
           const channelNum = channel;
-          // Convert to uppercase CH format for config lookup
           const name = getChannelName(channelNum.replace('ch', ''));
-          console.log('WeatherPage: Channel:', channelNum, 'Channel name result:', name);
           return {
             label: `${name} (%)`,
             data: weatherData.map(d => d.channels[channel]?.humidity || 0),
@@ -279,8 +287,7 @@ export default function WeatherPage(props: WeatherPageProps) {
       if (error instanceof Error && error.name === 'AbortError') {
         return; // Ignore abort errors
       }
-      console.error('Error fetching weather data:', error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch weather data');
+      setError('Failed to fetch weather data');
     } finally {
       setIsLoading(false);
     }
@@ -304,7 +311,7 @@ export default function WeatherPage(props: WeatherPageProps) {
     };
   }, [timeRange, fetchWeatherData]);
 
-  const mainChartOptions = {
+  const mainChartOptions: ChartOptionsWithZoom = {
     responsive: true,
     interaction: {
       mode: 'index' as const,
@@ -316,6 +323,10 @@ export default function WeatherPage(props: WeatherPageProps) {
         text: getTitleText(),
       },
       zoom: {
+        pan: {
+          enabled: true,
+          mode: 'x',
+        },
         zoom: {
           wheel: {
             enabled: true,
@@ -325,15 +336,22 @@ export default function WeatherPage(props: WeatherPageProps) {
           },
           mode: 'x',
         },
-        pan: {
-          enabled: true,
-          mode: 'x',
-        },
       },
     },
     scales: {
       x: {
         type: 'time',
+        grid: {
+          display: true,
+          color: '#E2E8F0',
+          drawOnChartArea: true,
+          lineWidth: 1,
+        },
+        adapters: {
+          date: {
+            locale: de,
+          },
+        },
         time: {
           unit: timeRange === '24h' ? 'hour' : 'day',
         },
@@ -346,118 +364,148 @@ export default function WeatherPage(props: WeatherPageProps) {
         type: 'linear' as const,
         display: true,
         position: 'left' as const,
+        grid: {
+          display: true,
+          color: '#E2E8F0',
+          drawOnChartArea: true,
+          lineWidth: 1,
+          z: 1,
+        },
         title: {
           display: true,
           text: 'Temperatur (°C)',
-        },
-        grid: {
-          drawZero: true,
-          borderWidth: (context: ScriptableScaleContext) => {
-            return context.tick.value === 0 ? 5 : 1;  // Much thicker zero line
-          },
-          lineWidth: (context: ScriptableScaleContext) => {
-            return context.tick.value === 0 ? 5 : 1;  // Much thicker zero line
-          },
-          color: (context: ScriptableScaleContext) => {
-            return context.tick.value === 0 ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.1)';  // Even darker zero line
-          },
         },
       },
       y1: {
         type: 'linear' as const,
         display: true,
         position: 'right' as const,
+        grid: {
+          display: true,
+          color: '#E2E8F0',
+          drawOnChartArea: true,
+          lineWidth: 1,
+          z: 1,
+        },
         title: {
           display: true,
           text: 'Luftdruck (hPa)',
-        },
-        grid: {
-          drawOnChartArea: false,
         },
       },
       y2: {
         type: 'linear' as const,
         display: true,
         position: 'right' as const,
+        grid: {
+          display: true,
+          color: '#E2E8F0',
+          drawOnChartArea: true,
+          lineWidth: 1,
+          z: 1,
+        },
         title: {
           display: true,
           text: 'Luftfeuchtigkeit (%)',
         },
-        grid: {
-          drawOnChartArea: false,
-        },
       },
     },
   };
 
-  const createChannelOptions = (title: string, unit: string) => ({
-    responsive: true,
-    interaction: {
-      mode: 'index' as const,
-      intersect: false,
-    },
-    plugins: {
-      title: {
-        display: true,
-        text: title,
+  const createChannelOptions = useCallback((title: string, unit: string): ChartOptionsWithZoom => {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false,
       },
-      zoom: {
+      scales: {
+        x: {
+          type: 'time',
+          grid: {
+            display: true,
+            color: '#E2E8F0',
+            drawOnChartArea: true,
+            lineWidth: 1,
+          },
+          adapters: {
+            date: {
+              locale: de,
+            },
+          },
+          time: {
+            unit: timeRange === '24h' ? 'hour' : timeRange === '7d' ? 'day' : timeRange === '30d' ? 'day' : 'month',
+            displayFormats: {
+              hour: 'HH:mm',
+              day: 'dd.MM.',
+              month: 'MMM yyyy'
+            },
+            tooltipFormat: 'dd.MM.yyyy HH:mm',
+          },
+          ticks: {
+            maxRotation: 0,
+            source: 'auto',
+            autoSkip: true,
+            maxTicksLimit: timeRange === '24h' ? 12 : timeRange === '7d' ? 7 : timeRange === '30d' ? 15 : 31,
+          },
+        },
+        y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          grid: {
+            display: true,
+            color: '#E2E8F0',
+            drawOnChartArea: true,
+            lineWidth: 1,
+            z: 1,
+          },
+          title: {
+            display: true,
+            text: `${title} (${unit})`,
+          },
+        },
+      },
+      plugins: {
         zoom: {
-          wheel: {
+          pan: {
             enabled: true,
+            mode: 'x',
           },
-          pinch: {
-            enabled: true,
-          },
-          mode: 'x',
-        },
-        pan: {
-          enabled: true,
-          mode: 'x',
-        },
-      },
-    },
-    scales: {
-      x: {
-        type: 'time',
-        time: {
-          unit: timeRange === '24h' ? 'hour' : 'day',
-        },
-        title: {
-          display: true,
-          text: 'Zeit',
-        },
-      },
-      y: {
-        type: 'linear' as const,
-        display: true,
-        position: 'left' as const,
-        title: {
-          display: true,
-          text: `${title} (${unit})`,
-        },
-        grid: {
-          drawZero: true,
-          borderWidth: (context: ScriptableScaleContext) => {
-            return context.tick.value === 0 ? 5 : 1;  // Much thicker zero line
-          },
-          lineWidth: (context: ScriptableScaleContext) => {
-            return context.tick.value === 0 ? 5 : 1;  // Much thicker zero line
-          },
-          color: (context: ScriptableScaleContext) => {
-            return context.tick.value === 0 ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.1)';  // Even darker zero line
+          zoom: {
+            wheel: {
+              enabled: true,
+            },
+            pinch: {
+              enabled: true,
+            },
+            mode: 'x',
           },
         },
-      },
-    },
-  });
+        tooltip: {
+          callbacks: {
+            label: function(context: TooltipItem<'line'>) {
+              let label = context.dataset.label || '';
+              if (label) {
+                label += ': ';
+              }
+              if (context.parsed.y !== null) {
+                label += context.parsed.y.toFixed(1) + ' ' + unit;
+              }
+              return label;
+            }
+          }
+        }
+      }
+    };
+  }, [timeRange]);
 
   const channelTempChartOptions = createChannelOptions('Kanal Temperaturen', '°C');
   const channelHumidityChartOptions = createChannelOptions('Kanal Luftfeuchtigkeit', '%');
 
-  const handleTimeRangeChange = (range: TimeRange) => {
+  const handleTimeRangeChange = useCallback((range: string) => {
     setTimeRange(range);
-  };
+  }, []);
 
   // Add error boundary component
   if (error) {
