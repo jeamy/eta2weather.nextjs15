@@ -9,12 +9,12 @@
   "t_update_timer": "180000",
   "diff": "4.1",
   "channelNames": {
-    "CH1": "VK",
-    "CH2": "KU",
+    "CH1": "Speiß",
+    "CH2": "Küche",
     "CH3": "Garten1",
-    "CH6": "KE",
+    "CH6": "Keller",
     "CH7": "Garten",
     "CH5": "Bad",
-    "CH8": "SZ"
+    "CH8": "Schlafzimmer"
   }
 }

@@ -74,7 +74,7 @@ export async function updateConfig(newConfig: any) {
     // Get existing config
     let existingConfig = {};
     try {
-        const configData = await fs.readFile(CONFIG_PATH, 'utf8');
+        const configData = await fs.readFile(CONFIG_PATH, { encoding: 'utf8', flag: 'r' });
         existingConfig = JSON.parse(configData);
     } catch (error) {
         console.error('Error reading existing config:', error);
@@ -83,8 +83,10 @@ export async function updateConfig(newConfig: any) {
     // Merge existing config with new config
     const mergedConfig = { ...existingConfig, ...newConfig };
     
-    // Write the merged config to file
-    await fs.writeFile(CONFIG_PATH, JSON.stringify(mergedConfig, null, 2));
+    // Write the merged config to file with proper UTF-8 encoding
+    const configStr = JSON.stringify(mergedConfig, null, 2);
+    const buffer = Buffer.from(configStr, 'utf8');
+    await fs.writeFile(CONFIG_PATH, buffer, { encoding: 'utf8', flag: 'w' });
     
     // Update cache with merged config
     configCache.set(CONFIG_CACHE_KEY, mergedConfig);

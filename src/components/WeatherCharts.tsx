@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useMemo, useCallback } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -51,18 +51,19 @@ interface WeatherData {
 
 interface WeatherChartsProps {
   weatherData: WeatherData[];
-  timeRange: '24h' | '7d' | '30d' | '1m';
-  onTimeRangeChange: (range: '24h' | '7d' | '30d' | '1m') => void;
-  resetZoom: (chartRef: any) => void;
+  timeRange: string;
+  onTimeRangeChange: (range: string) => void;
+  resetZoom: () => void;
   mainChartRef: React.RefObject<ChartJS<'line'>>;
   channelTempChartRef: React.RefObject<ChartJS<'line'>>;
   channelHumidityChartRef: React.RefObject<ChartJS<'line'>>;
-  mainChartOptions: any;
-  channelTempChartOptions: any;
-  channelHumidityChartOptions: any;
+  mainChartOptions: ChartOptions<'line'>;
+  channelTempChartOptions: ChartOptions<'line'>;
+  channelHumidityChartOptions: ChartOptions<'line'>;
   mainChartData: any;
   channelTempChartData: any;
   channelHumidityChartData: any;
+  getChannelName: (channel: string) => string;
 }
 
 // Colors for different channels - using a function to generate colors dynamically
@@ -97,6 +98,7 @@ export default function WeatherCharts({
   mainChartData,
   channelTempChartData,
   channelHumidityChartData,
+  getChannelName
 }: WeatherChartsProps) {
   type ChartRef = ChartJS<'line'>;
 
@@ -107,7 +109,7 @@ export default function WeatherCharts({
 
   // Memoize time range buttons to prevent unnecessary re-renders
   const TimeRangeButtons = useMemo(() => {
-    const timeRanges: { value: '24h' | '7d' | '30d' | '1m'; label: string }[] = [
+    const timeRanges: { value: string; label: string }[] = [
       { value: '24h', label: '24h' },
       { value: '7d', label: '7d' },
       { value: '30d', label: '30d' },
@@ -136,7 +138,7 @@ export default function WeatherCharts({
   // Memoize reset zoom buttons
   const ResetZoomButton = useCallback(({ chartRef }: { chartRef: React.RefObject<ChartRef> }) => (
     <button
-      onClick={() => resetZoom(chartRef)}
+      onClick={() => resetZoom()}
       className="ml-2 p-1 rounded hover:bg-gray-100 transition-colors"
       title="Reset Zoom"
     >
@@ -290,17 +292,16 @@ export default function WeatherCharts({
   }), [timeRange]);
 
   // Memoize channel datasets creation
-  const createChannelDatasets = useCallback((type: 'temperature' | 'humidity') => {
+  const createChannelDatasets = useCallback((channels: string[], type: 'temperature' | 'humidity') => {
     if (!weatherData.length) return { labels: [], datasets: [] };
-    
-    const channels = Object.keys(weatherData[0].channels).sort((a, b) => Number(a) - Number(b));
     
     return {
       labels: weatherData.map((data) => data.timestamp),
       datasets: channels.map((channel, index) => {
         const color = getChannelColor(index);
+        const name = getChannelName(channel.replace('ch', ''));
         return {
-          label: `CH${channel}`,
+          label: `${name} (${type === 'temperature' ? '°C' : '%'})`,
           data: weatherData.map((data) => data.channels[channel]?.[type]),
           borderColor: color.border,
           backgroundColor: color.background,
@@ -310,7 +311,7 @@ export default function WeatherCharts({
         };
       }),
     };
-  }, [weatherData]);
+  }, [weatherData, getChannelName]);
 
   // Memoize channel options creation
   const createChannelOptions = useCallback((title: string, unit: string): ChartOptions<'line'> => ({
@@ -395,6 +396,8 @@ export default function WeatherCharts({
     );
   }
 
+  const channels = Object.keys(weatherData[0].channels).sort((a, b) => Number(a) - Number(b));
+
   return (
     <div className="space-y-8">
       {TimeRangeButtons}
@@ -415,7 +418,7 @@ export default function WeatherCharts({
           <ResetZoomButton chartRef={channelTempChartRef} />
         </div>
         <div className="relative aspect-[21/9]">
-          <Line ref={channelTempChartRef} options={createChannelOptions('Temperatur', '°C')} data={createChannelDatasets('temperature')} />
+          <Line ref={channelTempChartRef} options={createChannelOptions('Temperatur', '°C')} data={createChannelDatasets(channels, 'temperature')} />
         </div>
       </div>
 
@@ -425,7 +428,7 @@ export default function WeatherCharts({
           <ResetZoomButton chartRef={channelHumidityChartRef} />
         </div>
         <div className="relative aspect-[21/9]">
-          <Line ref={channelHumidityChartRef} options={createChannelOptions('Luftfeuchtigkeit', '%')} data={createChannelDatasets('humidity')} />
+          <Line ref={channelHumidityChartRef} options={createChannelOptions('Luftfeuchtigkeit', '%')} data={createChannelDatasets(channels, 'humidity')} />
         </div>
       </div>
     </div>

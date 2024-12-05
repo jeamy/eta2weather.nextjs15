@@ -99,7 +99,8 @@ export default function WifiTab({ data }: WifiTabProps) {
       const response = await fetch('/api/channelnames', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=utf-8',
+          'Accept': 'application/json; charset=utf-8'
         },
         body: JSON.stringify(updatedNames)
       });
