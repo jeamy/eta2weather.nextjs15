@@ -1,8 +1,29 @@
 'use client';
 
 import { useEffect, useMemo, useCallback } from 'react';
-import {
+import type {
+  ChartOptions,
   Chart as ChartJS,
+} from 'chart.js';
+import {
+  Chart,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+import zoomPlugin from 'chartjs-plugin-zoom';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
+import { de } from 'date-fns/locale';
+import 'chartjs-adapter-date-fns';
+import { TimeScale, TimeSeriesScale } from 'chart.js';
+
+// Register Chart.js components
+Chart.register(
   CategoryScale,
   LinearScale,
   PointElement,
@@ -11,30 +32,12 @@ import {
   Tooltip,
   Legend,
   TimeScale,
-  ChartOptions,
   TimeSeriesScale,
-} from 'chart.js';
-import { Line } from 'react-chartjs-2';
-import zoomPlugin from 'chartjs-plugin-zoom';
-import { ArrowPathIcon } from '@heroicons/react/24/outline';
-import { de } from 'date-fns/locale';
-import 'chartjs-adapter-date-fns';
+  zoomPlugin
+);
 
-// Initialize Chart.js in useEffect
-const initChart = () => {
-  ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
-    Title,
-    Tooltip,
-    Legend,
-    TimeScale,
-    TimeSeriesScale,
-    zoomPlugin
-  );
-};
+// Set default locale for Chart.js
+Chart.defaults.locale = 'de';
 
 interface WeatherData {
   timestamp: string;
@@ -100,12 +103,24 @@ export default function WeatherCharts({
   channelHumidityChartData,
   getChannelName
 }: WeatherChartsProps) {
-  type ChartRef = ChartJS<'line'>;
-
-  // Initialize Chart.js only once on component mount
+  
   useEffect(() => {
-    initChart();
+    // Register all required components
+    Chart.register(
+      CategoryScale,
+      LinearScale,
+      PointElement,
+      LineElement,
+      Title,
+      Tooltip,
+      Legend,
+      TimeScale,
+      TimeSeriesScale,
+      zoomPlugin
+    );
   }, []);
+
+  type ChartRef = ChartJS<'line'>;
 
   // Memoize time range buttons to prevent unnecessary re-renders
   const TimeRangeButtons = useMemo(() => {
