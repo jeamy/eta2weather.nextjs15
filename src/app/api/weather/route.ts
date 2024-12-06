@@ -73,48 +73,89 @@ async function processXmlFiles(files: string[]): Promise<any[]> {
   for (const file of files) {
     try {
       const xmlContent = fs.readFileSync(file, 'utf-8');
+      if (!xmlContent || xmlContent.trim() === '') {
+        console.error(`Empty or invalid XML file: ${file}`);
+        continue;
+      }
+
       const doc = parser.parseFromString(xmlContent, 'text/xml');
       
-      const timestamp = doc.documentElement.getAttribute('timestamp');
-      if (!timestamp) continue;
-
-      const allDataNode = doc.getElementsByTagName('allData')[0];
-      if (allDataNode && allDataNode.textContent) {
-        const data = JSON.parse(allDataNode.textContent);
-        
-        weatherData.push({
-          timestamp,
-          temperature: parseFloat(data.outdoor.temperature.value),
-          pressure: parseFloat(data.pressure.relative.value),
-          humidity: parseFloat(data.outdoor.humidity.value),
-          channels: {
-            ch1: {
-              temperature: parseFloat(data.temp_and_humidity_ch1.temperature.value),
-              humidity: parseFloat(data.temp_and_humidity_ch1.humidity.value)
-            },
-            ch2: {
-              temperature: parseFloat(data.temp_and_humidity_ch2.temperature.value),
-              humidity: parseFloat(data.temp_and_humidity_ch2.humidity.value)
-            },
-            ch3: {
-              temperature: parseFloat(data.temp_and_humidity_ch3.temperature.value),
-              humidity: parseFloat(data.temp_and_humidity_ch3.humidity.value)
-            },
-            ch5: {
-              temperature: parseFloat(data.temp_and_humidity_ch5.temperature.value),
-              humidity: parseFloat(data.temp_and_humidity_ch5.humidity.value)
-            },
-            ch6: {
-              temperature: parseFloat(data.temp_and_humidity_ch6.temperature.value),
-              humidity: parseFloat(data.temp_and_humidity_ch6.humidity.value)
-            },
-            ch7: {
-              temperature: parseFloat(data.temp_and_humidity_ch7.temperature.value),
-              humidity: parseFloat(data.temp_and_humidity_ch7.humidity.value)
-            }
-          }
-        });
+      // Check if parsing was successful
+      if (!doc || !doc.documentElement) {
+        console.error(`Failed to parse XML document from file: ${file}`);
+        continue;
       }
+
+      const timestamp = doc.documentElement.getAttribute('timestamp');
+      if (!timestamp) {
+        console.error(`No timestamp found in file: ${file}`);
+        continue;
+      }
+
+      const allDataNodes = doc.getElementsByTagName('allData');
+      if (!allDataNodes || allDataNodes.length === 0) {
+        console.error(`No allData node found in file: ${file}`);
+        continue;
+      }
+
+      const allDataNode = allDataNodes[0];
+      if (!allDataNode || !allDataNode.textContent) {
+        console.error(`Invalid allData node or empty content in file: ${file}`);
+        continue;
+      }
+
+      let data;
+      try {
+        data = JSON.parse(allDataNode.textContent);
+      } catch (parseError) {
+        console.error(`Failed to parse JSON content from file: ${file}`, parseError);
+        continue;
+      }
+
+      // Validate required data exists before adding
+      if (!data?.outdoor?.temperature?.value || 
+          !data?.pressure?.relative?.value || 
+          !data?.outdoor?.humidity?.value) {
+        console.error(`Missing required data fields in file: ${file}`);
+        continue;
+      }
+
+      weatherData.push({
+        timestamp,
+        temperature: parseFloat(data.outdoor.temperature.value),
+        pressure: parseFloat(data.pressure.relative.value),
+        humidity: parseFloat(data.outdoor.humidity.value),
+        channels: {
+          ch1: {
+            temperature: parseFloat(data.temp_and_humidity_ch1.temperature.value),
+            humidity: parseFloat(data.temp_and_humidity_ch1.humidity.value)
+          },
+          ch2: {
+            temperature: parseFloat(data.temp_and_humidity_ch2.temperature.value),
+            humidity: parseFloat(data.temp_and_humidity_ch2.humidity.value)
+          },
+          ch3: {
+            temperature: parseFloat(data.temp_and_humidity_ch3.temperature.value),
+            humidity: parseFloat(data.temp_and_humidity_ch3.humidity.value)
+          },
+          ch5: {
+            temperature: parseFloat(data.temp_and_humidity_ch5.temperature.value),
+            humidity: parseFloat(data.temp_and_humidity_ch5.humidity.value)
+          },
+          ch6: {
+            temperature: parseFloat(data.temp_and_humidity_ch6.temperature.value),
+            humidity: parseFloat(data.temp_and_humidity_ch6.humidity.value)
+          },
+          ch7: {
+            temperature: parseFloat(data.temp_and_humidity_ch7.temperature.value),
+            humidity: parseFloat(data.temp_and_humidity_ch7.humidity.value)
+          },
+          ch8: {
+            temperature: parseFloat(data.temp_and_humidity_ch8.temperature.value),
+            humidity: parseFloat(data.temp_and_humidity_ch8.humidity.value)
+          }
+        }
+      });
     } catch (error) {
       console.error(`Error processing file ${file}:`, error);
     }
