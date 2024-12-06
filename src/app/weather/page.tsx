@@ -58,27 +58,73 @@ export default function WeatherPage(props: WeatherPageProps) {
   const mainChartRef = useRef<any>(null);
   const channelTempChartRef = useRef<any>(null);
   const channelHumidityChartRef = useRef<any>(null);
-  const [channelNames, setChannelNames] = useState<{[key: string]: string}>({});
+  const [channelNames, setChannelNames] = useState<Record<string, string>>({});
+  const [isLoadingChannels, setIsLoadingChannels] = useState(false);
+  const [channelError, setChannelError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Get channel names from API route
+  // Cleanup function for abort controller
+  const cleanupAbortController = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
+
+  // Load channel names on component mount
   useEffect(() => {
-    const fetchChannelNames = async () => {
+    const loadChannelNames = async () => {
+      // Cleanup any existing request
+      cleanupAbortController();
+      
+      // Create new AbortController for this request
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+      
+      setIsLoadingChannels(true);
+      setChannelError(null);
+      
       try {
-        const response = await fetch('/api/channelnames');
-        if (!response.ok) throw new Error('Failed to fetch channel names');
-        const data = await response.json();
-        setChannelNames(data);
+        const response = await fetch('/api/channelnames', {
+          signal: abortController.signal
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const names = await response.json();
+        console.log('Channel names:', names);
+        // Only update state if the request wasn't aborted
+        if (!abortController.signal.aborted) {
+          setChannelNames(names || {});
+        }
       } catch (error) {
-        setError('Failed to fetch channel names');
+        // Only update error state if the request wasn't aborted
+        if (error instanceof Error && error.name !== 'AbortError') {
+          console.error('Error loading channel names:', error);
+          setChannelError(error.message);
+        }
+      } finally {
+        // Only update loading state if the request wasn't aborted
+        if (!abortController.signal.aborted) {
+          setIsLoadingChannels(false);
+        }
       }
     };
-    fetchChannelNames();
-  }, []);
+
+    loadChannelNames();
+
+    // Cleanup function
+    return () => {
+      cleanupAbortController();
+    };
+  }, [cleanupAbortController]);
 
   // Function to get channel name from fetched data
   const getChannelName = useCallback((channel: string) => {
     const channelKey = `CH${channel}`;
-    return channelNames[channelKey]|| channelKey;
+    return channelNames[channelKey] || channelKey;
   }, [channelNames]);
 
   // Utility function to generate consistent colors for channels
@@ -201,39 +247,51 @@ export default function WeatherPage(props: WeatherPageProps) {
       },
       channelTempChartData: channelKeys.length > 0 ? {
         labels: weatherData.map(d => formatDate(d.timestamp)),
-        datasets: channelKeys.map((channel) => {
-          const color = getChannelColor(channel);
-          const channelNum = channel;
-          const name = getChannelName(channelNum.replace('ch', ''));
-          return {
-            label: `${name} (°C)`,
-            data: weatherData.map(d => d.channels[channel]?.temperature || 0),
-            borderColor: color.border,
-            backgroundColor: color.background,
-            borderWidth: 1,
-            pointRadius: 1,
-            pointHoverRadius: 3,
-            yAxisID: 'y',
-          };
-        }),
+        datasets: channelKeys
+          .sort((a, b) => {
+            const aNum = parseInt(a.replace('ch', ''));
+            const bNum = parseInt(b.replace('ch', ''));
+            return aNum - bNum;
+          })
+          .map((channel) => {
+            const color = getChannelColor(channel);
+            const channelNum = channel.replace('ch', '');
+            const name = getChannelName(channelNum);
+            return {
+              label: `${name} (°C)`,
+              data: weatherData.map(d => d.channels[channel]?.temperature || 0),
+              borderColor: color.border,
+              backgroundColor: color.background,
+              borderWidth: 1,
+              pointRadius: 1,
+              pointHoverRadius: 3,
+              yAxisID: 'y',
+            };
+          }),
       } : { labels: [], datasets: [] },
       channelHumidityChartData: channelKeys.length > 0 ? {
         labels: weatherData.map(d => formatDate(d.timestamp)),
-        datasets: channelKeys.map((channel) => {
-          const color = getChannelColor(channel);
-          const channelNum = channel;
-          const name = getChannelName(channelNum.replace('ch', ''));
-          return {
-            label: `${name} (%)`,
-            data: weatherData.map(d => d.channels[channel]?.humidity || 0),
-            borderColor: color.border,
-            backgroundColor: color.background,
-            borderWidth: 1,
-            pointRadius: 1,
-            pointHoverRadius: 3,
-            yAxisID: 'y',
-          };
-        }),
+        datasets: channelKeys
+          .sort((a, b) => {
+            const aNum = parseInt(a.replace('ch', ''));
+            const bNum = parseInt(b.replace('ch', ''));
+            return aNum - bNum;
+          })
+          .map((channel) => {
+            const color = getChannelColor(channel);
+            const channelNum = channel.replace('ch', '');
+            const name = getChannelName(channelNum);
+            return {
+              label: `${name} (%)`,
+              data: weatherData.map(d => d.channels[channel]?.humidity || 0),
+              borderColor: color.border,
+              backgroundColor: color.background,
+              borderWidth: 1,
+              pointRadius: 1,
+              pointHoverRadius: 3,
+              yAxisID: 'y',
+            };
+          }),
       } : { labels: [], datasets: [] },
     };
   }, [weatherData, timeRange, getChannelName, getChannelColor]);

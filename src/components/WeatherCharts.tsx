@@ -73,14 +73,16 @@ interface WeatherChartsProps {
 const getChannelColor = (index: number) => {
   // Base colors that will be cycled through
   const baseColors = [
-    { border: 'rgb(255, 99, 132)', background: 'rgba(255, 99, 132, 0.5)' },
-    { border: 'rgb(53, 162, 235)', background: 'rgba(53, 162, 235, 0.5)' },
-    { border: 'rgb(255, 159, 64)', background: 'rgba(255, 159, 64, 0.5)' },
-    { border: 'rgb(75, 192, 192)', background: 'rgba(75, 192, 192, 0.5)' },
-    { border: 'rgb(153, 102, 255)', background: 'rgba(153, 102, 255, 0.5)' },
-    { border: 'rgb(255, 205, 86)', background: 'rgba(255, 205, 86, 0.5)' },
-    { border: 'rgb(201, 203, 207)', background: 'rgba(201, 203, 207, 0.5)' },
-    { border: 'rgb(54, 162, 235)', background: 'rgba(54, 162, 235, 0.5)' },
+    { border: 'rgb(255, 99, 132)', background: 'rgba(255, 99, 132, 0.5)' },   // Red
+    { border: 'rgb(53, 162, 235)', background: 'rgba(53, 162, 235, 0.5)' },   // Blue
+    { border: 'rgb(255, 159, 64)', background: 'rgba(255, 159, 64, 0.5)' },   // Orange
+    { border: 'rgb(75, 192, 192)', background: 'rgba(75, 192, 192, 0.5)' },   // Teal
+    { border: 'rgb(153, 102, 255)', background: 'rgba(153, 102, 255, 0.5)' }, // Purple
+    { border: 'rgb(255, 205, 86)', background: 'rgba(255, 205, 86, 0.5)' },   // Yellow
+    { border: 'rgb(201, 203, 207)', background: 'rgba(201, 203, 207, 0.5)' }, // Gray
+    { border: 'rgb(54, 162, 235)', background: 'rgba(54, 162, 235, 0.5)' },   // Light Blue
+    { border: 'rgb(255, 0, 255)', background: 'rgba(255, 0, 255, 0.5)' },     // Magenta
+    { border: 'rgb(0, 128, 0)', background: 'rgba(0, 128, 0, 0.5)' }          // Green
   ];
   
   // Cycle through the colors if we have more channels than colors
@@ -240,6 +242,18 @@ export default function WeatherCharts({
         },
         grid: {
           drawOnChartArea: true,
+          color: (context: any) => {
+            if (context.tick.value === 0) {
+              return 'rgba(0, 0, 0, 1.0)'; // Black color for zero line
+            }
+            return 'rgba(0, 0, 0, 0.1)'; // Default light gray for other lines
+          },
+          lineWidth: (context: any) => {
+            if (context.tick.value === 0) {
+              return 2; // Thicker line for zero
+            }
+            return 1; // Default thickness for other lines
+          }
         },
       },
       'y-humidity': {
@@ -305,6 +319,37 @@ export default function WeatherCharts({
       }
     },
   }), [timeRange]);
+
+  const channelTempChartOptionsUpdated: ChartOptions<'line'> = useMemo(() => ({
+    ...mainChartOptionsUpdated,
+    scales: {
+      ...mainChartOptionsUpdated.scales,
+      'y-temperature': {
+        type: 'linear' as const,
+        display: true,
+        position: 'left' as const,
+        title: {
+          display: true,
+          text: 'Temperatur (°C)',
+        },
+        grid: {
+          drawOnChartArea: true,
+          color: (context: any) => {
+            if (context.tick.value === 0) {
+              return 'rgba(0, 0, 0, 1.0)'; // Black color for zero line
+            }
+            return 'rgba(0, 0, 0, 0.1)'; // Default light gray for other lines
+          },
+          lineWidth: (context: any) => {
+            if (context.tick.value === 0) {
+              return 2; // Thicker line for zero
+            }
+            return 1; // Default thickness for other lines
+          }
+        },
+      }
+    }
+  }), [mainChartOptionsUpdated]);
 
   // Memoize channel datasets creation
   const createChannelDatasets = useCallback((channels: string[], type: 'temperature' | 'humidity') => {
@@ -433,7 +478,7 @@ export default function WeatherCharts({
           <ResetZoomButton chartRef={channelTempChartRef} />
         </div>
         <div className="relative aspect-[21/9]">
-          <Line ref={channelTempChartRef} options={createChannelOptions('Temperatur', '°C')} data={createChannelDatasets(channels, 'temperature')} />
+          <Line ref={channelTempChartRef} options={channelTempChartOptionsUpdated} data={createChannelDatasets(channels, 'temperature')} />
         </div>
       </div>
 
