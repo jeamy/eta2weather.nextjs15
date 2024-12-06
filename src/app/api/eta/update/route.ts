@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { id, value, begin = "0", end = "0" } = body;
 
-    console.log(`Setting user var for ID: ${id} with value: ${value}, begin: ${begin}, end: ${end}`);
+    console.log(`Setting value for ID ${id} to value: ${value}, begin: ${begin}, end: ${end}`);
 
     if (!id || !value) {
       return NextResponse.json(
