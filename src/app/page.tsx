@@ -5,6 +5,7 @@ import EtaData from "@/components/EtaData";
 import WifiAf83Data from "@/components/WifiAf83Data";
 import EtaTab from '@/components/EtaTab';
 import WifiTab from '@/components/WifiTab';
+import { HeizkreisTab } from '@/components/HeizkreisTab';
 import { useEffect, useState } from "react";
 import { MenuNode } from "@/types/menu";
 
@@ -62,14 +63,27 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Second row: EtaTab and WifiTab */}
+        {/* Second row: EtaTab, WifiTab, and Menu Data */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white rounded-lg shadow-sm p-4">
             <EtaTab menuItems={menuItems} />
           </div>
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <WifiTab data={wifiData} />
+          <div className="flex flex-col gap-4">
+            <div className="bg-white rounded-lg shadow-sm p-4 h-[50%]">
+              <WifiTab data={wifiData} />
+            </div>
+            <div className="bg-white rounded-lg shadow-sm p-4 flex-grow">
+              <h2 className="text-lg font-semibold mb-4">ETA Menu Data</h2>
+              <pre className="text-sm overflow-auto max-h-[600px]">
+                {JSON.stringify(menuItems, null, 2)}
+              </pre>
+            </div>
           </div>
+        </div>
+
+        {/* Third row: Heizkreis Data */}
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
+          <HeizkreisTab data={menuItems} />
         </div>
       </main>
 
