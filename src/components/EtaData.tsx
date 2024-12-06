@@ -8,7 +8,7 @@ import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
 import { storeData as storeEtaData, storeError } from '@/redux/etaSlice';
 import { storeData as storeConfigData } from '@/redux/configSlice';
-import { EtaData as EtaDataType, EtaPos } from '@/reader/functions/types-constants/EtaConstants';
+import { EtaData as EtaDataType, EtaPos, EtaText } from '@/reader/functions/types-constants/EtaConstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
 import { EtaApi } from '@/reader/functions/EtaApi';
@@ -72,15 +72,6 @@ const EtaData: React.FC = () => {
   }));
 
   useEffect(() => {
-    setDisplayData(prevData => ({
-      ...prevData,
-      HT: defaultValues.HT,
-      DT: defaultValues.DT,
-      AA: defaultValues.AA,
-    }));
-  }, []); // Empty dependency array as this should only run once on mount
-
-  useEffect(() => {
     etaApiRef.current = new EtaApi();
   }, []);
 
@@ -101,7 +92,8 @@ const EtaData: React.FC = () => {
       }
 
       const { data, config: updatedConfig } = await response.json() as ApiResponse;
-      
+
+//      console.log('Received ETA data:', data);
       // Update the Redux store
       dispatch(storeEtaData(data));
 
@@ -130,68 +122,25 @@ const EtaData: React.FC = () => {
   // Update display data when etaState changes
   useEffect(() => {
     if (etaState.data) {
-      // Get raw values first
-      const htRawValue = typeof etaState.data.HT === 'object' && 'strValue' in etaState.data.HT
-        ? etaState.data.HT.strValue === EtaPos.EIN
-        : String(etaState.data.HT) === EtaPos.EIN;
-
-      const dtRawValue = typeof etaState.data.DT === 'object' && 'strValue' in etaState.data.DT
-        ? etaState.data.DT.strValue === EtaPos.EIN
-        : String(etaState.data.DT) === EtaPos.EIN;
-
-      const aaRawValue = typeof etaState.data.AA === 'object' && 'strValue' in etaState.data.AA
-        ? etaState.data.AA.strValue === EtaPos.EIN
-        : String(etaState.data.AA) === EtaPos.EIN;
-
-      // Apply business rules
-      const finalHT = htRawValue;
-      const finalDT = !htRawValue && dtRawValue;
-      const finalAA = (!htRawValue && !dtRawValue) || (!htRawValue && !dtRawValue && aaRawValue);
-
-      const newDisplayData: DisplayDataType = {
-        HT: {
-          ...defaultValues.HT,
-          strValue: finalHT ? 'Ein' : 'Aus'
-        },
-        DT: {
-          ...defaultValues.DT,
-          strValue: finalDT ? 'Ein' : 'Aus'
-        },
-        AA: {
-          ...defaultValues.AA,
-          strValue: finalAA ? 'Ein' : 'Aus'
-        }
-      };
-
-      setDisplayData(newDisplayData);
+//      console.log('Received etaState data:', etaState.data);
+      setDisplayData(prevData => {
+        const newDisplayData: DisplayDataType = { ...prevData };
+        
+        Object.values(etaState.data).forEach(entry => {
+          if (entry.short === 'HT' || entry.short === 'DT' || entry.short === 'AA') {
+            newDisplayData[entry.short] = {
+              short: entry.short,
+              long: entry.long,
+              strValue: entry.value === EtaPos.EIN ? EtaText.EIN : EtaText.AUS,
+              unit: entry.unit
+            };
+          }
+        });
+        
+        return newDisplayData;
+      });
     }
   }, [etaState.data]);
-
-  // Timer effect
-  useEffect(() => {
-    const updateTimer = parseInt(config.data.t_update_timer) || DEFAULT_UPDATE_TIMER;
-    
-    if (updateTimer > 0) {
-      // Ensure timer is not less than minimum interval
-      const safeTimer = Math.max(updateTimer, MIN_API_INTERVAL);
-      
-      // Clear existing interval if any
-      if (intervalId.current) {
-        clearInterval(intervalId.current);
-      }
-      
-      // Set new interval with safe timer value
-      intervalId.current = setInterval(loadAndStoreEta, safeTimer);
-    }
-
-    // Cleanup function
-    return () => {
-      if (intervalId.current) {
-        clearInterval(intervalId.current);
-        intervalId.current = null;
-      }
-    };
-  }, [loadAndStoreEta, config.data.t_update_timer]);
 
   useEffect(() => {
     const updateDisplayData = () => {
@@ -225,6 +174,93 @@ const EtaData: React.FC = () => {
 
     updateDisplayData();
   }, [etaState.data, defaultNames2Id]);
+
+  const handleButtonClick = async (clickedButton: 'HT' | 'DT' | 'AA') => {
+    const newDisplayData = { ...displayData };
+    
+    // Reset all buttons to 'Aus' first
+    Object.keys(newDisplayData).forEach(key => {
+      newDisplayData[key as keyof typeof displayData].strValue = 'Aus';
+    });
+    
+    // Set the clicked button to 'Ein'
+    newDisplayData[clickedButton].strValue = 'Ein';
+    
+    setDisplayData(newDisplayData);
+    
+    try {
+      // Find button IDs from state data
+      const buttonIds: Record<string, string> = {};
+      Object.entries(etaState.data).forEach(([uri, data]) => {
+        if (data.short === 'HT' || data.short === 'DT' || data.short === 'AA') {
+          buttonIds[data.short] = uri;
+        }
+      });
+
+      if (!buttonIds[clickedButton]) {
+        throw new Error(`Button ID not found for ${clickedButton}`);
+      }
+
+      // Set clicked button to Ein (1803)
+      await fetch('/api/eta/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: buttonIds[clickedButton],
+          value: "1803",
+          begin: "0",
+          end: "0"
+        })
+      });
+      
+      // Set other buttons to Aus (1802)
+      const otherButtons = Object.keys(buttonIds).filter(key => key !== clickedButton) as Array<'HT' | 'DT' | 'AA'>;
+      await Promise.all(otherButtons.map(button => 
+        fetch('/api/eta/update', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: buttonIds[button],
+            value: "1802",
+            begin: "0",
+            end: "0"
+          })
+        })
+      ));
+    } catch (error) {
+      console.error('Error updating button state:', error);
+    }
+  };
+
+  // Timer effect
+  useEffect(() => {
+    const updateTimer = parseInt(config.data.t_update_timer) || DEFAULT_UPDATE_TIMER;
+    
+    if (updateTimer > 0) {
+      // Ensure timer is not less than minimum interval
+      const safeTimer = Math.max(updateTimer, MIN_API_INTERVAL);
+      
+      // Clear existing interval if any
+      if (intervalId.current) {
+        clearInterval(intervalId.current);
+      }
+      
+      // Set new interval with safe timer value
+      intervalId.current = setInterval(loadAndStoreEta, safeTimer);
+    }
+
+    // Cleanup function
+    return () => {
+      if (intervalId.current) {
+        clearInterval(intervalId.current);
+        intervalId.current = null;
+      }
+    };
+  }, [loadAndStoreEta, config.data.t_update_timer]);
 
   type HeatingKey = 'HT' | 'DT' | 'AA';
 
@@ -367,7 +403,7 @@ const EtaData: React.FC = () => {
                       <button
                         onClick={() => {
                           if (isHeatingKey(key)) {
-                            handleToggle(key as HeatingKey);
+                            handleButtonClick(key as HeatingKey);
                           }
                         }}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
