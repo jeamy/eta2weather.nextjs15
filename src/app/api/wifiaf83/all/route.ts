@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { backgroundService, getServerStore } from '@/lib/backgroundService';
+import { getServerStore } from '@/lib/backgroundService';
 import { WifiAf83Api } from '@/reader/functions/WifiAf83Api';
 import { getWifiAf83Data } from '@/utils/cache';
 
