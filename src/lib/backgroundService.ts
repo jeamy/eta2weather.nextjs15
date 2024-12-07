@@ -1,6 +1,6 @@
 import { ConfigKeys, defaultConfig } from '../reader/functions/types-constants/ConfigConstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '../reader/functions/types-constants/TimerConstants';
-import { fetchEtaData, parseXML } from '../reader/functions/EtaData';
+import { parseXML } from '../reader/functions/EtaData';
 import { defaultNames2Id, EtaConstants } from '../reader/functions/types-constants/Names2IDconstants';
 import { Config } from '../reader/functions/types-constants/ConfigConstants';
 import { WifiAf83Api } from '../reader/functions/WifiAf83Api';

@@ -1,7 +1,8 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { MenuNode } from '@/types/menu';
-import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { formatValue } from '@/utils/formatters';
+import { getAllUris } from '@/utils/etaUtils';
+import { useEtaData } from '@/hooks/useEtaData';
 import { 
   ClockIcon, 
   CalendarIcon, 
@@ -17,117 +18,10 @@ interface EtaTabProps {
 }
 
 export default function EtaTab({ menuItems = [] }: EtaTabProps) {
-  const [values, setValues] = useState<Record<string, ParsedXmlData>>({});
-  const [loading, setLoading] = useState<Record<string, boolean>>({});
+  const { values, loading, error, fetchValues, cleanupAllAbortControllers } = useEtaData();
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [error, setError] = useState<Record<string, string>>({});
-  const abortControllersRef = useRef<Record<string, AbortController>>({});
 
-  // Cleanup function for abort controllers
-  const cleanupAbortController = useCallback((uri: string) => {
-    if (abortControllersRef.current[uri]) {
-      abortControllersRef.current[uri].abort();
-      delete abortControllersRef.current[uri];
-    }
-  }, []);
-
-  // Cleanup all abort controllers
-  const cleanupAllAbortControllers = useCallback(() => {
-    Object.keys(abortControllersRef.current).forEach(cleanupAbortController);
-  }, [cleanupAbortController]);
-
-  const fetchValues = useCallback(async (uri: string) => {
-    if (!uri) return;
-    
-    // Cleanup any existing fetch for this URI
-    cleanupAbortController(uri);
-    
-    // Create new AbortController for this fetch
-    const abortController = new AbortController();
-    abortControllersRef.current[uri] = abortController;
-    
-    setLoading(prev => ({ ...prev, [uri]: true }));
-    setError(prev => ({ ...prev, [uri]: '' }));
-    
-    try {
-      const response = await fetch(
-        `/api/eta/readMenuData?uri=${encodeURIComponent(uri)}`,
-        { signal: abortController.signal }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      
-      // Check if the request was aborted before updating state
-      if (!abortController.signal.aborted) {
-        if (result.success && result.data) {
-          setValues(prev => ({ ...prev, [uri]: result.data }));
-        } else {
-          throw new Error(result.error || 'Failed to fetch data');
-        }
-      }
-    } catch (error) {
-      // Only update error state if the request wasn't aborted
-      if (error instanceof Error && error.name !== 'AbortError') {
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-        setError(prev => ({ ...prev, [uri]: errorMessage }));
-        console.error('Error fetching value for URI:', uri, 'Error:', error);
-      }
-    } finally {
-      if (!abortController.signal.aborted) {
-        setLoading(prev => ({ ...prev, [uri]: false }));
-      }
-      cleanupAbortController(uri);
-    }
-  }, [cleanupAbortController]);
-
-  useEffect(() => {
-    const fetchAllValues = async () => {
-      if (!menuItems?.length) return;
-      
-      // Clear previous state when menu items change
-      setValues({});
-      setLoading({});
-      setError({});
-      cleanupAllAbortControllers();
-      
-      const urisToFetch = new Set<string>();
-      menuItems.forEach(category => {
-        category.children?.forEach(item => {
-          // Add URI for the item itself if it exists
-          if (item.uri) {
-            urisToFetch.add(item.uri);
-          }
-
-          // Add URIs for children of all items
-          item.children?.forEach(subItem => {
-            if (subItem.uri) {
-              urisToFetch.add(subItem.uri);
-            }
-          });
-        });
-      });
-
-      // Fetch values sequentially to prevent overwhelming the server
-      for (const uri of urisToFetch) {
-        await fetchValues(uri);
-        // Add a small delay between requests to prevent overwhelming the server
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-    };
-
-    fetchAllValues();
-
-    // Cleanup function
-    return () => {
-      cleanupAllAbortControllers();
-    };
-  }, [menuItems, fetchValues, cleanupAllAbortControllers]);
-
-  const renderValue = useCallback((data: ParsedXmlData) => {
+  const renderValue = useCallback((data: any) => {
     const { text, color } = formatValue(data);
     return <span className={color}>{text}</span>;
   }, []);
@@ -150,6 +44,19 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
     return <ChartBarIcon className="w-5 h-5" />;
   };
 
+  useEffect(() => {
+    const fetchAllValues = async () => {
+      if (!menuItems?.length) return;
+
+      // Get all URIs from menu items
+      const uris = getAllUris(menuItems);
+      await fetchValues(uris);
+    };
+
+    fetchAllValues();
+    return cleanupAllAbortControllers;
+  }, [menuItems, fetchValues, cleanupAllAbortControllers]);
+
   return (
     <div>
       <div className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 h-24">
@@ -168,7 +75,7 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
           </button>
         ))}
       </div>
-      <div className="mt-5 ">
+      <div className="mt-5">
         {menuItems.map((category, categoryIndex) => (
           <div
             key={`panel-${categoryIndex}-${category.name}`}
@@ -176,74 +83,36 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
               selectedIndex === categoryIndex ? '' : 'hidden'
             }`}
           >
-            <div className="space-y-4 ">
+            <div className="space-y-4">
               {category.children?.map((item, itemIndex) => {
                 const itemId = `${categoryIndex}-${itemIndex}-${item.name}`;
                 return (
-                  <div key={itemId} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium text-gray-900">{item.name}</h3>
-                      {item.uri && (
-                        <div className="flex justify-end min-w-[8rem]">
-                          {loading[item.uri] ? (
-                            <span className="text-gray-400">Loading...</span>
-                          ) : error[item.uri] ? (
-                            <span className="text-red-500 text-sm" title={error[item.uri]}>Error</span>
-                          ) : values[item.uri] ? (
-                            <div 
-                              className="tabular-nums cursor-help"
-                              title={item.uri}
-                            >
-                              <span className="inline-block min-w-[3rem] text-right">
-                                {renderValue(values[item.uri])}
-                              </span>
-                              {values[item.uri].unit && (
-                                <span className="text-gray-500 ml-1 inline-block">
-                                  {values[item.uri].unit}
-                                </span>
-                              )}
+                  <div key={itemId} className="bg-white rounded-lg p-4 shadow-sm">
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      {item.name}
+                    </h3>
+                    <div className="space-y-2">
+                      {item.children?.map((subItem, subIndex) => {
+                        const subItemId = `${itemId}-${subIndex}`;
+                        return (
+                          <div
+                            key={subItemId}
+                            className="flex items-center justify-between text-sm"
+                          >
+                            <span className="text-gray-600">{subItem.name}</span>
+                            <div className="flex items-center space-x-2">
+                              {loading[subItem.uri] ? (
+                                <span className="text-gray-400">Loading...</span>
+                              ) : error[subItem.uri] ? (
+                                <span className="text-red-500">{error[subItem.uri]}</span>
+                              ) : values[subItem.uri] ? (
+                                renderValue(values[subItem.uri])
+                              ) : null}
                             </div>
-                          ) : (
-                            <span className="text-gray-400">No data</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {item.children?.map((subItem, subItemIndex) => {
-                      const subItemId = `${itemId}-${subItemIndex}-${subItem.name}`;
-                      return (
-                        <div key={subItemId} className="pl-4">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-700">{subItem.name}</span>
-                            {subItem.uri && (
-                              <div className="flex justify-end min-w-[8rem]">
-                                {loading[subItem.uri] ? (
-                                  <span className="text-gray-400">Loading...</span>
-                                ) : error[subItem.uri] ? (
-                                  <span className="text-red-500 text-sm" title={error[subItem.uri]}>Error</span>
-                                ) : values[subItem.uri] ? (
-                                  <div 
-                                    className="tabular-nums cursor-help"
-                                    title={subItem.uri}
-                                  >
-                                    <span className="inline-block min-w-[3rem] text-right">
-                                      {renderValue(values[subItem.uri])}
-                                    </span>
-                                    {values[subItem.uri].unit && (
-                                      <span className="text-gray-500 ml-1 inline-block">
-                                        {values[subItem.uri].unit}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400">No data</span>
-                                )}
-                              </div>
-                            )}
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })}
