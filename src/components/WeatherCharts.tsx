@@ -465,7 +465,14 @@ export default function WeatherCharts({
         tooltip: {
           mode: 'index',
           intersect: false,
+          itemSort: (a: any, b: any) => b.raw - a.raw,
           callbacks: {
+            labelColor: function(context: any) {
+              return {
+                borderColor: context.dataset.borderColor,
+                backgroundColor: context.dataset.backgroundColor || context.dataset.borderColor,
+              };
+            },
             label: function(context: any) {
               let label = context.dataset.label || '';
               if (label) {
