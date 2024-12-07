@@ -69,15 +69,17 @@ export default function Home() {
             <EtaTab menuItems={menuItems} />
           </div>
           <div className="flex flex-col gap-4">
-            <div className="bg-white rounded-lg shadow-sm p-4 h-[50%]">
+            <div className="bg-white rounded-lg shadow-sm p-4">
               <WifiTab data={wifiData} />
             </div>
+            {/*
             <div className="bg-white rounded-lg shadow-sm p-4 flex-grow">
               <h2 className="text-lg font-semibold mb-4">ETA Menu Data</h2>
               <pre className="text-sm overflow-auto max-h-[600px]">
                 {JSON.stringify(menuItems, null, 2)}
               </pre>
             </div>
+            */}
           </div>
         </div>
 

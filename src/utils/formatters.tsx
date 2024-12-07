@@ -6,7 +6,7 @@ export interface FormattedValue {
 }
 
 export const formatValue = (data: ParsedXmlData): FormattedValue => {
-  const value = data.strValue || data.value;
+  const value = data.strValue;
   
   if (typeof value === 'undefined' || value === null) {
     return { text: 'N/A', color: "text-gray-500" };
@@ -19,34 +19,43 @@ export const formatValue = (data: ParsedXmlData): FormattedValue => {
     "xxx": { text: "---", color: "text-blue-600" }
   };
 
-  if (typeof value === 'string' && value in specialCases) {
+  if (value in specialCases) {
     return specialCases[value];
   }
   
+  // Handle time range format "HH:MM - HH:MM"
+  const timeRangeMatch = value.match(/^(\d{2}):(\d{2})\s*-\s*(\d{2}):(\d{2})$/);
+  if (timeRangeMatch) {
+    const [, hour1, min1, hour2, min2] = timeRangeMatch;
+    const formattedTime = `${parseInt(hour1)}:${min1} - ${parseInt(hour2)}:${min2}`;
+    return { 
+      text: formattedTime,
+      color: "text-gray-900" 
+    };
+  }
+
   // Handle time format "Xm Ys"
-  if (typeof value === 'string') {
-    const timeMatch = value.match(/(\d+)m\s+(\d+(?:,\d+)?)s/);
-    if (timeMatch) {
-      const [, minutes, seconds] = timeMatch;
-      return { 
-        text: (
-          <>{minutes}<span className="text-gray-500"> m</span> {seconds.replace(',', '.')}</>
-        ),
-        color: "text-gray-900" 
-      };
-    }
+  const timeMatch = value.match(/(\d+)m\s+(\d+(?:,\d+)?)s/);
+  if (timeMatch) {
+    const [, minutes, seconds] = timeMatch;
+    return { 
+      text: (
+        <>{minutes}<span className="text-gray-500"> m</span> {seconds.replace(',', '.')}</>
+      ),
+      color: "text-gray-900" 
+    };
   }
   
   // Try to convert to number
-  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  const numValue = parseFloat(value);
   
   // If not a valid number, return the original text
   if (isNaN(numValue)) {
-    return { text: value.toString(), color: "text-gray-900" };
+    return { text: value, color: "text-gray-900" };
   }
   
   // Special handling for "Letzte Änderung"
-  if (data.name === "Letzte Änderung") {
+  if (data.strValue === "Letzte Änderung") {
     const hours = Math.floor(numValue / 3600);
     const minutes = Math.floor((numValue % 3600) / 60);
     const seconds = Math.floor(numValue % 60);
@@ -61,5 +70,9 @@ export const formatValue = (data: ParsedXmlData): FormattedValue => {
   
   // Format number with 2 decimal places if it has decimals
   const formattedNumber = Number.isInteger(numValue) ? numValue : numValue.toFixed(2);
-  return { text: formattedNumber.toString(), color: "text-gray-900" };
+  const unit = data.unit ? <span className="text-gray-500 ml-1">{data.unit}</span> : null;
+  return { 
+    text: <>{formattedNumber}{unit}</>, 
+    color: "text-gray-900" 
+  };
 };
