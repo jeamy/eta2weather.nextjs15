@@ -57,7 +57,7 @@ export const useEtaData = (): EtaFetchHookResult => {
       const result = await batchFetchEtaData(uris, abortController.signal);
       
       if (!abortController.signal.aborted) {
-        console.log('Fetched values:', result);
+        // console.log('Fetched values:', result);
         setValues(prev => ({ ...prev, ...result }));
       }
     } catch (error) {

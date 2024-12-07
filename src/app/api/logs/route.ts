@@ -4,10 +4,11 @@ import { getLogFiles } from '@/utils/logging';
 export async function GET() {
     try {
         // Get logs for all types
-        const [ecowittLogs, etaLogs, configLogs] = await Promise.all([
+        const [ecowittLogs, etaLogs, configLogs, tempDiffLogs] = await Promise.all([
             getLogFiles('ecowitt'),
             getLogFiles('eta'),
-            getLogFiles('config')
+            getLogFiles('config'),
+            getLogFiles('temp_diff')
         ]);
 
         // Format log entries
@@ -45,7 +46,8 @@ export async function GET() {
         const allLogs = [
             ...formatLogs(ecowittLogs, 'ecowitt'),
             ...formatLogs(etaLogs, 'eta'),
-            ...formatLogs(configLogs, 'config')
+            ...formatLogs(configLogs, 'config'),
+            ...formatLogs(tempDiffLogs, 'temp_diff')
         ].sort((a, b) => b.date.localeCompare(a.date)); // Sort using ISO string comparison
 
         return NextResponse.json(allLogs);

@@ -125,6 +125,7 @@ export default function LogsPage() {
                         <option value="ecowitt">Ecowitt</option>
                         <option value="eta">ETA</option>
                         <option value="config">Config</option>
+                        <option value="temp_diff">Temperature Difference</option>
                     </select>
                 </div>
             </div>
