@@ -177,16 +177,6 @@ const EtaData: React.FC = () => {
     updateDisplayData();
   }, [etaState.data, defaultNames2Id]);
 
-  useEffect(() => {
-    if (etaState.data) {
-      console.log('Received etaState data:', {
-        uris: Object.keys(etaState.data),
-        sampleValues: Object.entries(etaState.data).slice(0, 3),
-        totalItems: Object.keys(etaState.data).length
-      });
-    }
-  }, [etaState.data]);
-
   const handleButtonClick = async (clickedButton: 'HT' | 'DT' | 'AA') => {
     const newDisplayData = { ...displayData };
     

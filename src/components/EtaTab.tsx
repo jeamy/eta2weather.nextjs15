@@ -90,6 +90,17 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
                   <div key={itemId} className="bg-white rounded-lg p-4 shadow-sm">
                     <h3 className="text-lg font-medium text-gray-900 mb-2">
                       {item.name}
+                      {item.uri && (
+                        <div className="flex items-center space-x-2 mt-1">
+                          {loading[item.uri] ? (
+                            <span className="text-gray-400">Loading...</span>
+                          ) : error[item.uri] ? (
+                            <span className="text-red-500">{error[item.uri]}</span>
+                          ) : values[item.uri] ? (
+                            renderValue(values[item.uri])
+                          ) : null}
+                        </div>
+                      )}
                     </h3>
                     <div className="space-y-2">
                       {item.children?.map((subItem, subIndex) => {
