@@ -348,6 +348,99 @@ export default function WeatherCharts({
           }
         },
       }
+    },
+    plugins: {
+      zoom: {
+        zoom: {
+          wheel: {
+            enabled: true,
+          },
+          pinch: {
+            enabled: true,
+          },
+          mode: 'x',
+        },
+        pan: {
+          enabled: true,
+          mode: 'x',
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            if (context.parsed.y !== null) {
+              label += context.parsed.y.toFixed(1) + ' °C';
+            }
+            return label;
+          }
+        }
+      }
+    }
+  }), [mainChartOptionsUpdated]);
+
+  const channelHumidityChartOptionsUpdated: ChartOptions<'line'> = useMemo(() => ({
+    ...mainChartOptionsUpdated,
+    scales: {
+      ...mainChartOptionsUpdated.scales,
+      'y-humidity': {
+        type: 'linear' as const,
+        display: true,
+        position: 'left' as const,
+        title: {
+          display: true,
+          text: 'Luftfeuchtigkeit (%)',
+        },
+        grid: {
+          drawOnChartArea: true,
+          color: (context: any) => {
+            if (context.tick.value === 0) {
+              return 'rgba(0, 0, 0, 1.0)'; // Black color for zero line
+            }
+            return 'rgba(0, 0, 0, 0.1)'; // Default light gray for other lines
+          },
+          lineWidth: (context: any) => {
+            if (context.tick.value === 0) {
+              return 2; // Thicker line for zero
+            }
+            return 1; // Default thickness for other lines
+          }
+        },
+      }
+    },
+    plugins: {
+      zoom: {
+        zoom: {
+          wheel: {
+            enabled: true,
+          },
+          pinch: {
+            enabled: true,
+          },
+          mode: 'x',
+        },
+        pan: {
+          enabled: true,
+          mode: 'x',
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            if (context.parsed.y !== null) {
+              label += context.parsed.y.toFixed(1) + ' %';
+            }
+            return label;
+          }
+        }
+      }
     }
   }), [mainChartOptionsUpdated]);
 
@@ -474,7 +567,7 @@ export default function WeatherCharts({
 
       <div className="bg-white rounded-lg shadow-lg p-4">
         <div className="flex items-center mb-4">
-          <h2 className="text-xl font-semibold flex-grow">Temperatur Kanäle</h2>
+          <h2 className="text-xl font-semibold flex-grow">Temperatur</h2>
           <ResetZoomButton chartRef={channelTempChartRef} />
         </div>
         <div className="relative aspect-[21/9]">
@@ -484,11 +577,11 @@ export default function WeatherCharts({
 
       <div className="bg-white rounded-lg shadow-lg p-4">
         <div className="flex items-center mb-4">
-          <h2 className="text-xl font-semibold flex-grow">Luftfeuchtigkeit Kanäle</h2>
+          <h2 className="text-xl font-semibold flex-grow">Luftfeuchtigkeit</h2>
           <ResetZoomButton chartRef={channelHumidityChartRef} />
         </div>
         <div className="relative aspect-[21/9]">
-          <Line ref={channelHumidityChartRef} options={createChannelOptions('Luftfeuchtigkeit', '%')} data={createChannelDatasets(channels, 'humidity')} />
+          <Line ref={channelHumidityChartRef} options={channelHumidityChartOptionsUpdated} data={createChannelDatasets(channels, 'humidity')} />
         </div>
       </div>
     </div>
