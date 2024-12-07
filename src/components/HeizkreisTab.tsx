@@ -1,72 +1,15 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { MenuNode } from '@/types/menu';
-import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { formatValue } from '@/utils/formatters';
+import { getAllUris } from '@/utils/etaUtils';
+import { useEtaData } from '@/hooks/useEtaData';
 
 interface HeizkreisTabProps {
   data: MenuNode[];
 }
 
 export const HeizkreisTab: React.FC<HeizkreisTabProps> = ({ data }) => {
-  const [values, setValues] = useState<Record<string, ParsedXmlData>>({});
-  const [loading, setLoading] = useState<Record<string, boolean>>({});
-  const [error, setError] = useState<Record<string, string>>({});
-  const abortControllersRef = useRef<Record<string, AbortController>>({});
-
-  const cleanupAbortController = useCallback((uri: string) => {
-    if (abortControllersRef.current[uri]) {
-      abortControllersRef.current[uri].abort();
-      delete abortControllersRef.current[uri];
-    }
-  }, []);
-
-  const cleanupAllAbortControllers = useCallback(() => {
-    Object.keys(abortControllersRef.current).forEach(cleanupAbortController);
-  }, [cleanupAbortController]);
-
-  const fetchValue = useCallback(async (uri: string) => {
-    if (!uri) return;
-    
-    cleanupAbortController(uri);
-    
-    const abortController = new AbortController();
-    abortControllersRef.current[uri] = abortController;
-    
-    setLoading(prev => ({ ...prev, [uri]: true }));
-    setError(prev => ({ ...prev, [uri]: '' }));
-    
-    try {
-      const response = await fetch(
-        `/api/eta/readMenuData?uri=${encodeURIComponent(uri)}`,
-        { signal: abortController.signal }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      
-      if (!abortController.signal.aborted) {
-        if (result.success && result.data) {
-          setValues(prev => ({ ...prev, [uri]: result.data }));
-        } else {
-          throw new Error(result.error || 'Failed to fetch data');
-        }
-      }
-    } catch (error) {
-      if (error instanceof Error && error.name !== 'AbortError') {
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-        setError(prev => ({ ...prev, [uri]: errorMessage }));
-        console.error('Error fetching value for URI:', uri, 'Error:', error);
-      }
-    } finally {
-      if (!abortController.signal.aborted) {
-        setLoading(prev => ({ ...prev, [uri]: false }));
-      }
-      cleanupAbortController(uri);
-    }
-  }, [cleanupAbortController]);
+  const { values, loading, error, fetchValues, cleanupAllAbortControllers } = useEtaData();
 
   const renderValue = (uri: string) => {
     if (loading[uri]) return <span className="text-gray-400">Loading...</span>;
@@ -81,7 +24,7 @@ export const HeizkreisTab: React.FC<HeizkreisTabProps> = ({ data }) => {
   const renderMenuItem = (node: MenuNode, level: number = 0) => {
     return (
       <li key={node.uri} className={`font-medium text-gray-800 ${level > 0 ? 'mt-2' : ''}`}>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center px-5 justify-between">
           <div>
             <span className="text-blue-600">{node.name}</span>
             <span className="text-gray-500 text-xs ml-2">{node.uri}</span>
@@ -97,16 +40,6 @@ export const HeizkreisTab: React.FC<HeizkreisTabProps> = ({ data }) => {
     );
   };
 
-  const getAllUris = (node: MenuNode): string[] => {
-    const uris = [node.uri];
-    if (node.children) {
-      node.children.forEach(child => {
-        uris.push(...getAllUris(child));
-      });
-    }
-    return uris;
-  };
-
   useEffect(() => {
     const fetchAllValues = async () => {
       const heizkreisNode = data.find(node => 
@@ -116,29 +49,14 @@ export const HeizkreisTab: React.FC<HeizkreisTabProps> = ({ data }) => {
 
       if (!heizkreisNode) return;
 
-      // Clear previous state when data changes
-      setValues({});
-      setLoading({});
-      setError({});
-      cleanupAllAbortControllers();
-
-      // Get all URIs from the menu tree
-      const urisToFetch = getAllUris(heizkreisNode);
-
-      // Fetch values sequentially with a small delay
-      for (const uri of urisToFetch) {
-        await fetchValue(uri);
-        // Add a small delay between requests
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+      // Get all URIs from the menu tree and fetch them in a single batch
+      const uris = getAllUris([heizkreisNode]);
+      await fetchValues(uris);
     };
 
     fetchAllValues();
-    
-    return () => {
-      cleanupAllAbortControllers();
-    };
-  }, [data, fetchValue, cleanupAllAbortControllers]);
+    return cleanupAllAbortControllers;
+  }, [data, fetchValues, cleanupAllAbortControllers]);
 
   const heizkreisNode = data.find(node => 
     node.uri === '/120/10101' || 

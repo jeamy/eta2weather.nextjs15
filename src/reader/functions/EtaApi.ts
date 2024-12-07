@@ -86,6 +86,6 @@ export class EtaApi {
     }
 
     public async getMenu(): Promise<ApiResponse> {
-        return this.fetchApi('/user/menu', 'GET');
+        return this.fetchApi('user/menu', 'GET');
     }
 }

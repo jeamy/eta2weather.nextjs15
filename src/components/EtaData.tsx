@@ -34,9 +34,9 @@ interface ApiResponse {
 
 const EtaData: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
-  const config = useSelector((state: RootState) => state.config);
+  const config = useSelector((state: RootState) => state.config.data);
   const etaState = useSelector((state: RootState) => state.eta);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loadingState, setLoadingState] = useState({ isLoading: true, error: '' });
   const isFirstLoad = useRef(true);
   const intervalId = useRef<NodeJS.Timeout | null>(null);
   const lastApiCall = useRef<number>(0);
@@ -72,8 +72,10 @@ const EtaData: React.FC = () => {
   }));
 
   useEffect(() => {
-    etaApiRef.current = new EtaApi();
-  }, []);
+    if (config?.s_eta) {
+      etaApiRef.current = new EtaApi(config.s_eta);
+    }
+  }, [config]);
 
   const loadAndStoreEta = useCallback(async () => {
     const now = Date.now();
@@ -83,7 +85,7 @@ const EtaData: React.FC = () => {
     }
 
     try {
-      setIsLoading(true);
+      setLoadingState({ isLoading: true, error: '' });
       lastApiCall.current = now;
 
       const response = await fetch('/api/eta/read');
@@ -105,9 +107,9 @@ const EtaData: React.FC = () => {
       // Let the useEffect handle the display data update
     } catch (error) {
       console.error('Error fetching ETA data:', error);
-      dispatch(storeError((error as Error).message));
+      setLoadingState({ isLoading: false, error: (error as Error).message });
     } finally {
-      setIsLoading(false);
+      setLoadingState({ isLoading: false, error: '' });
     }
   }, [dispatch]);
 
@@ -129,10 +131,10 @@ const EtaData: React.FC = () => {
         Object.values(etaState.data).forEach(entry => {
           if (entry.short === 'HT' || entry.short === 'DT' || entry.short === 'AA') {
             newDisplayData[entry.short] = {
-              short: entry.short,
-              long: entry.long,
+              short: entry.short || 'Unknown',
+              long: entry.long || entry.short,
               strValue: entry.value === EtaPos.EIN ? EtaText.EIN : EtaText.AUS,
-              unit: entry.unit
+              unit: entry.unit || ''
             };
           }
         });
@@ -160,9 +162,9 @@ const EtaData: React.FC = () => {
             'strValue' in value
           ) {
             newDisplayData[key] = {
-              short: value.type,
+              short: value.type || 'Unknown',
               long: defaultNames2Id[key]?.name || key,
-              strValue: value.strValue,
+              strValue: value.strValue || '',
               unit: value.unit || ''
             };
           }
@@ -174,6 +176,16 @@ const EtaData: React.FC = () => {
 
     updateDisplayData();
   }, [etaState.data, defaultNames2Id]);
+
+  useEffect(() => {
+    if (etaState.data) {
+      console.log('Received etaState data:', {
+        uris: Object.keys(etaState.data),
+        sampleValues: Object.entries(etaState.data).slice(0, 3),
+        totalItems: Object.keys(etaState.data).length
+      });
+    }
+  }, [etaState.data]);
 
   const handleButtonClick = async (clickedButton: 'HT' | 'DT' | 'AA') => {
     const newDisplayData = { ...displayData };
@@ -238,7 +250,7 @@ const EtaData: React.FC = () => {
 
   // Timer effect
   useEffect(() => {
-    const updateTimer = parseInt(config.data.t_update_timer) || DEFAULT_UPDATE_TIMER;
+    const updateTimer = parseInt(config.t_update_timer) || DEFAULT_UPDATE_TIMER;
     
     if (updateTimer > 0) {
       // Ensure timer is not less than minimum interval
@@ -260,7 +272,7 @@ const EtaData: React.FC = () => {
         intervalId.current = null;
       }
     };
-  }, [loadAndStoreEta, config.data.t_update_timer]);
+  }, [loadAndStoreEta, config.t_update_timer]);
 
   type HeatingKey = 'HT' | 'DT' | 'AA';
 
@@ -290,7 +302,32 @@ const EtaData: React.FC = () => {
     }
   }, [loadAndStoreEta]);
 
-  if (isLoading || !displayData) {
+  if (loadingState.isLoading) {
+    return (
+      <div className="flex items-center justify-center p-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <span className="ml-2 text-gray-600">Loading ETA data...</span>
+      </div>
+    );
+  }
+
+  if (loadingState.error) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+        <p className="text-red-600">Error loading data: {loadingState.error}</p>
+      </div>
+    );
+  }
+
+  if (!etaState.data || Object.keys(etaState.data).length === 0) {
+    return (
+      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+        <p className="text-yellow-700">No data available</p>
+      </div>
+    );
+  }
+
+  if (!displayData) {
     return (
       <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
         <div className="flex flex-col items-center mb-4">
@@ -345,8 +382,10 @@ const EtaData: React.FC = () => {
                   SP: 1, AT: 2, KZ: 3, VT: 4, HK: 5, 
                   IP: 6, VR: 7, SZ: 8, EAT: 9
                 };
-                const aOrder = a.short in order ? order[a.short] : 99;
-                const bOrder = b.short in order ? order[b.short] : 99;
+                const aShort = a.short || '';
+                const bShort = b.short || '';
+                const aOrder = aShort in order ? order[aShort] : 99;
+                const bOrder = bShort in order ? order[bShort] : 99;
                 return aOrder - bOrder;
               })
               .map(([key, value]) => (
