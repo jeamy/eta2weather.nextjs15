@@ -3,13 +3,17 @@ export interface ParsedXmlData {
   id: string;
   parentId: string | null;
   value: string;
+  strValue: string;
   unit?: string;
-  strValue?: string;
   long?: string;
   short?: string;
   text?: string;
   type?: string;
   uri?: string;
+  scaleFactor?: string;
+  decPlaces?: string;
+  advTextOffset?: string;
+  [key: string]: string | null | undefined;  // Allow additional string properties
 }
 
 export type EtaData = Record<string, ParsedXmlData>;

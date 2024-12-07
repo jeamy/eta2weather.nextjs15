@@ -38,6 +38,10 @@ interface WeatherData {
   temperature: number;
   humidity: number;
   pressure: number;
+  indoor: {
+    temperature: number;
+    humidity: number;
+  };
   channels: {
     [key: string]: {
       temperature: number;
@@ -294,7 +298,7 @@ export default function WeatherPage(props: WeatherPageProps) {
           }),
       } : { labels: [], datasets: [] },
     };
-  }, [weatherData, timeRange, getChannelName, getChannelColor]);
+  }, [weatherData, formatDate, getChannelName]);
 
   // Implement data fetching with SWR for better caching and revalidation
   const fetchWeatherData = useCallback(async () => {
@@ -577,6 +581,7 @@ export default function WeatherPage(props: WeatherPageProps) {
         channelTempChartData={memoizedChartData?.channelTempChartData}
         channelHumidityChartData={memoizedChartData?.channelHumidityChartData}
         getChannelName={getChannelName}
+        channelNames={channelNames}
       />
       <div className="flex gap-2">
         <button

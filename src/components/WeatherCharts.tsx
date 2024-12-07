@@ -44,6 +44,10 @@ interface WeatherData {
   temperature: number;
   humidity: number;
   pressure: number;
+  indoor: {
+    temperature: number;
+    humidity: number;
+  };
   channels: {
     [key: string]: {
       temperature: number;
@@ -67,6 +71,7 @@ interface WeatherChartsProps {
   channelTempChartData: any;
   channelHumidityChartData: any;
   getChannelName: (channel: string) => string;
+  channelNames: { [key: string]: string };
 }
 
 // Colors for different channels - using a function to generate colors dynamically
@@ -103,7 +108,8 @@ export default function WeatherCharts({
   mainChartData,
   channelTempChartData,
   channelHumidityChartData,
-  getChannelName
+  getChannelName,
+  channelNames
 }: WeatherChartsProps) {
   
   useEffect(() => {
@@ -163,42 +169,96 @@ export default function WeatherCharts({
     </button>
   ), [resetZoom]);
 
-  // Memoize main chart data
-  const mainChartDataUpdated = useMemo(() => ({
-    labels: weatherData.map((data) => data.timestamp),
-    datasets: [
-      {
-        label: 'Temperatur (°C)',
-        data: weatherData.map((data) => data.temperature),
-        borderColor: 'rgb(255, 99, 132)',
-        backgroundColor: 'rgba(255, 99, 132, 0.5)',
-        yAxisID: 'y-temperature',
+  // Memoize channels array with specific order
+  const channels = useMemo(() => {
+    const channelOrder = ['ch8', 'ch5', 'ch2', 'ch1', 'ch6', 'ch3', 'ch7'];
+    return channelOrder.filter(ch => weatherData[0]?.channels && ch in weatherData[0].channels);
+  }, [weatherData]);
+
+  // Create channel datasets with temperature or humidity data
+  const createChannelDatasets = useCallback((channels: string[], type: 'temperature' | 'humidity') => {
+    const datasets = channels.map((channel, index) => {
+      const color = getChannelColor(index);
+      const upperChannel = 'CH' + channel.substring(2).toUpperCase();
+      const displayName = channelNames[upperChannel] || upperChannel;
+      return {
+        label: displayName,
+        data: weatherData.map((data) => {
+          const channelData = data.channels[channel];
+          return channelData ? channelData[type] : null;
+        }),
+        borderColor: color.border,
+        backgroundColor: color.background,
         borderWidth: 1,
         pointRadius: 1,
         pointHoverRadius: 3,
-      },
-      {
-        label: 'Luftfeuchtigkeit (%)',
-        data: weatherData.map((data) => data.humidity),
-        borderColor: 'rgb(53, 162, 235)',
-        backgroundColor: 'rgba(53, 162, 235, 0.5)',
-        yAxisID: 'y-humidity',
-        borderWidth: 1,
-        pointRadius: 1,
-        pointHoverRadius: 3,
-      },
-      {
-        label: 'Luftdruck (hPa)',
-        data: weatherData.map((data) => data.pressure),
-        borderColor: 'rgb(75, 192, 192)',
-        backgroundColor: 'rgba(75, 192, 192, 0.5)',
-        yAxisID: 'y-pressure',
-        borderWidth: 1,
-        pointRadius: 1,
-        pointHoverRadius: 3,
-      },
-    ],
-  }), [weatherData]);
+      };
+    });
+
+    return {
+      labels: weatherData.map((data) => data.timestamp),
+      datasets,
+    };
+  }, [weatherData, channelNames]);
+
+  // Memoize main chart data with indoor data and pressure
+  const mainChartDataUpdated = useMemo(() => {
+    return {
+      labels: weatherData.map((data) => data.timestamp),
+      datasets: [
+        {
+          label: 'Außentemperatur (°C)',
+          data: weatherData.map((data) => data.temperature),
+          borderColor: 'rgb(255, 99, 132)',
+          backgroundColor: 'rgba(255, 99, 132, 0.5)',
+          yAxisID: 'y-temperature',
+          borderWidth: 1,
+          pointRadius: 1,
+          pointHoverRadius: 3,
+        },
+        {
+          label: 'Innentemperatur (°C)',
+          data: weatherData.map((data) => data.indoor?.temperature),
+          borderColor: 'rgb(75, 192, 192)',
+          backgroundColor: 'rgba(75, 192, 192, 0.5)',
+          yAxisID: 'y-temperature',
+          borderWidth: 1,
+          pointRadius: 1,
+          pointHoverRadius: 3,
+        },
+        {
+          label: 'Außenluftfeuchtigkeit (%)',
+          data: weatherData.map((data) => data.humidity),
+          borderColor: 'rgb(53, 162, 235)',
+          backgroundColor: 'rgba(53, 162, 235, 0.5)',
+          yAxisID: 'y-humidity',
+          borderWidth: 1,
+          pointRadius: 1,
+          pointHoverRadius: 3,
+        },
+        {
+          label: 'Innenluftfeuchtigkeit (%)',
+          data: weatherData.map((data) => data.indoor?.humidity),
+          borderColor: 'rgb(255, 159, 64)',
+          backgroundColor: 'rgba(255, 159, 64, 0.5)',
+          yAxisID: 'y-humidity',
+          borderWidth: 1,
+          pointRadius: 1,
+          pointHoverRadius: 3,
+        },
+        {
+          label: 'Luftdruck (hPa)',
+          data: weatherData.map((data) => data.pressure),
+          borderColor: 'rgb(128, 128, 128)',
+          backgroundColor: 'rgba(128, 128, 128, 0.5)',
+          yAxisID: 'y-pressure',
+          borderWidth: 1,
+          pointRadius: 1,
+          pointHoverRadius: 3,
+        },
+      ],
+    };
+  }, [weatherData]);
 
   // Memoize chart options
   const mainChartOptionsUpdated: ChartOptions<'line'> = useMemo(() => ({
@@ -444,28 +504,6 @@ export default function WeatherCharts({
     }
   }), [mainChartOptionsUpdated]);
 
-  // Memoize channel datasets creation
-  const createChannelDatasets = useCallback((channels: string[], type: 'temperature' | 'humidity') => {
-    if (!weatherData.length) return { labels: [], datasets: [] };
-    
-    return {
-      labels: weatherData.map((data) => data.timestamp),
-      datasets: channels.map((channel, index) => {
-        const color = getChannelColor(index);
-        const name = getChannelName(channel.replace('ch', ''));
-        return {
-          label: `${name} (${type === 'temperature' ? '°C' : '%'})`,
-          data: weatherData.map((data) => data.channels[channel]?.[type]),
-          borderColor: color.border,
-          backgroundColor: color.background,
-          borderWidth: 1,
-          pointRadius: 1,
-          pointHoverRadius: 3,
-        };
-      }),
-    };
-  }, [weatherData, getChannelName]);
-
   // Memoize channel options creation
   const createChannelOptions = useCallback((title: string, unit: string): ChartOptions<'line'> => ({
     responsive: true,
@@ -505,6 +543,21 @@ export default function WeatherCharts({
         title: {
           display: true,
           text: `${title} (${unit})`,
+        },
+        grid: {
+          drawOnChartArea: true,
+          color: (context: any) => {
+            if (context.tick.value === 0) {
+              return 'rgba(0, 0, 0, 1.0)'; // Black color for zero line
+            }
+            return 'rgba(0, 0, 0, 0.1)'; // Default light gray for other lines
+          },
+          lineWidth: (context: any) => {
+            if (context.tick.value === 0) {
+              return 2; // Thicker line for zero
+            }
+            return 1; // Default thickness for other lines
+          }
         },
       },
     },
@@ -548,8 +601,6 @@ export default function WeatherCharts({
       </div>
     );
   }
-
-  const channels = Object.keys(weatherData[0].channels).sort((a, b) => Number(a) - Number(b));
 
   return (
     <div className="space-y-8">
