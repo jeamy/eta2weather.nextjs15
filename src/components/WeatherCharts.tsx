@@ -380,219 +380,104 @@ export default function WeatherCharts({
     },
   }), [timeRange]);
 
-  const channelTempChartOptionsUpdated: ChartOptions<'line'> = useMemo(() => ({
-    ...mainChartOptionsUpdated,
-    scales: {
-      ...mainChartOptionsUpdated.scales,
-      'y-temperature': {
-        type: 'linear' as const,
-        display: true,
-        position: 'left' as const,
-        title: {
-          display: true,
-          text: 'Temperatur (°C)',
-        },
-        grid: {
-          drawOnChartArea: true,
-          color: (context: any) => {
-            if (context.tick.value === 0) {
-              return 'rgba(0, 0, 0, 1.0)'; // Black color for zero line
-            }
-            return 'rgba(0, 0, 0, 0.1)'; // Default light gray for other lines
-          },
-          lineWidth: (context: any) => {
-            if (context.tick.value === 0) {
-              return 2; // Thicker line for zero
-            }
-            return 1; // Default thickness for other lines
-          }
-        },
-      }
-    },
-    plugins: {
-      zoom: {
-        zoom: {
-          wheel: {
-            enabled: true,
-          },
-          pinch: {
-            enabled: true,
-          },
-          mode: 'x',
-        },
-        pan: {
-          enabled: true,
-          mode: 'x',
-        },
-      },
-      tooltip: {
-        callbacks: {
-          label: function(context) {
-            let label = context.dataset.label || '';
-            if (label) {
-              label += ': ';
-            }
-            if (context.parsed.y !== null) {
-              label += context.parsed.y.toFixed(1) + ' °C';
-            }
-            return label;
-          }
-        }
-      }
+  const getTimeUnit = useCallback((timeRange: string) => {
+    switch (timeRange) {
+      case '24h':
+        return 'hour';
+      case '7d':
+      case '30d':
+        return 'day';
+      default:
+        return 'month';
     }
-  }), [mainChartOptionsUpdated]);
+  }, []);
 
-  const channelHumidityChartOptionsUpdated: ChartOptions<'line'> = useMemo(() => ({
-    ...mainChartOptionsUpdated,
-    scales: {
-      ...mainChartOptionsUpdated.scales,
-      'y-humidity': {
-        type: 'linear' as const,
-        display: true,
-        position: 'left' as const,
-        title: {
-          display: true,
-          text: 'Luftfeuchtigkeit (%)',
-        },
-        grid: {
-          drawOnChartArea: true,
-          color: (context: any) => {
-            if (context.tick.value === 0) {
-              return 'rgba(0, 0, 0, 1.0)'; // Black color for zero line
+  const createChannelOptions = useCallback((title: string, unit: string, type: 'temperature' | 'humidity'): ChartOptions<'line'> => {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          type: 'time' as const,
+          time: {
+            unit: getTimeUnit(timeRange),
+            displayFormats: {
+              hour: 'HH:mm',
+              day: 'dd.MM',
+              week: 'dd.MM',
+              month: 'MM.yyyy'
             }
-            return 'rgba(0, 0, 0, 0.1)'; // Default light gray for other lines
           },
-          lineWidth: (context: any) => {
-            if (context.tick.value === 0) {
-              return 2; // Thicker line for zero
-            }
-            return 1; // Default thickness for other lines
+          title: {
+            display: true,
+            text: 'Zeit'
           }
         },
-      }
-    },
-    plugins: {
-      zoom: {
-        zoom: {
-          wheel: {
-            enabled: true,
+        y: {
+          type: 'linear' as const,
+          display: true,
+          position: 'left' as const,
+          title: {
+            display: true,
+            text: type === 'temperature' ? 'Temperatur (°C)' : 'Luftfeuchtigkeit (%)'
           },
-          pinch: {
-            enabled: true,
-          },
-          mode: 'x',
-        },
-        pan: {
-          enabled: true,
-          mode: 'x',
-        },
+          grid: {
+            drawOnChartArea: true,
+            color: (context: any) => {
+              if (type === 'temperature' && context.tick.value === 0) {
+                return 'rgba(0, 0, 0, 1.0)';
+              }
+              return 'rgba(0, 0, 0, 0.1)';
+            },
+            lineWidth: (context: any) => {
+              if (type === 'temperature' && context.tick.value === 0) {
+                return 2;
+              }
+              return 1;
+            }
+          }
+        }
       },
-      tooltip: {
-        callbacks: {
-          label: function(context) {
-            let label = context.dataset.label || '';
-            if (label) {
-              label += ': ';
+      plugins: {
+        title: {
+          display: true,
+          text: title
+        },
+        zoom: {
+          pan: {
+            enabled: true,
+            mode: 'x'
+          },
+          zoom: {
+            wheel: {
+              enabled: true
+            },
+            pinch: {
+              enabled: true
+            },
+            mode: 'x'
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context: any) {
+              let label = context.dataset.label || '';
+              if (label) {
+                label += ': ';
+              }
+              if (context.parsed.y !== null) {
+                label += context.parsed.y.toFixed(1) + ' ' + unit;
+              }
+              return label;
             }
-            if (context.parsed.y !== null) {
-              label += context.parsed.y.toFixed(1) + ' %';
-            }
-            return label;
           }
         }
       }
-    }
-  }), [mainChartOptionsUpdated]);
+    } as ChartOptions<'line'>;
+  }, [timeRange, getTimeUnit]);
 
-  // Memoize channel options creation
-  const createChannelOptions = useCallback((title: string, unit: string): ChartOptions<'line'> => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: {
-      mode: 'index' as const,
-      intersect: false,
-    },
-    scales: {
-      x: {
-        type: 'time' as const,
-        adapters: {
-          date: {
-            locale: de,
-          },
-        },
-        time: {
-          unit: timeRange === '24h' ? 'hour' : timeRange === '7d' ? 'day' : timeRange === '30d' ? 'day' : 'month',
-          displayFormats: {
-            hour: 'HH:mm',
-            day: 'dd.MM.',
-            month: 'MMM yyyy'
-          },
-          tooltipFormat: 'dd.MM.yyyy HH:mm',
-        },
-        ticks: {
-          maxRotation: 0,
-          source: 'auto',
-          autoSkip: true,
-          maxTicksLimit: timeRange === '24h' ? 12 : timeRange === '7d' ? 7 : timeRange === '30d' ? 15 : 31,
-        },
-      },
-      y: {
-        type: 'linear' as const,
-        display: true,
-        position: 'left' as const,
-        title: {
-          display: true,
-          text: `${title} (${unit})`,
-        },
-        grid: {
-          drawOnChartArea: true,
-          color: (context: any) => {
-            if (context.tick.value === 0) {
-              return 'rgba(0, 0, 0, 1.0)'; // Black color for zero line
-            }
-            return 'rgba(0, 0, 0, 0.1)'; // Default light gray for other lines
-          },
-          lineWidth: (context: any) => {
-            if (context.tick.value === 0) {
-              return 2; // Thicker line for zero
-            }
-            return 1; // Default thickness for other lines
-          }
-        },
-      },
-    },
-    plugins: {
-      zoom: {
-        zoom: {
-          wheel: {
-            enabled: true,
-          },
-          pinch: {
-            enabled: true,
-          },
-          mode: 'x',
-        },
-        pan: {
-          enabled: true,
-          mode: 'x',
-        },
-      },
-      tooltip: {
-        callbacks: {
-          label: function(context) {
-            let label = context.dataset.label || '';
-            if (label) {
-              label += ': ';
-            }
-            if (context.parsed.y !== null) {
-              label += context.parsed.y.toFixed(1) + ' ' + unit;
-            }
-            return label;
-          }
-        }
-      }
-    },
-  }), [timeRange]);
+  const channelTempChartOptionsUpdated = createChannelOptions('Temperatur', '°C', 'temperature');
+  const channelHumidityChartOptionsUpdated = createChannelOptions('Luftfeuchtigkeit', '%', 'humidity');
 
   if (!weatherData || weatherData.length === 0) {
     return (
