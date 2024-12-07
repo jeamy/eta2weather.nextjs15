@@ -396,6 +396,10 @@ export default function WeatherCharts({
     return {
       responsive: true,
       maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
       scales: {
         x: {
           type: 'time' as const,
@@ -459,6 +463,8 @@ export default function WeatherCharts({
           }
         },
         tooltip: {
+          mode: 'index',
+          intersect: false,
           callbacks: {
             label: function(context: any) {
               let label = context.dataset.label || '';
