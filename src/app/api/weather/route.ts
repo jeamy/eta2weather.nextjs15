@@ -115,7 +115,9 @@ async function processXmlFiles(files: string[]): Promise<any[]> {
       // Validate required data exists before adding
       if (!data?.outdoor?.temperature?.value || 
           !data?.pressure?.relative?.value || 
-          !data?.outdoor?.humidity?.value) {
+          !data?.outdoor?.humidity?.value ||
+          !data?.indoor?.temperature?.value ||
+          !data?.indoor?.humidity?.value) {
         console.error(`Missing required data fields in file: ${file}`);
         continue;
       }
@@ -125,6 +127,10 @@ async function processXmlFiles(files: string[]): Promise<any[]> {
         temperature: parseFloat(data.outdoor.temperature.value),
         pressure: parseFloat(data.pressure.relative.value),
         humidity: parseFloat(data.outdoor.humidity.value),
+        indoor: {
+          temperature: parseFloat(data.indoor.temperature.value),
+          humidity: parseFloat(data.indoor.humidity.value)
+        },
         channels: {
           ch1: {
             temperature: parseFloat(data.temp_and_humidity_ch1.temperature.value),

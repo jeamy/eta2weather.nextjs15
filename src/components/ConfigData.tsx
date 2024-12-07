@@ -68,7 +68,7 @@ const ConfigData: React.FC = () => {
     useEffect(() => {
         const recommendedPos = Math.round(parseFloat(sliderValue || '0'));
         const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
-        const currentPos = etaSP ? parseFloat(etaSP.strValue) : recommendedPos;
+        const currentPos = etaSP ? parseFloat(etaSP.strValue || '0') : recommendedPos;
 
         // Only update if the positions are different, values are valid, and it's not the same update
         if (etaSP && 
@@ -440,7 +440,7 @@ const ConfigData: React.FC = () => {
                             {(() => {
                                 const recommendedPos = Math.round(parseFloat(sliderValue || '0'));
                                 const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
-                                const currentPos = etaSP ? parseFloat(etaSP.strValue) : recommendedPos;
+                                const currentPos = etaSP ? parseFloat(etaSP.strValue || '0') : recommendedPos;
                                 
                                 return (
                                     <span className={`${
