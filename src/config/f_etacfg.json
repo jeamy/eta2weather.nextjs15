@@ -1,12 +1,12 @@
 {
-  "t_soll": "21.5",
+  "t_soll": "22",
   "t_delta": "0",
   "t_slider": "0.0",
   "s_eta": "192.168.8.100:8080",
   "f_eta": "f_eta.json",
   "f_wifiaf83": "f_wifiaf89.json",
   "f_names2id": "f_names2id.json",
-  "t_update_timer": "180000",
+  "t_update_timer": "60000",
   "diff": "4.1",
   "channelNames": {
     "CH1": "VK",

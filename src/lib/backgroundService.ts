@@ -16,6 +16,7 @@ import { logData } from '@/utils/logging';
 import { getWifiAf83Data } from '@/utils/cache';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import Diff from '@/reader/functions/Diff';
+import { calculateTemperatureDiff, calculateNewSliderPosition, updateSliderPosition } from '@/utils/Functions';
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
 
@@ -43,6 +44,8 @@ class BackgroundService {
   private readonly MEMORY_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
   private readonly MAX_HEAP_SIZE = 1024 * 1024 * 1024; // 1GB
   private readonly DATA_RETENTION_PERIOD = 24 * 60 * 60 * 1000; // 24 hours
+  private etaApi: EtaApi | null = null;
+  private lastSliderUpdate: string | null = null;
 
   private constructor() {}
 
@@ -232,32 +235,6 @@ class BackgroundService {
     }
   }
 
-  private calculateTemperatureDiff(wifiData: WifiAF83Data): { diff: number | null; twa: number; twi: number } {
-    const state = store.getState();
-    const config = state.config;
-
-    const twi = wifiData.indoorTemperature;
-    const twa = wifiData.temperature ?? 0;
-    const { t_soll, t_delta } = config.data;
-
-    const tSollNum = Number(t_soll);
-    const tDeltaNum = Number(t_delta);
-
-    if (isNaN(tSollNum) || isNaN(tDeltaNum) || isNaN(twi)) {
-      console.error(`${this.getTimestamp()} Invalid temperature values:`, { t_soll, t_delta, twi });
-      return { diff: null, twa, twi };
-    }
-
-    const diff = Math.min(tSollNum + tDeltaNum - twi, 5.0);
-    return { diff: Number(diff.toFixed(1)), twa, twi };
-  }
-
-  private calculateNewSliderPosition(etaValues: { einaus: string; schaltzustand: string; heizentaste: string }, diff: number): string {
-    return (etaValues.einaus === "Aus" || (etaValues.schaltzustand === "Aus" && etaValues.heizentaste === "Aus"))
-      ? "0.0"
-      : new Diff().getDiff(diff, 1.25, 5.0, 0.0, 100.0).toString();
-  }
-
   private async updateTemperatureDiff(wifiData: WifiAF83Data) {
     try {
       const state = store.getState();
@@ -268,7 +245,10 @@ class BackgroundService {
         return;
       }
 
-      const { diff: numericDiff } = this.calculateTemperatureDiff(wifiData);
+      const { diff: numericDiff } = calculateTemperatureDiff(config, { 
+        data: wifiData,
+        loadingState: { isLoading: false, error: null }
+      });
       
       if (numericDiff !== null) {
         const newDiffValue = numericDiff.toString();
@@ -282,7 +262,7 @@ class BackgroundService {
             tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
           };
 
-          const newSliderPosition = this.calculateNewSliderPosition(etaValues, numericDiff);
+          const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
           
           if (newSliderPosition !== config.data[ConfigKeys.T_SLIDER] || newDiffValue !== config.data[ConfigKeys.DIFF]) {
             store.dispatch(storeConfigData({
@@ -300,6 +280,53 @@ class BackgroundService {
               indoor: wifiData.indoorTemperature,
               outdoor: wifiData.temperature
             });
+
+            // Update the physical slider position if needed
+            const recommendedPos = Math.round(parseFloat(newSliderPosition));
+            const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
+            const currentPos = etaSP ? parseFloat(etaSP.strValue || '0') : recommendedPos;
+
+            // Only update if the positions are different, values are valid, and it's not the same update
+            if (etaSP && 
+                recommendedPos !== currentPos && 
+                !isNaN(recommendedPos) && 
+                !isNaN(currentPos) &&
+                this.lastSliderUpdate !== newSliderPosition) {
+                
+                this.lastSliderUpdate = newSliderPosition;
+                
+                if (!this.etaApi) {
+                    console.error(`${this.getTimestamp()} EtaApi not initialized`);
+                    return;
+                }
+
+                try {
+                    const result = await updateSliderPosition(
+                        recommendedPos,
+                        currentPos,
+                        defaultNames2Id,
+                        this.etaApi
+                    );
+                    
+                    if (result.success) {
+                        // Update the SP value in the Redux store
+                        const updatedEtaData = { ...etaState.data };
+                        const spId = defaultNames2Id[EtaConstants.SCHIEBERPOS].id;
+                        if (updatedEtaData[spId]) {
+                            updatedEtaData[spId] = {
+                                ...updatedEtaData[spId],
+                                strValue: (result.position).toString()
+                            };
+                            store.dispatch(storeEtaData(updatedEtaData));
+                            console.log(`${this.getTimestamp()} Successfully updated slider position to ${result.position}`);
+                        }
+                    } else if (result.error) {
+                        console.error(`${this.getTimestamp()} Failed to update slider position:`, result.error);
+                    }
+                } catch (error) {
+                    console.error(`${this.getTimestamp()} Error updating slider position:`, error);
+                }
+            }
           }
         }
       }
@@ -316,6 +343,12 @@ class BackgroundService {
 
     console.log(`${this.getTimestamp()} Loading configuration...`);
     this.config = await this.loadConfig();
+    
+    // Initialize EtaApi
+    if (this.config[ConfigKeys.S_ETA]) {
+      this.etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
+    }
+    
     console.log(`${this.getTimestamp()} Starting config file watcher...`);
     this.startConfigWatcher();
     
