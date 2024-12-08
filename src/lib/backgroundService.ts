@@ -17,7 +17,7 @@ import { getWifiAf83Data } from '@/utils/cache';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import Diff from '@/reader/functions/Diff';
 import { calculateTemperatureDiff, calculateNewSliderPosition, updateSliderPosition } from '@/utils/Functions';
-import { getAllUris, batchFetchEtaData } from '@/utils/etaUtils';
+import { getAllUris } from '@/utils/etaUtils';
 import { MenuNode } from '@/types/menu';
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
@@ -406,23 +406,25 @@ class BackgroundService {
     return this.isRunning;
   }
 
-  private async loadAndStoreData() {
+  async loadAndStoreData() {
     if (this.isUpdating) {
       console.log(`${this.getTimestamp()} Update already in progress, skipping...`);
       return;
     }
-    
+
     this.isUpdating = true;
     try {
       // Run cleanup before loading new data
       await this.cleanupOldData();
       
-      // Create EtaApi instance
-      const etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
+      // Create EtaApi instance if not exists
+      if (!this.etaApi) {
+        this.etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
+      }
 
       // Get menu data first
       console.log(`${this.getTimestamp()} Fetching ETA menu data...`);
-      const menuResponse = await etaApi.getMenu();
+      const menuResponse = await this.etaApi.getMenu();
       if (menuResponse.error || !menuResponse.result) {
         throw new Error(menuResponse.error || 'No ETA menu data received');
       }
@@ -487,9 +489,34 @@ class BackgroundService {
       const uris = getAllUris(menuNodes);
       console.log(`${this.getTimestamp()} Found ${uris.length} URIs to fetch`);
 
-      // Fetch all data in a batch
-      console.log(`${this.getTimestamp()} Fetching ETA data in batch...`);
-      const menuData = await batchFetchEtaData(uris);
+      // Fetch data in batches using EtaApi
+      console.log(`${this.getTimestamp()} Fetching ETA data...`);
+      const menuData: Record<string, string> = {};
+      const batchSize = 5; // Process 5 URIs at a time
+      
+      for (let i = 0; i < uris.length; i += batchSize) {
+        const batch = uris.slice(i, i + batchSize);
+        const promises = batch.map(async (uri) => {
+          try {
+            // Remove leading slash if present
+            const id = uri.replace(/^\//, '');
+            const response = await this.etaApi!.getUserVar(id);
+            if (response.result) {
+              menuData[uri] = response.result;
+            }
+          } catch (error) {
+            console.warn(`${this.getTimestamp()} Failed to fetch data for URI ${uri}:`, error);
+          }
+        });
+
+        await Promise.all(promises);
+        
+        // Add a small delay between batches to prevent overwhelming the server
+        if (i + batchSize < uris.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
       console.log(`${this.getTimestamp()} Successfully fetched ETA data for ${Object.keys(menuData).length} URIs`);
 
       // Log all ETA data
