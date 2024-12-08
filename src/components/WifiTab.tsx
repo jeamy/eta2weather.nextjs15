@@ -237,69 +237,74 @@ export default function WifiTab({ data }: WifiTabProps) {
   };
 
   return (
-    <div className="w-full px-2 sm:px-0">
-      <div className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 h-24">
-        {categoryEntries.map(([category], index) => (
-          <button
-            key={category}
-            onClick={() => setActiveTab(index)}
-            className={`w-full rounded-lg py-2 text-sm font-medium leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 transition-colors flex flex-col items-center justify-center
-              ${activeTab === index 
-                ? 'bg-white text-blue-700 shadow' 
-                : 'text-black hover:bg-white/[0.12] hover:text-blue-700'}`}
-            title={category}
-          >
-            {categoryIcons[category]}
-            <span className="hidden lg:inline-block mt-1 text-xs">{category}</span>
-          </button>
-        ))}
+    <div className="flex flex-col h-full">
+      <div className="flex justify-between items-center h-14 mb-4">
+        <h2 className="text-lg font-semibold">WiFi Data</h2>
       </div>
+      <div className="w-full px-2 sm:px-0">
+        <div className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 h-24">
+          {categoryEntries.map(([category], index) => (
+            <button
+              key={category}
+              onClick={() => setActiveTab(index)}
+              className={`w-full rounded-lg py-2 text-sm font-medium leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 transition-colors flex flex-col items-center justify-center
+                ${activeTab === index 
+                  ? 'bg-white text-blue-700 shadow' 
+                  : 'text-black hover:bg-white/[0.12] hover:text-blue-700'}`}
+              title={category}
+            >
+              {categoryIcons[category]}
+              <span className="hidden lg:inline-block mt-1 text-xs">{category}</span>
+            </button>
+          ))}
+        </div>
 
-      <div className="mt-2">
-        {categoryEntries.map(([category, data], idx) => (
-          <div
-            key={idx}
-            className={`
-              rounded-xl bg-white pt-3 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2
-              ${activeTab === idx ? 'block' : 'hidden'}
-            `}
-          >
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 border-gray-200">
-              {category === deTranslations.categories['Channels'] ? (
-                // Special rendering for Channels
-                Object.entries(data).map(([channelKey, channelValue]) => (
-                  <div key={channelKey} className="p-4 rounded-lg bg-gray-50 shadow-lg">
-                    <h3 className="text-sm font-medium text-gray-900 mb-2">
-                      {renderChannelName(channelKey)} &nbsp;
-                    </h3>
-                    <div className="space-y-">
-                      {renderValue(channelKey, channelValue)}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                // Regular rendering for other categories
-                Object.entries(data).map(([key, value]: [string, any]) => {
-                  // Get translation for the category title
-                  const translationKey = key.toLowerCase();
-                  const titleTranslation = deTranslations.measurements[translationKey] || 
-                                        key.replace(/_/g, ' ');
-                  
-                  return (
-                    <div key={key} className="p-4 rounded-lg bg-gray-50 shadow-lg">
-                      <h3 className="text-sm font-medium text-gray-900">
-                        {titleTranslation} &nbsp;
+        <div className="mt-2">
+          {categoryEntries.map(([category, data], idx) => (
+            <div
+              key={idx}
+              className={`
+                rounded-xl bg-white pt-3 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2
+                ${activeTab === idx ? 'block' : 'hidden'}
+              `}
+            >
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 border-gray-200">
+                {category === deTranslations.categories['Channels'] ? (
+                  // Special rendering for Channels
+                  Object.entries(data).map(([channelKey, channelValue]) => (
+                    <div key={channelKey} className="p-4 rounded-lg bg-gray-50 shadow-lg">
+                      <h3 className="text-sm font-medium text-gray-900 mb-2">
+                        {renderChannelName(channelKey)} &nbsp;
                       </h3>
-                      <div className="mt-2 text-sm text-gray-500">
-                        {renderValue(key, value)}
+                      <div className="space-y-">
+                        {renderValue(channelKey, channelValue)}
                       </div>
                     </div>
-                  );
-                })
-              )}
+                  ))
+                ) : (
+                  // Regular rendering for other categories
+                  Object.entries(data).map(([key, value]: [string, any]) => {
+                    // Get translation for the category title
+                    const translationKey = key.toLowerCase();
+                    const titleTranslation = deTranslations.measurements[translationKey] || 
+                                          key.replace(/_/g, ' ');
+                    
+                    return (
+                      <div key={key} className="p-4 rounded-lg bg-gray-50 shadow-lg">
+                        <h3 className="text-sm font-medium text-gray-900">
+                          {titleTranslation} &nbsp;
+                        </h3>
+                        <div className="mt-2 text-sm text-gray-500">
+                          {renderValue(key, value)}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
