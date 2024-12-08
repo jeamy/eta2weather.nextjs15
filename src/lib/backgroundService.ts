@@ -303,6 +303,8 @@ class BackgroundService {
                 }
 
                 try {
+                    console.log(`${this.getTimestamp()} Update slider position from ${currentPos} to ${recommendedPos}`);
+
                     const result = await updateSliderPosition(
                         recommendedPos,
                         currentPos,
