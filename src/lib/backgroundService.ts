@@ -17,6 +17,8 @@ import { getWifiAf83Data } from '@/utils/cache';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import Diff from '@/reader/functions/Diff';
 import { calculateTemperatureDiff, calculateNewSliderPosition, updateSliderPosition } from '@/utils/Functions';
+import { getAllUris, batchFetchEtaData } from '@/utils/etaUtils';
+import { MenuNode } from '@/types/menu';
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
 
@@ -419,25 +421,14 @@ class BackgroundService {
       const etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
 
       // Get menu data first
-      console.log(`${this.getTimestamp()} Fetching ETA data...`);
+      console.log(`${this.getTimestamp()} Fetching ETA menu data...`);
       const menuResponse = await etaApi.getMenu();
       if (menuResponse.error || !menuResponse.result) {
-        throw new Error(menuResponse.error || 'No ETA data received');
+        throw new Error(menuResponse.error || 'No ETA menu data received');
       }
 
-      // Parse menu XML to get all URIs
-      const urisToFetch = new Set<string>();
-      const menuData: Record<string, any> = {};
-
-      // Helper function to collect URIs from menu nodes
-      const collectUris = (node: any) => {
-        if (node.uri) {
-          urisToFetch.add(node.uri);
-        }
-        node.children?.forEach(collectUris);
-      };
-
-      // Parse and collect URIs from menu XML
+      // Parse menu XML to get menu nodes
+      const menuNodes: MenuNode[] = [];
       const parseMenuXML = (xmlString: string) => {
         const getAttributeValue = (line: string, attr: string): string => {
           const match = line.match(new RegExp(`${attr}="([^"]+)"`));
@@ -445,36 +436,61 @@ class BackgroundService {
         };
 
         const lines = xmlString.split('\n');
+        const nodeStack: MenuNode[] = [];
+        
         lines.forEach(line => {
-          if (!line.trim() || line.includes('<?xml') || line.includes('</eta>') || line.includes('<eta')) {
+          if (!line.trim() || line.includes('<?xml') || line.includes('</eta>')) {
             return;
           }
+
+          if (line.includes('<eta')) {
+            // Root node
+            return;
+          }
+
           const uri = getAttributeValue(line, 'uri');
           const name = getAttributeValue(line, 'name');
+
           if (uri && name) {
-            urisToFetch.add(uri);
+            const node: MenuNode = {
+              uri,
+              name,
+              children: []
+            };
+
+            if (line.includes('</node>')) {
+              // Leaf node
+              if (nodeStack.length > 0) {
+                nodeStack[nodeStack.length - 1].children?.push(node);
+              } else {
+                menuNodes.push(node);
+              }
+            } else {
+              // Parent node
+              if (nodeStack.length > 0) {
+                nodeStack[nodeStack.length - 1].children?.push(node);
+              } else {
+                menuNodes.push(node);
+              }
+              nodeStack.push(node);
+            }
+          } else if (line.includes('</node>') && nodeStack.length > 0) {
+            nodeStack.pop();
           }
         });
       };
 
       parseMenuXML(menuResponse.result);
 
-      // Fetch data for all URIs
-      console.log(`${this.getTimestamp()} Fetching data for ${urisToFetch.size} URIs...`);
-      for (const uri of urisToFetch) {
-        try {
-          console.error(`${this.getTimestamp()} Fetching data for URI ${uri}:`);
-          const response = await etaApi.getUserVar(uri);
-          if (response.result) {
-            const parsedData = parseXML(response.result, uri, null);
-            menuData[uri] = parsedData;
-          }
-          // Add a small delay between requests
-          await new Promise(resolve => setTimeout(resolve, 1));
-        } catch (error) {
-          console.error(`${this.getTimestamp()} Error fetching data for URI ${uri}:`, error);
-        }
-      }
+      // Get all URIs from the menu tree
+      console.log(`${this.getTimestamp()} Getting URIs from menu tree...`);
+      const uris = getAllUris(menuNodes);
+      console.log(`${this.getTimestamp()} Found ${uris.length} URIs to fetch`);
+
+      // Fetch all data in a batch
+      console.log(`${this.getTimestamp()} Fetching ETA data in batch...`);
+      const menuData = await batchFetchEtaData(uris);
+      console.log(`${this.getTimestamp()} Successfully fetched ETA data for ${Object.keys(menuData).length} URIs`);
 
       // Log all ETA data
       console.log(`${this.getTimestamp()} Logging ETA data...`);
