@@ -15,7 +15,6 @@ import names2IdReducer, { storeData as storeNames2IdData } from '../redux/names2
 import { logData } from '@/utils/logging';
 import { getWifiAf83Data } from '@/utils/cache';
 import { EtaApi } from '@/reader/functions/EtaApi';
-import Diff from '@/reader/functions/Diff';
 import { calculateTemperatureDiff, calculateNewSliderPosition, updateSliderPosition } from '@/utils/Functions';
 import { getAllUris } from '@/utils/etaUtils';
 import { MenuNode } from '@/types/menu';
@@ -146,6 +145,10 @@ class BackgroundService {
         await logData('config', newConfig);
         console.log(`${this.getTimestamp()} Logging CONFIG data DONE!`);
         this.config = newConfig;
+        
+        this.loadAndStoreData().catch(error => {
+          console.error(`${this.getTimestamp()} Error in background update:`, error);
+        });
 
         if (oldUpdateTimer !== newUpdateTimer && this.isRunning) {
           console.log(`${this.getTimestamp()} Update timer changed, restarting interval...`);
@@ -247,12 +250,14 @@ class BackgroundService {
         return;
       }
 
+      console.log(`${this.getTimestamp()} Updating temperature diff...`);
       const { diff: numericDiff } = calculateTemperatureDiff(config, { 
         data: wifiData,
         loadingState: { isLoading: false, error: null }
       });
       
       if (numericDiff !== null) {
+        console.log(`${this.getTimestamp()} Numeric diff: ${numericDiff}`);
         const newDiffValue = numericDiff.toString();
         // Only update if the diff value has changed
         if (newDiffValue !== config.data[ConfigKeys.DIFF]) {
@@ -265,8 +270,9 @@ class BackgroundService {
           };
 
           const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
-          
+          console.log(`${this.getTimestamp()} New slider position: ${newSliderPosition}`);
           if (newSliderPosition !== config.data[ConfigKeys.T_SLIDER] || newDiffValue !== config.data[ConfigKeys.DIFF]) {
+            console.log(`${this.getTimestamp()} Updating temperature diff...`);
             store.dispatch(storeConfigData({
               ...config.data,
               [ConfigKeys.DIFF]: newDiffValue,
@@ -287,7 +293,7 @@ class BackgroundService {
             const recommendedPos = Math.round(parseFloat(newSliderPosition));
             const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
             const currentPos = etaSP ? parseFloat(etaSP.strValue || '0') : recommendedPos;
-
+            console.log(`${this.getTimestamp()} Current slider position: ${currentPos}, Recommended slider position: ${recommendedPos}`);
             // Only update if the positions are different, values are valid, and it's not the same update
             if (etaSP && 
                 recommendedPos !== currentPos && 
@@ -364,11 +370,12 @@ class BackgroundService {
     console.log(`${this.getTimestamp()} Background service started`);
     
     try {
+      // Set up periodic updates
+      this.restartUpdateInterval();
+
       // Initial load of all data
       await this.loadAndStoreData();
 
-      // Set up periodic updates
-      this.restartUpdateInterval();
 
       this.isRunning = true;
       console.log(`${this.getTimestamp()} Background service initialization complete`);
