@@ -175,7 +175,7 @@ const EtaData: React.FC = () => {
     };
 
     updateDisplayData();
-  }, [etaState.data, defaultNames2Id]);
+  }, [etaState.data]);
 
   const handleButtonClick = async (clickedButton: 'HT' | 'DT' | 'AA') => {
     const newDisplayData = { ...displayData };
