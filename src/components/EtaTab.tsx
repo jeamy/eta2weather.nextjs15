@@ -46,13 +46,13 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
     return <ChartBarIcon className="w-5 h-5" />;
   };
 
-  const fetchAllValues = async () => {
+  const fetchAllValues = useCallback(async () => {
     if (!menuItems?.length) return;
 
     // Get all URIs from menu items
     const uris = getAllUris(menuItems);
     await fetchValues(uris);
-  };
+  }, [menuItems, fetchValues]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -63,7 +63,7 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
   useEffect(() => {
     fetchAllValues();
     return cleanupAllAbortControllers;
-  }, [menuItems, fetchValues, cleanupAllAbortControllers]);
+  }, [menuItems, fetchValues, cleanupAllAbortControllers, fetchAllValues]);
 
   return (
     <div className="flex flex-col h-full">
