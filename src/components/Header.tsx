@@ -116,6 +116,13 @@ export default function Header({ menuData = [] }: HeaderProps) {
 
             <div className="flex items-center space-x-6">
               <Link 
+                href="/raw-eta" 
+                className="text-white hover:text-gray-300 font-medium"
+                style={{ fontFamily: 'var(--font-geist-sans)' }}
+              >
+                Raw Eta Data
+              </Link>
+              <Link 
                 href="/logs" 
                 className="text-white hover:text-gray-300 font-medium"
                 style={{ fontFamily: 'var(--font-geist-sans)' }}

@@ -151,22 +151,6 @@ export default function WeatherPage(props: WeatherPageProps) {
     return baseColors[index];
   };
 
-  const formatDate = (timestamp: string): string => {
-    const date = new Date(timestamp);
-    switch (timeRange) {
-      case '24h':
-        return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-      case '7d':
-        return date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
-      case '30d':
-        return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-      case '1m':
-        return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-      default:
-        return date.toLocaleString('de-DE');
-    }
-  };
-
   const formatFullDateTime = (timestamp: string): string => {
     const date = new Date(timestamp);
     return date.toLocaleString('de-DE', {
@@ -208,6 +192,22 @@ export default function WeatherPage(props: WeatherPageProps) {
 
   // Memoize chart data to prevent unnecessary recalculations
   const memoizedChartData = useMemo(() => {
+    
+    const formatDate = (timestamp: string): string => {
+      const date = new Date(timestamp);
+      switch (timeRange) {
+        case '24h':
+          return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        case '7d':
+          return date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+        case '30d':
+          return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+        case '1m':
+          return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+        default:
+          return date.toLocaleString('de-DE');
+      }
+    };
     if (!weatherData.length) return null;
 
     const channels = weatherData[0].channels || {};
@@ -298,7 +298,7 @@ export default function WeatherPage(props: WeatherPageProps) {
           }),
       } : { labels: [], datasets: [] },
     };
-  }, [weatherData, formatDate, getChannelName]);
+  }, [weatherData, timeRange, getChannelName]);
 
   // Implement data fetching with SWR for better caching and revalidation
   const fetchWeatherData = useCallback(async () => {
