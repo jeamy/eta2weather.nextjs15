@@ -11,5 +11,6 @@
   "AA": { "id": "/120/10101/0/0/12126", "name": "Autotaste" },
   "DT": { "id": "/120/10101/0/0/12230", "name": "Absenken Taste" },
   "KT": { "id": "/120/10101/0/0/12218", "name": "Kommen Taste" },
+  "GT": { "id": "/120/10101/0/0/12231", "name": "Gehen Taste" },
   "VT": { "id": "/120/10101/0/0/12241", "name": "Vorlauf Temperatur" }
 }

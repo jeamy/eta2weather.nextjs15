@@ -181,8 +181,11 @@ export default function WeatherCharts({
       const color = getChannelColor(index);
       const upperChannel = 'CH' + channel.substring(2).toUpperCase();
       const displayName = channelNames[upperChannel] || upperChannel;
+      const channelData = weatherData.map((data) => data.channels[channel]).filter(Boolean);
+      const latestData = channelData[channelData.length - 1];
+      const dataValue = latestData ? `${latestData[type]}${type === 'temperature' ? '°C' : '%'}` : 'N/A';
       return {
-        label: displayName,
+        label: `${displayName} (${dataValue})`,
         data: weatherData.map((data) => {
           const channelData = data.channels[channel];
           return channelData ? channelData[type] : null;

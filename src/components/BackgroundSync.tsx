@@ -77,7 +77,7 @@ const BackgroundSync: React.FC = () => {
       clearInterval(intervalRef.current);
       intervalRef.current = setInterval(fetchBackgroundData, updateTimer);
     }
-  }, [config.data[ConfigKeys.T_UPDATE_TIMER], fetchBackgroundData, dispatch]);
+  }, [fetchBackgroundData, dispatch, config.data]);
 
   return null; // This component doesn't render anything
 };
