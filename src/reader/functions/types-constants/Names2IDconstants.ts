@@ -32,7 +32,7 @@ export enum EtaConstants {
     [EtaConstants.HEIZENTASTE]: { id: "/120/10101/0/0/12218", name: "Heizen Taste" },
     [EtaConstants.AUTOTASTE]: { id: "/120/10101/0/0/12126", name: "Autotaste" },
     [EtaConstants.ABSENKTASTE]: { id: "/120/10101/0/0/12231", name: "Absenken Taste" },
-//    [EtaConstants.ABSENKTASTE]: { id: "/120/10101/0/0/12230", name: "Absenken Taste" }, //REAL ABSENKTASTE URL
+//    [EtaConstants.ABSENKTASTE]: { id: "/120/10101/0/0/12230", name: "Absenken Taste" }, // REAL ABSENKTASTE URL
 //    [EtaConstants.KOMMENTASTE]: { id: "/120/10101/0/0/12218", name: "Kommen Taste" },
 //    [EtaConstants.GEHENTASTE]: { id: "/120/10101/0/0/12231", name: "Gehen Taste" },
 [EtaConstants.VORLAUFTEMP]: { id: "/120/10101/0/0/12241", name: "Vorlauf Temperatur" },
