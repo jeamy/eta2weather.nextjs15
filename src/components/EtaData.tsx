@@ -13,12 +13,12 @@ import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types
 import Image from 'next/image';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
-const HT = 'HT';
-const DT = 'DT';
-const AA = 'AA';
-enum SWITCHES {
-  EIN = '1803',
-  AUS = '1802',
+enum Buttons {
+  HT = 'HT',
+  KT = 'KT',
+  AA = 'AA',
+  GT = 'GT',
+  DT = 'DT',
 }
 
 // Constants
@@ -50,23 +50,35 @@ const EtaData: React.FC = () => {
   const etaApiRef = useRef<EtaApi | null>(null);
 
   // Create default values for each switch
-  const defaultValues: Record<typeof HT | typeof DT | typeof AA, DisplayEtaValue> = {
+  const defaultValues: Record<Buttons, DisplayEtaValue> = {
     HT: { 
-      short: HT,
+      short: Buttons.HT,
       long: 'Heizen Taste',
       strValue: 'Aus',
       unit: ''
     },
     DT: { 
-      short: DT,
+      short: Buttons.DT,
       long: 'Absenken Taste',
       strValue: 'Aus',
       unit: ''
     },
     AA: { 
-      short: AA,
+      short: Buttons.AA,
       long: 'Autotaste',
       strValue: 'Ein', // Default to Ein when others are Aus
+      unit: ''
+    },
+    GT: {
+      short: Buttons.GT,
+      long: 'Gehen Taste',
+      strValue: 'Aus',
+      unit: ''
+    },
+    KT: {
+      short: Buttons.KT,
+      long: 'Kommen Taste',
+      strValue: 'Aus',
       unit: ''
     }
   };
@@ -76,6 +88,8 @@ const EtaData: React.FC = () => {
     HT: defaultValues.HT,
     DT: defaultValues.DT,
     AA: defaultValues.AA,
+    GT: defaultValues.GT,
+    KT: defaultValues.KT,
   }));
 
   useEffect(() => {
@@ -136,10 +150,11 @@ const EtaData: React.FC = () => {
         const newDisplayData: DisplayDataType = { ...prevData };
         
         Object.values(etaState.data).forEach(entry => {
-          if (entry.short === HT || entry.short === DT || entry.short === AA) {
-            newDisplayData[entry.short] = {
+          if (Object.values(Buttons).includes(entry.short as Buttons)) {
+//             console.log('Found button:', entry.short, entry?.uri);
+            newDisplayData[entry.short || ' '] = {
               short: entry.short || 'Unknown',
-              long: entry.long || entry.short,
+              long: entry.long || entry.short || 'Unknown',
               strValue: entry.value === EtaPos.EIN ? EtaText.EIN : EtaText.AUS,
               unit: entry.unit || ''
             };
@@ -184,7 +199,7 @@ const EtaData: React.FC = () => {
     updateDisplayData();
   }, [etaState.data]);
 
-  const handleButtonClick = async (clickedButton: typeof HT | typeof DT | typeof AA) => {
+  const handleButtonClick = async (clickedButton: Buttons) => {
     const newDisplayData = { ...displayData };
     
     // Reset all buttons to 'Aus' first
@@ -201,8 +216,8 @@ const EtaData: React.FC = () => {
       // Find button IDs from state data
       const buttonIds: Record<string, string> = {};
       Object.entries(etaState.data).forEach(([uri, data]) => {
-        if (data.short === HT || data.short === DT || data.short === AA) {
-          buttonIds[data.short] = uri;
+        if (Object.values(Buttons).includes(data.short as Buttons)) {
+          buttonIds[data.short ?? ''] = uri;
         }
       });
 
@@ -218,14 +233,14 @@ const EtaData: React.FC = () => {
         },
         body: JSON.stringify({
           id: buttonIds[clickedButton],
-          value: SWITCHES.EIN,
+          value: EtaPos.EIN,
           begin: "0",
           end: "0"
         })
       });
       
       // Set other buttons to Aus (1802)
-      const otherButtons = Object.keys(buttonIds).filter(key => key !== clickedButton) as Array<typeof HT | typeof DT | typeof AA>;
+      const otherButtons = Object.keys(buttonIds).filter(key => key !== clickedButton) as Array<Buttons>;
       await Promise.all(otherButtons.map(button => 
         fetch('/api/eta/update', {
           method: 'POST',
@@ -234,7 +249,7 @@ const EtaData: React.FC = () => {
           },
           body: JSON.stringify({
             id: buttonIds[button],
-            value: SWITCHES.AUS,
+            value: EtaPos.AUS,
             begin: "0",
             end: "0"
           })
@@ -271,10 +286,10 @@ const EtaData: React.FC = () => {
     };
   }, [loadAndStoreEta, config.t_update_timer]);
 
-  type HeatingKey = typeof HT | typeof DT | typeof AA;
+  type HeatingKey = Buttons;
 
   const isHeatingKey = (key: string): key is HeatingKey => {
-    return [HT, DT, AA].includes(key);
+    return Object.values(Buttons).includes(key as Buttons);
   };
 
   const handleToggle = useCallback(async (key: HeatingKey) => {
@@ -368,7 +383,7 @@ const EtaData: React.FC = () => {
             {Object.entries(etaState.data)
               .filter(([key, value]) => {
                 // Filter out HT, AA, DT entries and empty values
-                if (value.short === HT || value.short === DT || value.short === AA) {
+                if (Object.values(Buttons).includes(value.short as Buttons)) {
                   return false;
                 }
                 if (!value.strValue || value.strValue.trim() === '') return false;
@@ -389,7 +404,6 @@ const EtaData: React.FC = () => {
                 <div key={key} className="flex flex-col">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-gray-500">{value.short}</span>
                       <span className="font-medium">{value.long}:</span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -414,17 +428,18 @@ const EtaData: React.FC = () => {
                 </div>
               ))}
             {/* Render switches separately */}
-            {[HT, AA, DT].map(key => {
-              const value = displayData[key] || defaultValues[key as typeof HT | typeof DT | typeof AA];
+            {Object.values(Buttons).map(key => {
+              const value = displayData[key] || defaultValues[key];
               return (
                 <div key={key} className="flex flex-col">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-gray-500">{value.short}</span>
+                    <div className="flex flex-col">
                       <span className="font-medium">
-                        {key === HT ? 'Heizen Taste' :
-                         key === AA ? 'Autotaste' :
-                         key === DT ? 'Absenken Taste' :
+                        {key === Buttons.HT ? 'Heizen Taste' :
+                         key === Buttons.AA ? 'Autotaste' :
+                         key === Buttons.DT ? 'Absenken Taste' :
+                         key === Buttons.GT ? 'Gehen Taste' :
+                         key === Buttons.KT ? 'Kommen Taste' :
                          value.long}:
                       </span>
                     </div>
@@ -439,7 +454,7 @@ const EtaData: React.FC = () => {
                       <button
                         onClick={() => {
                           if (isHeatingKey(key)) {
-                            handleButtonClick(key as typeof HT | typeof DT | typeof AA);
+                            handleButtonClick(key);
                           }
                         }}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${

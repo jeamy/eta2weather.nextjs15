@@ -9,9 +9,9 @@ export enum EtaConstants {
     EIN_AUS_TASTE = 'EAT',
     KESSELTEMP = 'KZ',
     HEIZENTASTE = 'HT',
-//    KOMMENTASTE = 'KT',
+    KOMMENTASTE = 'KT',
     AUTOTASTE = 'AA',
-//    GEHENTASTE = 'GT',
+    GEHENTASTE = 'GT',
     ABSENKTASTE = 'DT',
     VORLAUFTEMP = 'VT',
   }
@@ -28,13 +28,11 @@ export enum EtaConstants {
     [EtaConstants.SCHALTZUSTAND]: { id: "/120/10101/12113/0/1109", name: "Schaltzustand" },
     [EtaConstants.EIN_AUS_TASTE]: { id: "/120/10101/0/0/12080", name: "Ein/Aus Taste" },
     [EtaConstants.KESSELTEMP]: { id: "/40/10021/0/11109/0", name: "Kessel Temperatur" },
-//    [EtaConstants.HEIZENTASTE]: { id: "/120/10101/0/0/12125", name: "Heizen Taste" }, // REAL HEIZENTASTE URL
-    [EtaConstants.HEIZENTASTE]: { id: "/120/10101/0/0/12218", name: "Heizen Taste" },
-//    [EtaConstants.KOMMENTASTE]: { id: "/120/10101/0/0/12218", name: "Kommen Taste" },
+    [EtaConstants.HEIZENTASTE]: { id: "/120/10101/0/0/12125", name: "Heizen Taste" }, 
+    [EtaConstants.KOMMENTASTE]: { id: "/120/10101/0/0/12218", name: "Kommen Taste" },
     [EtaConstants.AUTOTASTE]: { id: "/120/10101/0/0/12126", name: "Autotaste" },
-//    [EtaConstants.GEHENTASTE]: { id: "/120/10101/0/0/12231", name: "Gehen Taste" },
-    [EtaConstants.ABSENKTASTE]: { id: "/120/10101/0/0/12231", name: "Absenken Taste" },
-//    [EtaConstants.ABSENKTASTE]: { id: "/120/10101/0/0/12230", name: "Absenken Taste" }, // REAL ABSENKTASTE URL
+    [EtaConstants.GEHENTASTE]: { id: "/120/10101/0/0/12231", name: "Gehen Taste" },
+    [EtaConstants.ABSENKTASTE]: { id: "/120/10101/0/0/12230", name: "Absenken Taste" }, 
 [EtaConstants.VORLAUFTEMP]: { id: "/120/10101/0/0/12241", name: "Vorlauf Temperatur" },
   };
   
