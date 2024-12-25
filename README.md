@@ -150,76 +150,157 @@ eta2weather.nextjs/
 
 ## API Documentation
 
-### Ecowitt API
-The weather station data is retrieved using the Ecowitt API v3. For detailed information about the API endpoints and parameters, refer to the [official Ecowitt API documentation](https://doc.ecowitt.net/web/#/apiv3en?page_id=17).
+### ETA System Endpoints
 
-### ETA API
-The heating system data is managed through the ETA RESTful API. For comprehensive documentation about the available endpoints and their usage, see the [ETA RESTful API documentation](https://www.meineta.at/javax.faces.resource/downloads/ETA-RESTful-v1.2.pdf.xhtml?ln=default&v=0).
-
-## Development
-
-### API Endpoints
-
-#### Read Endpoints
-- `/api/config/read`: Retrieves the current configuration data.
-- `/api/eta/read`: Retrieves the ETA system data.
-- `/api/wifiaf83/read`: Retrieves the weather and temperature data.
-- `/api/names2id/read`: Retrieves the names to ID mapping data.
-
-#### Update Endpoints
-- `/api/config/update`: Updates configuration values
+#### Read Operations
+- `GET /api/eta/read`: Retrieves current ETA system data
+- `GET /api/eta/raw`: Fetches raw ETA system data with XML values
+- `GET /api/eta/menu`: Gets the ETA menu structure
+- `GET /api/eta/readMenuData`: Retrieves specific menu item data
+- `POST /api/eta/readBatchMenuData`: Batch retrieves menu data for multiple URIs
   ```typescript
-  // POST request
+  // Request body
   {
-    "key": string,   // One of the ConfigKeys values
-    "value": string  // New value for the config key
+    "uris": string[]  // Array of URIs to fetch
   }
   ```
 
-  Available config keys:
-  - `t_soll`: Target temperature (default: "22")
-  - `t_delta`: Temperature delta (default: "0")
-  - `t_slider`: Slider position (default: "0.0")
-  - `f_eta`: ETA configuration file (default: "f_eta.json")
-  - `s_eta`: ETA server address (default: "192.168.8.100:8080")
-  - `f_wifiaf83`: WiFi sensor config file (default: "f_wifiaf89.json")
-  - `f_names2id`: Names to ID mapping file (default: "f_names2id.json")
-  - `t_update_timer`: Update interval in ms (default: "300000")
-  - `diff`: Temperature difference (default: "0")
-
-  Response:
+#### Update Operations
+- `POST /api/eta/update`: Updates ETA system values
   ```typescript
-  // Success (200 OK)
+  // Request body
   {
-    ...updatedConfig // Full updated configuration object
-  }
-
-  // Error (400 Bad Request)
-  {
-    "error": "Invalid config key" | "Value must be a string"
-  }
-
-  // Error (500 Internal Server Error)
-  {
-    "error": "Internal Server Error",
-    "message": string,
-    "type": string
+    "id": string,     // Parameter ID
+    "value": string,  // New value
+    "begin"?: string, // Optional start time (default: "0")
+    "end"?: string    // Optional end time (default: "0")
   }
   ```
 
-### Component Structure
+### Weather Data Endpoints
 
-- **ConfigData**: System configuration display
-- **EtaData**: ETA system data visualization
-- **WifiAf83Data**: Weather information display
+#### Read Operations
+- `GET /api/weather`: Retrieves weather data with optional date range
+  - Query params: `range` (e.g., "24h", "7d", "30d")
+- `GET /api/wifiaf83/read`: Gets current WiFi sensor data
+- `GET /api/wifiaf83/all`: Retrieves all available WiFi sensor data
 
-### Styling
+### Configuration Endpoints
 
-- Consistent table widths (400px)
-- Fixed column sizes (250px + 150px)
-- Responsive grid layout
-- Monospace fonts for values
-- Right-aligned numeric data
+#### Read Operations
+- `GET /api/config/read`: Retrieves current configuration
+- `GET /api/names2id/read`: Gets name-to-ID mappings
+
+#### Update Operations
+- `POST /api/config/update`: Updates configuration values
+  ```typescript
+  // Request body
+  {
+    "key": string,   // Configuration key
+    "value": string  // New value
+  }
+  ```
+- `POST /api/channelnames`: Updates channel names
+  ```typescript
+  // Request body
+  {
+    [channelId: string]: string  // Map of channel IDs to names
+  }
+  ```
+
+### System Status Endpoints
+
+- `GET /api/background/status`: Retrieves background service status
+- `GET /api/logs`: Fetches system logs
+- `GET /api/logs/[...path]`: Retrieves specific log files
+  - Path params: Supports nested paths for specific log files
+
+### Response Format
+
+All API endpoints follow a consistent response format:
+
+#### Success Response
+```typescript
+{
+  "success": true,
+  "data": {
+    // Response data specific to the endpoint
+  }
+}
+```
+
+#### Error Response
+```typescript
+{
+  "success": false,
+  "error": string  // Error message
+}
+```
+
+### Rate Limiting and Caching
+
+- Raw data endpoints implement 1-minute caching
+- Weather data is cached based on update intervals
+- Background sync prevents excessive API calls
+- Batch operations available for multiple data points
+
+### Error Handling
+
+All endpoints implement proper error handling with appropriate HTTP status codes:
+- 200: Successful operation
+- 400: Bad request (invalid parameters)
+- 404: Resource not found
+- 500: Internal server error
+
+## Screenshots and Features
+
+### Main Dashboard (M1-M3)
+![Main Dashboard Overview](public/screen/m1.png)
+*Main dashboard showing current temperature, humidity, and system status*
+
+![Temperature Control](public/screen/m2.png)
+*Temperature control interface with slider and current settings*
+
+![System Status](public/screen/m3.png)
+*Detailed system status indicators and controls*
+
+### Weather Graphs (W1-W2)
+![Weather Overview](public/screen/w1.png)
+*Comprehensive weather data visualization showing temperature, humidity, and pressure trends*
+
+![Channel Data](public/screen/w2.png)
+*Individual channel temperature and humidity data with interactive zoom*
+
+The weather graphs provide:
+- Real-time temperature, humidity, and pressure visualization
+- Interactive zooming and panning
+- Multiple time range options
+- Custom tooltips with detailed information
+- Zero-line indicators for temperature reference
+- Automatic scale adjustment
+- Channel-specific data views
+- Mobile-responsive design
+
+### Raw Data Interface (R1)
+![Raw Data View](public/screen/r1.png)
+*Structured view of raw ETA system data*
+
+The raw data interface features:
+- Hierarchical display of all ETA system parameters
+- Search functionality for both URIs and parameter names
+- Expandable/collapsible sections for better organization
+- Real-time data updates with 1-minute cache
+- Clear visualization of value types and units
+- Mobile-friendly responsive design
+- XML data parsing and structured display
+- Quick access to both raw and parsed values
+
+### Log Data (L1-L2)
+![Log Overview](public/screen/l1.png)
+*Log data overview with filtering options*
+
+![Detailed Logs](public/screen/l2.png)
+*Detailed log entries with timestamp and category information*
 
 ## Docker Usage
 
