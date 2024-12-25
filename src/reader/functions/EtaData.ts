@@ -11,7 +11,7 @@ export const fetchEtaData = async (
     const etaApi = new EtaApi(config[ConfigKeys.S_ETA]);
     const shortkeys = Object.values(EtaConstants);
     const data: EtaData = {};
-
+    console.log("Fetching all ETA data", names2id);
     await Promise.all(shortkeys.map(shortkey => prepareAndFetchGetUserVar(shortkey, data, names2id, etaApi)));
 
     return data;
@@ -65,7 +65,9 @@ export const parseXML = (content: string, shortkey: string, names2id: Names2Id |
 
 export const prepareAndFetchGetUserVar = async (shortkey: string, data: EtaData, names2id: Names2Id, etaApi: EtaApi): Promise<void> => {
     try {
+        console.log(`Fetching data for ${shortkey}`);
         const id = names2id[shortkey]?.['id'];
+
         if (!id) {
             throw new Error(`Keine ID gefunden für shortkey: ${shortkey}`);
         }
@@ -80,7 +82,7 @@ export const prepareAndFetchGetUserVar = async (shortkey: string, data: EtaData,
                 console.error(`Fehler beim Abrufen der Daten für ${shortkey}:`, error);
             })
             .finally(() => {
-                // console.log(`Fetched data for ${shortkey}`);
+                console.log(`Fetched data for ${shortkey}`);
             });
     } catch (error) {
         console.error(`Fehler beim Abrufen der Daten für ${shortkey}:`, error);

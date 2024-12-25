@@ -256,6 +256,7 @@ export async function getNames2Id(): Promise<Names2Id> {
     // If not in cache, read from file
     const names2idData = await fs.readFile(NAMES2ID_PATH, 'utf8');
     const names2id: Names2Id = JSON.parse(names2idData);
+    console.log("Fetched names2id", names2id);
 
     // Store in cache
     names2idCache.set(NAMES2ID_CACHE_KEY, names2id);
