@@ -71,9 +71,9 @@ Connect with Codeium:
 
 ## Technical Details
 
-- **Framework**: Next.js 15 with TypeScript
-- **State Management**: Redux with @reduxjs/toolkit
-- **UI Components**: React 19.0.0-rc.1
+- **Framework**: Next.js 15.0.3
+- **UI Components**: React 18.2.0
+- **State Management**: Redux with @reduxjs/toolkit 2.3.0
 - **Styling**: Tailwind CSS
 - **Server**: Custom Node.js server with background services
 - **Development**: 
@@ -530,7 +530,6 @@ tail -f ~/Library/Logs/etaweather-docker-compose.err
 - Uninstall the service:
 ```bash
 ./uninstall.sh
-```
 
 ## License
 
