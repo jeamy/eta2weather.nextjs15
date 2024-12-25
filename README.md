@@ -259,7 +259,7 @@ All endpoints implement proper error handling with appropriate HTTP status codes
 *Main dashboard showing current temperature, humidity, and system status*
 
 ![Temperature Control](public/screen/m2.png)
-*Temperature control interface with slider and current settings*
+*Temperature control interface with tabs and current settings*
 
 ![System Status](public/screen/m3.png)
 *Detailed system status indicators and controls*
