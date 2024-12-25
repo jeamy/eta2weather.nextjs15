@@ -82,7 +82,7 @@ export const prepareAndFetchGetUserVar = async (shortkey: string, data: EtaData,
                 console.error(`Fehler beim Abrufen der Daten für ${shortkey}:`, error);
             })
             .finally(() => {
-                console.log(`Fetched data for ${shortkey}`);
+                // console.log(`Fetched data for ${shortkey}`);
             });
     } catch (error) {
         console.error(`Fehler beim Abrufen der Daten für ${shortkey}:`, error);
