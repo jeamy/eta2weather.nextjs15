@@ -54,31 +54,31 @@ const EtaData: React.FC = () => {
     HT: { 
       short: Buttons.HT,
       long: 'Heizen Taste',
-      strValue: 'Aus',
+      strValue: EtaText.EIN,
       unit: ''
     },
     DT: { 
       short: Buttons.DT,
       long: 'Absenken Taste',
-      strValue: 'Aus',
+      strValue: EtaText.AUS,
       unit: ''
     },
     AA: { 
       short: Buttons.AA,
       long: 'Autotaste',
-      strValue: 'Ein', // Default to Ein when others are Aus
+      strValue: EtaText.EIN,
       unit: ''
     },
     GT: {
       short: Buttons.GT,
       long: 'Gehen Taste',
-      strValue: 'Aus',
+      strValue: EtaText.AUS,
       unit: ''
     },
     KT: {
       short: Buttons.KT,
       long: 'Kommen Taste',
-      strValue: 'Aus',
+      strValue: EtaText.AUS,
       unit: ''
     }
   };
@@ -204,11 +204,11 @@ const EtaData: React.FC = () => {
     
     // Reset all buttons to 'Aus' first
     Object.keys(newDisplayData).forEach(key => {
-      newDisplayData[key as keyof typeof displayData].strValue = 'Aus';
+      newDisplayData[key as keyof typeof displayData].strValue = EtaText.AUS;
     });
     
     // Set the clicked button to 'Ein'
-    newDisplayData[clickedButton].strValue = 'Ein';
+    newDisplayData[clickedButton].strValue = EtaText.EIN;
     
     setDisplayData(newDisplayData);
     
@@ -299,7 +299,7 @@ const EtaData: React.FC = () => {
         ...prevData,
         [key]: {
           ...prevData[key],
-          strValue: prevData[key].strValue === 'Ein' ? 'Aus' : 'Ein'
+          strValue: prevData[key].strValue === EtaText.EIN ? EtaText.AUS : EtaText.EIN
         }
       }));
 
@@ -445,8 +445,8 @@ const EtaData: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`font-mono ${
-                        value.strValue === 'Ein' ? 'text-green-500' : 
-                        value.strValue === 'Aus' ? 'text-red-500' : 
+                        value.strValue === EtaText.EIN ? 'text-green-500' : 
+                        value.strValue === EtaText.AUS ? 'text-red-500' : 
                         'text-black'
                       }`}>
                         {value.strValue}
@@ -458,15 +458,15 @@ const EtaData: React.FC = () => {
                           }
                         }}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                          value.strValue === 'Ein' ? 'bg-green-600' : 'bg-red-600'
+                          value.strValue === EtaText.EIN ? 'bg-green-600' : 'bg-red-600'
                         }`}
                         role="switch"
-                        aria-checked={value.strValue === 'Ein'}
+                        aria-checked={value.strValue === EtaText.EIN}
                       >
                         <span className="sr-only">Toggle {value.long}</span>
                         <span
                           className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            value.strValue === 'Ein' ? 'translate-x-6' : 'translate-x-1'
+                            value.strValue === EtaText.EIN ? 'translate-x-6' : 'translate-x-1'
                           }`}
                         />
                       </button>
