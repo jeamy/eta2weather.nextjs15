@@ -69,6 +69,50 @@ Connect with Codeium:
   - Weather station (WifiAf83) data retrieval
   - Real-time data updates
 
+## Pages and Features
+
+### Main Dashboard (/)
+The main dashboard provides a comprehensive overview of your heating and weather system:
+- Current indoor and outdoor temperatures
+- System status indicators
+- Quick access to essential controls
+- Tab-based navigation between different views:
+  - Temperature Control: Manage heating settings and view current status
+  - Weather Data: Display current weather station readings
+  - System Status: Monitor overall system health
+
+### Weather Graphs (/weather)
+Detailed weather visualization and analysis:
+- Interactive temperature and humidity graphs
+- Multiple time range options (24h, 7d, 30d)
+- Pressure trends and analysis
+- Channel-specific data views
+- Zoom and pan capabilities
+- Custom tooltips with detailed information
+- Auto-scaling axes
+- Mobile-responsive layout
+
+### Raw ETA Data (/raw-eta)
+Direct access to the ETA heating system's raw data:
+- Complete hierarchical view of all system parameters
+- Search functionality for both URIs and parameter names
+- Expandable/collapsible sections for better organization
+- Real-time data updates with 1-minute cache
+- XML data parsing with structured display
+- Quick access to both raw and parsed values
+- Mobile-optimized interface with menu below data on smaller screens
+
+### System Logs (/logs)
+Comprehensive logging system for monitoring and debugging:
+- Categorized log entries (System, ETA, Weather)
+- Time-stamped entries with severity levels
+- Filterable log views
+- Real-time log updates
+- Log file navigation and selection
+- Downloadable log files
+- Color-coded severity levels
+- Search functionality within logs
+
 ## Technical Details
 
 - **Framework**: Next.js 15.0.3
@@ -84,33 +128,107 @@ Connect with Codeium:
 ## Project Structure
 
 ```
-eta2weather.nextjs/
+eta2weather.nextjs15/
 ├── src/
-│   ├── app/                    # Next.js app pages
-│   │   ├── page.tsx           # Main application page
-│   │   ├── logs/              # Logging functionality
-│   │   └── layout.tsx         # App layout component
-│   ├── components/            # React components
-│   │   ├── BackgroundSync.tsx # Background data sync
-│   │   ├── ConfigData.tsx     # Configuration display
-│   │   ├── EtaData.tsx       # ETA system data
-│   │   ├── Header.tsx        # App header with navigation
-│   │   ├── MenuPopup.tsx     # Navigation menu
-│   │   ├── Names2IdData.tsx  # Name mapping component
-│   │   ├── StoreProvider.tsx # Redux store provider
-│   │   └── WifiAf83Data.tsx  # Weather station data
-│   ├── reader/               # Data processing & API
-│   │   └── functions/
-│   │       ├── EtaApi.tsx    # ETA system API
-│   │       ├── SetEta.tsx    # ETA control functions
-│   │       ├── WifiAf83Api.tsx # Weather station API
+│   ├── app/                    # Next.js app pages and API routes
+│   │   ├── api/               # API endpoints
+│   │   │   ├── background/    # Background service endpoints
+│   │   │   ├── config/       # Configuration endpoints
+│   │   │   ├── eta/         # ETA system endpoints
+│   │   │   ├── logs/        # Logging endpoints
+│   │   │   ├── weather/     # Weather data endpoints
+│   │   │   └── wifiaf83/    # WiFi sensor endpoints
+│   │   ├── fonts/           # Custom fonts (Geist, GeistMono)
+│   │   ├── logs/            # Logs page component
+│   │   ├── raw-eta/         # Raw ETA data page
+│   │   ├── weather/         # Weather graphs page
+│   │   ├── globals.css      # Global styles
+│   │   ├── layout.tsx       # Root layout component
+│   │   └── page.tsx         # Main dashboard page
+│   ├── components/          # React components
+│   │   ├── BackgroundSync   # Background data synchronization
+│   │   ├── ConfigData       # Configuration management
+│   │   ├── EtaData         # ETA system interface
+│   │   ├── Header          # App navigation header
+│   │   ├── MenuPopup       # Navigation menu
+│   │   ├── Names2IdData    # Name mapping interface
+│   │   └── WifiAf83Data    # Weather station interface
+│   ├── config/             # Configuration files
+│   │   ├── f_eta.json      # ETA system config
+│   │   ├── f_etacfg.json   # General config
+│   │   ├── f_etamenu.json  # ETA menu structure
+│   │   ├── f_names2id.json # Name to ID mappings
+│   │   └── f_wifiaf89.json # WiFi sensor config
+│   ├── hooks/              # Custom React hooks
+│   │   └── useEtaData      # ETA data management hook
+│   ├── lib/                # Core libraries
+│   │   └── backgroundService # Background processing service
+│   ├── reader/             # Data processing & API
+│   │   └── functions/      # Core functionality
+│   │       ├── EtaApi      # ETA system API client
+│   │       ├── SetEta      # ETA control functions
+│   │       ├── WifiAf83Api # Weather station API
 │   │       └── types-constants/ # Type definitions
-│   └── redux/                # State management
-│       ├── configSlice.tsx   # Configuration state
-│       ├── dataSlice.tsx     # Data management
-│       ├── etaSlice.tsx      # ETA system state
-│       └── wifiAf83Slice.tsx # Weather data state
+│   └── redux/              # State management
+│       ├── configSlice     # Configuration state
+│       ├── dataSlice      # Data management
+│       ├── etaSlice       # ETA system state
+│       └── wifiAf83Slice  # Weather data state
+├── public/                # Static files
+│   └── screen/           # Screenshot images
+├── linux/                # Linux service files
+└── windows/              # Windows service files
 ```
+
+## Screenshots and Features
+
+### Main Dashboard (M1-M3)
+![Main Dashboard Overview](public/screen/m1.png)
+*Main dashboard showing current temperature, humidity, and system status*
+
+![Temperature Control](public/screen/m2.png)
+*Temperature control interface with tabs and current settings*
+
+![System Status](public/screen/m3.png)
+*Detailed system status indicators and controls*
+
+### Weather Graphs (W1-W2)
+![Weather Overview](public/screen/w1.png)
+*Comprehensive weather data visualization showing temperature, humidity, and pressure trends*
+
+![Channel Data](public/screen/w2.png)
+*Individual channel temperature and humidity data with interactive zoom*
+
+The weather graphs provide:
+- Real-time temperature, humidity, and pressure visualization
+- Interactive zooming and panning
+- Multiple time range options
+- Custom tooltips with detailed information
+- Zero-line indicators for temperature reference
+- Automatic scale adjustment
+- Channel-specific data views
+- Mobile-responsive design
+
+### Raw Data Interface (R1)
+![Raw Data View](public/screen/r1.png)
+*Structured view of raw ETA system data*
+
+The raw data interface features:
+- Hierarchical display of all ETA system parameters
+- Search functionality for both URIs and parameter names
+- Expandable/collapsible sections for better organization
+- Real-time data updates with 1-minute cache
+- Clear visualization of value types and units
+- Mobile-friendly responsive design
+- XML data parsing and structured display
+- Quick access to both raw and parsed values
+
+### Log Data (L1-L2)
+![Log Overview](public/screen/l1.png)
+*Log data overview with filtering options*
+
+![Detailed Logs](public/screen/l2.png)
+*Detailed log entries with timestamp and category information*
 
 ## Setup and Installation
 
@@ -252,55 +370,75 @@ All endpoints implement proper error handling with appropriate HTTP status codes
 - 404: Resource not found
 - 500: Internal server error
 
-## Screenshots and Features
+## Automatic Startup with systemd
 
-### Main Dashboard (M1-M3)
-![Main Dashboard Overview](public/screen/m1.png)
-*Main dashboard showing current temperature, humidity, and system status*
+A systemd service file is provided in the `linux` directory to automatically start the application on system boot.
 
-![Temperature Control](public/screen/m2.png)
-*Temperature control interface with tabs and current settings*
+### Important: File Path Configuration
 
-![System Status](public/screen/m3.png)
-*Detailed system status indicators and controls*
+Before installing the service, ensure you update the file paths in the startup scripts to match your system:
 
-### Weather Graphs (W1-W2)
-![Weather Overview](public/screen/w1.png)
-*Comprehensive weather data visualization showing temperature, humidity, and pressure trends*
+1. Edit `linux/eta2weather.service`:
+   ```ini
+   [Service]
+   # Update these paths to match your installation
+   WorkingDirectory=/path/to/your/eta2weather.nextjs15
+   ExecStart=/usr/bin/npm start
+   ```
 
-![Channel Data](public/screen/w2.png)
-*Individual channel temperature and humidity data with interactive zoom*
+2. Edit `install.sh` and `uninstall.sh`:
+   ```bash
+   # Update the SOURCE_DIR to match your installation path
+   SOURCE_DIR="/path/to/your/eta2weather.nextjs15"
+   ```
 
-The weather graphs provide:
-- Real-time temperature, humidity, and pressure visualization
-- Interactive zooming and panning
-- Multiple time range options
-- Custom tooltips with detailed information
-- Zero-line indicators for temperature reference
-- Automatic scale adjustment
-- Channel-specific data views
-- Mobile-responsive design
+### Installation Steps
 
-### Raw Data Interface (R1)
-![Raw Data View](public/screen/r1.png)
-*Structured view of raw ETA system data*
+1. Make the scripts executable:
+```bash
+chmod +x install.sh uninstall.sh
+```
 
-The raw data interface features:
-- Hierarchical display of all ETA system parameters
-- Search functionality for both URIs and parameter names
-- Expandable/collapsible sections for better organization
-- Real-time data updates with 1-minute cache
-- Clear visualization of value types and units
-- Mobile-friendly responsive design
-- XML data parsing and structured display
-- Quick access to both raw and parsed values
+2. Update file paths in the service file and scripts as described above.
 
-### Log Data (L1-L2)
-![Log Overview](public/screen/l1.png)
-*Log data overview with filtering options*
+3. Install the service:
+```bash
+./install.sh
+```
 
-![Detailed Logs](public/screen/l2.png)
-*Detailed log entries with timestamp and category information*
+The service will now start automatically on system boot.
+
+### Service Management
+
+- Check service status:
+```bash
+systemctl status eta2weather
+```
+
+- Start the service:
+```bash
+systemctl start eta2weather
+```
+
+- Stop the service:
+```bash
+systemctl stop eta2weather
+```
+
+- Restart the service:
+```bash
+systemctl restart eta2weather
+```
+
+- View service logs:
+```bash
+journalctl -u eta2weather
+```
+
+- Uninstall the service:
+```bash
+./uninstall.sh
+```
 
 ## Docker Usage
 
@@ -393,37 +531,6 @@ Note: The Docker build process will include your configured `.env` and `eco.tsx`
 ### Configuration
 - Updated configuration handling to support new API parameters
 - Improved error handling for configuration loading
-
-## Automatic Startup with systemd
-
-A systemd service file is provided in the `linux` directory to automatically start the application on system boot.
-
-To set up automatic startup:
-
-1. Copy the service file to systemd:
-```bash
-sudo cp linux/docker-compose-app.service /etc/systemd/system/
-```
-
-2. Reload the systemd daemon:
-```bash
-sudo systemctl daemon-reload
-```
-
-3. Enable the service to start on boot:
-```bash
-sudo systemctl enable docker-compose-app.service
-```
-
-4. Start the service immediately (optional):
-```bash
-sudo systemctl start docker-compose-app.service
-```
-
-You can check the status of the service at any time with:
-```bash
-sudo systemctl status docker-compose-app.service
-```
 
 ## Automatic Startup on Windows
 
