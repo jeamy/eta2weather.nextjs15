@@ -177,7 +177,8 @@ eta2weather.nextjs15/
 ├── public/                # Static files
 │   └── screen/           # Screenshot images
 ├── linux/                # Linux service files
-└── windows/              # Windows service files
+├── windows/              # Windows service files
+└── macos/                # macOS service files
 ```
 
 ## Screenshots and Features
