@@ -371,76 +371,6 @@ All endpoints implement proper error handling with appropriate HTTP status codes
 - 404: Resource not found
 - 500: Internal server error
 
-## Automatic Startup with systemd
-
-A systemd service file is provided in the `linux` directory to automatically start the application on system boot.
-
-### Important: File Path Configuration
-
-Before installing the service, ensure you update the file paths in the startup scripts to match your system:
-
-1. Edit `linux/eta2weather.service`:
-   ```ini
-   [Service]
-   # Update these paths to match your installation
-   WorkingDirectory=/path/to/your/eta2weather.nextjs15
-   ExecStart=/usr/bin/npm start
-   ```
-
-2. Edit `install.sh` and `uninstall.sh`:
-   ```bash
-   # Update the SOURCE_DIR to match your installation path
-   SOURCE_DIR="/path/to/your/eta2weather.nextjs15"
-   ```
-
-### Installation Steps
-
-1. Make the scripts executable:
-```bash
-chmod +x install.sh uninstall.sh
-```
-
-2. Update file paths in the service file and scripts as described above.
-
-3. Install the service:
-```bash
-./install.sh
-```
-
-The service will now start automatically on system boot.
-
-### Service Management
-
-- Check service status:
-```bash
-systemctl status eta2weather
-```
-
-- Start the service:
-```bash
-systemctl start eta2weather
-```
-
-- Stop the service:
-```bash
-systemctl stop eta2weather
-```
-
-- Restart the service:
-```bash
-systemctl restart eta2weather
-```
-
-- View service logs:
-```bash
-journalctl -u eta2weather
-```
-
-- Uninstall the service:
-```bash
-./uninstall.sh
-```
-
 ## Docker Usage
 
 ### Prerequisites
@@ -532,6 +462,76 @@ Note: The Docker build process will include your configured `.env` and `eco.tsx`
 ### Configuration
 - Updated configuration handling to support new API parameters
 - Improved error handling for configuration loading
+
+## Automatic Startup with systemd
+
+A systemd service file is provided in the `linux` directory to automatically start the application on system boot.
+
+### Important: File Path Configuration
+
+Before installing the service, ensure you update the file paths in the startup scripts to match your system:
+
+1. Edit `linux/eta2weather.service`:
+   ```ini
+   [Service]
+   # Update these paths to match your installation
+   WorkingDirectory=/path/to/your/eta2weather.nextjs15
+   ExecStart=/usr/bin/npm start
+   ```
+
+2. Edit `install.sh` and `uninstall.sh`:
+   ```bash
+   # Update the SOURCE_DIR to match your installation path
+   SOURCE_DIR="/path/to/your/eta2weather.nextjs15"
+   ```
+
+### Installation Steps
+
+1. Make the scripts executable:
+```bash
+chmod +x install.sh uninstall.sh
+```
+
+2. Update file paths in the service file and scripts as described above.
+
+3. Install the service:
+```bash
+./install.sh
+```
+
+The service will now start automatically on system boot.
+
+### Service Management
+
+- Check service status:
+```bash
+systemctl status eta2weather
+```
+
+- Start the service:
+```bash
+systemctl start eta2weather
+```
+
+- Stop the service:
+```bash
+systemctl stop eta2weather
+```
+
+- Restart the service:
+```bash
+systemctl restart eta2weather
+```
+
+- View service logs:
+```bash
+journalctl -u eta2weather
+```
+
+- Uninstall the service:
+```bash
+./uninstall.sh
+```
 
 ## Automatic Startup on Windows
 
