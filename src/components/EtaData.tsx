@@ -225,20 +225,6 @@ const EtaData: React.FC = () => {
         throw new Error(`Button ID not found for ${clickedButton}`);
       }
 
-      // Set clicked button to Ein (1803)
-      await fetch('/api/eta/update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: buttonIds[clickedButton],
-          value: EtaPos.EIN,
-          begin: "0",
-          end: "0"
-        })
-      });
-      
       // Set other buttons to Aus (1802)
       const otherButtons = Object.keys(buttonIds).filter(key => key !== clickedButton) as Array<Buttons>;
       await Promise.all(otherButtons.map(button => 
@@ -255,6 +241,21 @@ const EtaData: React.FC = () => {
           })
         })
       ));
+
+      // Set clicked button to Ein (1803)
+      await fetch('/api/eta/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: buttonIds[clickedButton],
+          value: EtaPos.EIN,
+          begin: "0",
+          end: "0"
+        })
+      });
+
     } catch (error) {
       console.error('Error updating button state:', error);
     }
