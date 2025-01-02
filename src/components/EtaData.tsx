@@ -13,6 +13,8 @@ import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types
 import Image from 'next/image';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
+import { calculateMinTempDiff } from '@/utils/Functions';
+
 enum Buttons {
   HT = 'HT',
   KT = 'KT',
@@ -43,18 +45,20 @@ const EtaData: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
   const config = useSelector((state: RootState) => state.config.data);
   const etaState = useSelector((state: RootState) => state.eta);
+  const wifiState = useSelector((state: RootState) => state.wifiAf83);
   const [loadingState, setLoadingState] = useState({ isLoading: true, error: '' });
   const isFirstLoad = useRef(true);
   const intervalId = useRef<NodeJS.Timeout | null>(null);
   const lastApiCall = useRef<number>(0);
   const etaApiRef = useRef<EtaApi | null>(null);
+  const lastActiveButton = useRef<Buttons | null>(null);
 
   // Create default values for each switch
   const defaultValues: Record<Buttons, DisplayEtaValue> = {
     HT: { 
       short: Buttons.HT,
       long: 'Heizen Taste',
-      strValue: EtaText.EIN,
+      strValue: EtaText.AUS,
       unit: ''
     },
     DT: { 
@@ -199,7 +203,12 @@ const EtaData: React.FC = () => {
     updateDisplayData();
   }, [etaState.data]);
 
-  const handleButtonClick = async (clickedButton: Buttons) => {
+  const updateButtonStates = useCallback(async (activeButton: Buttons) => {
+    // Skip if this button is already active
+    if (lastActiveButton.current === activeButton) {
+      return;
+    }
+    
     const newDisplayData = { ...displayData };
     
     // Reset all buttons to 'Aus' first
@@ -207,10 +216,11 @@ const EtaData: React.FC = () => {
       newDisplayData[key as keyof typeof displayData].strValue = EtaText.AUS;
     });
     
-    // Set the clicked button to 'Ein'
-    newDisplayData[clickedButton].strValue = EtaText.EIN;
+    // Set the active button to 'Ein'
+    newDisplayData[activeButton].strValue = EtaText.EIN;
     
     setDisplayData(newDisplayData);
+    lastActiveButton.current = activeButton;
     
     try {
       // Find button IDs from state data
@@ -221,12 +231,12 @@ const EtaData: React.FC = () => {
         }
       });
 
-      if (!buttonIds[clickedButton]) {
-        throw new Error(`Button ID not found for ${clickedButton}`);
+      if (!buttonIds[activeButton]) {
+        throw new Error(`Button ID not found for ${activeButton}`);
       }
 
       // Set other buttons to Aus (1802)
-      const otherButtons = Object.keys(buttonIds).filter(key => key !== clickedButton) as Array<Buttons>;
+      const otherButtons = Object.keys(buttonIds).filter(key => key !== activeButton) as Array<Buttons>;
       await Promise.all(otherButtons.map(button => 
         fetch('/api/eta/update', {
           method: 'POST',
@@ -242,14 +252,14 @@ const EtaData: React.FC = () => {
         })
       ));
 
-      // Set clicked button to Ein (1803)
+      // Set active button to Ein (1803)
       await fetch('/api/eta/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: buttonIds[clickedButton],
+          id: buttonIds[activeButton],
           value: EtaPos.EIN,
           begin: "0",
           end: "0"
@@ -258,10 +268,36 @@ const EtaData: React.FC = () => {
 
     } catch (error) {
       console.error('Error updating button state:', error);
+      lastActiveButton.current = null; // Reset on error to allow retry
     }
-  };
+  }, [displayData, etaState.data]);
 
-  // Timer effect
+  useEffect(() => {
+    const checkTemperature = async () => {
+      if (wifiState.data && config.t_min) {
+        const indoorTemp = wifiState.data.indoorTemperature;
+        const minTemp = Number(config.t_min);
+        
+        if (!isNaN(indoorTemp) && !isNaN(minTemp)) {
+          const tempDiff = minTemp - indoorTemp;
+          const targetButton = tempDiff > 0 ? Buttons.KT : Buttons.AA;
+          
+          // Only update if the target button is different from current
+          if (lastActiveButton.current !== targetButton) {
+            await updateButtonStates(targetButton);
+          }
+        }
+      }
+    };
+
+    checkTemperature();
+  }, [config.t_min, wifiState.data, updateButtonStates]);
+
+  const handleButtonClick = useCallback(async (clickedButton: Buttons) => {
+    await updateButtonStates(clickedButton);
+  }, [updateButtonStates]);
+
+  // Timer effect for periodic data updates
   useEffect(() => {
     const updateTimer = parseInt(config.t_update_timer) || DEFAULT_UPDATE_TIMER;
     
@@ -287,38 +323,10 @@ const EtaData: React.FC = () => {
     };
   }, [loadAndStoreEta, config.t_update_timer]);
 
-  type HeatingKey = Buttons;
-
-  const isHeatingKey = (key: string): key is HeatingKey => {
-    return Object.values(Buttons).includes(key as Buttons);
-  };
-
-  const handleToggle = useCallback(async (key: HeatingKey) => {
-    try {
-      // Toggle the switch state immediately for better UX
-      setDisplayData(prevData => ({
-        ...prevData,
-        [key]: {
-          ...prevData[key],
-          strValue: prevData[key].strValue === EtaText.EIN ? EtaText.AUS : EtaText.EIN
-        }
-      }));
-
-      // Delay the API call slightly to prevent rapid toggling
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Make the API call
-      await loadAndStoreEta();
-      
-    } catch (error) {
-      console.warn(`Error toggling ${key}:`, error);
-    }
-  }, [loadAndStoreEta]);
-
   if (loadingState.isLoading) {
     return (
       <div className="flex items-center justify-center p-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
         <span className="ml-2 text-gray-600">Loading ETA data...</span>
       </div>
     );
@@ -411,13 +419,13 @@ const EtaData: React.FC = () => {
                       <span className={`font-mono ${
                         value.short === 'SP' 
                           ? Number(value.strValue) > 0 
-                            ? 'text-green-600' 
+                            ? 'text-black' 
                             : Number(value.strValue) < 0 
                               ? 'text-blue-600' 
                               : 'text-black'
                           : value.short === 'AT' || value.unit === '°C'
                             ? Number(value.strValue) > 0
-                              ? 'text-green-600'
+                              ? 'text-black'
                               : Number(value.strValue) < 0
                                 ? 'text-blue-600'
                                 : 'text-black'
@@ -487,6 +495,12 @@ const EtaData: React.FC = () => {
       )}
     </div>
   );
+};
+
+type HeatingKey = Buttons;
+
+const isHeatingKey = (key: string): key is HeatingKey => {
+  return Object.values(Buttons).includes(key as Buttons);
 };
 
 export default EtaData;
