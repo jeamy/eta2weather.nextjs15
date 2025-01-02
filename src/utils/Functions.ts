@@ -9,6 +9,7 @@ type EtaValues = {
     einaus: string;
     schaltzustand: string;
     heizentaste: string;
+    kommentaste: string;
     tes: number;
     tea: number;
 };
@@ -19,7 +20,7 @@ type TempDiff = {
     twi: number;
 };
 
-export function calculateNewSliderPosition({ einaus, schaltzustand, heizentaste }: EtaValues, diff: number): string {
+export function calculateNewSliderPosition({ einaus, schaltzustand, heizentaste, kommentaste }: EtaValues, diff: number): string {
 
     //    console.log(`
     //      Einaus: ${einaus}
@@ -27,7 +28,7 @@ export function calculateNewSliderPosition({ einaus, schaltzustand, heizentaste 
     //      Kommenttaste: ${kommenttaste}
     //      Diff: ${diff}
     //    `);
-    return (einaus === "Aus" || (schaltzustand === "Aus" && heizentaste === "Aus"))
+    return (einaus === "Aus" || (schaltzustand === "Aus" && (heizentaste === "Aus" || kommentaste === "Aus")))
         ? "0.0"
         : new Diff().getDiff(diff, 1.25, 5.0, 0.0, 100.0).toString();
 }
@@ -131,12 +132,16 @@ export async function updateHeating(
     ht: number,
     auto: number,
     ab: number,
+    kom: number,
+    ge: number,
     names2id: Names2Id,
     etaApi: EtaApi,
 ): Promise<{ success: boolean; error?: string }> {
     // Set the new position
     const idht = names2id[EtaConstants.HEIZENTASTE]?.['id'];
+    const idkom = names2id[EtaConstants.KOMMENTASTE]?.['id'];
     const idauto = names2id[EtaConstants.AUTOTASTE]?.['id'];
+    const idge = names2id[EtaConstants.GEHENTASTE]?.['id'];
     const idab = names2id[EtaConstants.ABSENKTASTE]?.['id'];
 
     if (!idht) {
@@ -145,10 +150,22 @@ export async function updateHeating(
             error: `Keine ID gefunden für shortkey: ${EtaConstants.HEIZENTASTE}`
         };
     }
+    if (!idkom) {
+        return {
+            success: false,
+            error: `Keine ID gefunden für shortkey: ${EtaConstants.KOMMENTASTE}`
+        };
+    }
     if (!idauto) {
         return {
             success: false,
             error: `Keine ID gefunden für shortkey: ${EtaConstants.AUTOTASTE}`
+        };
+    }
+    if (!idge) {
+        return {
+            success: false,
+            error: `Keine ID gefunden für shortkey: ${EtaConstants.GEHENTASTE}`
         };
     }
     if (!idab) {
@@ -162,6 +179,8 @@ export async function updateHeating(
       ht: ${ht} ${names2id[EtaConstants.HEIZENTASTE]?.['id']}
       auto: ${auto} ${names2id[EtaConstants.AUTOTASTE]?.['id']}
       ab: ${ab} ${names2id[EtaConstants.ABSENKTASTE]?.['id']}
+      kom: ${kom} ${names2id[EtaConstants.KOMMENTASTE]?.['id']}
+      ge: ${ge} ${names2id[EtaConstants.GEHENTASTE]?.['id']}
     `);
 
     try {
@@ -184,6 +203,24 @@ export async function updateHeating(
             throw new Error(error.error || 'Failed to update heating position');
         }
 
+        const rkom = await fetch('/api/eta/update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                id: idkom,
+                value: kom == 1 ? EtaPos.EIN : EtaPos.AUS,
+                begin: "0",
+                end: "0"
+            })
+        });
+
+        if (!rkom.ok) {
+            const error = await rkom.json();
+            throw new Error(error.error || 'Failed to update kommen position');
+        }
+
         const rauto = await fetch('/api/eta/update', {
             method: 'POST',
             headers: {
@@ -200,6 +237,24 @@ export async function updateHeating(
         if (!rauto.ok) {
             const error = await rauto.json();
             throw new Error(error.error || 'Failed to update auto position');
+        }
+
+        const rge = await fetch('/api/eta/update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                id: idge,
+                value: ge == 1 ? EtaPos.EIN : EtaPos.AUS,
+                begin: "0",
+                end: "0"
+            })
+        });
+
+        if (!rge.ok) {
+            const error = await rge.json();
+            throw new Error(error.error || 'Failed to update gehen position');
         }
 
         const rab = await fetch('/api/eta/update', {
@@ -230,5 +285,4 @@ export async function updateHeating(
             error: error instanceof Error ? error.message : String(error)
         };
     }
-
 }
