@@ -12,7 +12,8 @@ import { DEFAULT_UPDATE_TIMER } from './types-constants/TimerConstants';
 type EtaValues = {
   einaus: string;
   schaltzustand: string;
-  kommenttaste: string;
+  kommentaste: string;
+  heizentaste: string;
   tes: number;
   tea: number;
 };
@@ -72,7 +73,8 @@ export class SetEta {
     return {
       einaus: getValue(EtaConstants.EIN_AUS_TASTE),
       schaltzustand: getValue(EtaConstants.SCHALTZUSTAND),
-      kommenttaste: getValue(EtaConstants.HEIZENTASTE),
+      kommentaste: getValue(EtaConstants.HEIZENTASTE),
+      heizentaste: getValue(EtaConstants.HEIZENTASTE),
       tes: Number(getValue(EtaConstants.SCHIEBERPOS)),
       tea: Number(getValue(EtaConstants.AUSSENTEMP))
     };
@@ -92,8 +94,8 @@ export class SetEta {
     return { diff: Number(diff.toFixed(1)), twa, twi };
   }
 
-  private calculateNewSliderPosition({ einaus, schaltzustand, kommenttaste }: EtaValues, diff: number): string {
-    return (einaus === "Aus" || (schaltzustand === "Aus" && kommenttaste === "Aus"))
+  private calculateNewSliderPosition({ einaus, schaltzustand, kommentaste, heizentaste }: EtaValues, diff: number): string {
+    return (einaus === "Aus" || (schaltzustand === "Aus" && (kommentaste === "Aus" || heizentaste === "Aus")))
       ? "0.0"
       : new Diff().getDiff(diff, 1.25, 5.0, 0.0, 100.0).toString();
   }
