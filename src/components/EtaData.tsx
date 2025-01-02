@@ -414,10 +414,12 @@ const EtaData: React.FC = () => {
                             : Number(value.strValue) < 0 
                               ? 'text-blue-600' 
                               : 'text-black'
-                          : value.short === 'AT'
-                            ? Number(value.strValue) < 0
-                              ? 'text-blue-500'
-                              : 'text-green-500'
+                          : value.short === 'AT' || value.unit === '°C'
+                            ? Number(value.strValue) > 0
+                              ? 'text-green-600'
+                              : Number(value.strValue) < 0
+                                ? 'text-blue-600'
+                                : 'text-black'
                             : 'text-black'
                       }`}>
                         {value.strValue}

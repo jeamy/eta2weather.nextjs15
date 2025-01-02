@@ -417,6 +417,7 @@ const ConfigData: React.FC = () => {
             <div className="space-y-4 text-sm sm:text-base">
                 {renderEditableValue(ConfigKeys.T_SOLL, 'Solltemperatur', 10, 25, 0.5, '°C')}
                 {renderEditableValue(ConfigKeys.T_DELTA, 'Deltatemperatur', -5, 5, 0.5, '°C')}
+                {renderEditableValue(ConfigKeys.T_MIN, 'Minimumtemperatur', 10, 25, 0.5, '°C')}
                 {renderEditableValue(
                     ConfigKeys.T_UPDATE_TIMER,
                     'Updates',

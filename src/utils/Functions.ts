@@ -61,6 +61,15 @@ export function calculateTemperatureDiff(config: ConfigState, wifiAf83Data: Wifi
     return { diff: Number(diff.toFixed(1)), twa, twi };
 }
 
+export function calculateMinTempDiff(indoorTemp: number, minTemp: string): number {
+    const minTempNum = Number(minTemp);
+    if (isNaN(minTempNum) || isNaN(indoorTemp)) {
+        console.error('Invalid temperature values:', { indoorTemp, minTemp });
+        return 0;
+    }
+    return Number((indoorTemp - minTempNum).toFixed(1));
+}
+
 export interface EtaApiInterface {
     setUserVar: (id: string, value: string, flags: string, index: string) => Promise<void>;
 }

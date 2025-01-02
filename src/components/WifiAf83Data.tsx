@@ -7,7 +7,7 @@ import { ConfigState } from '@/redux/configSlice';
 import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
-import { calculateTemperatureDiff, calculateNewSliderPosition } from '@/utils/Functions';
+import { calculateTemperatureDiff, calculateNewSliderPosition, calculateMinTempDiff } from '@/utils/Functions';
 import { storeData } from '@/redux/configSlice';
 import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
@@ -275,7 +275,7 @@ const WifiAf83Data: React.FC = () => {
             </div>
             {config.data[ConfigKeys.DIFF] && (
               <div className="flex justify-between items-center">
-                <span className="font-medium">Diff Soll/Indoor:</span>
+                <span className="font-medium">Diff Indoor/Soll:</span>
                 <span className={`font-mono ${
                   Number(config.data[ConfigKeys.DIFF]) > 0 
                     ? 'text-green-600' 
@@ -286,6 +286,20 @@ const WifiAf83Data: React.FC = () => {
                   {Number(config.data[ConfigKeys.DIFF]).toFixed(1)}°C
                 </span>
               </div>
+            )}
+            {config.data[ConfigKeys.T_MIN] && (
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Diff Min/Indoor:</span>
+              <span className={`font-mono ${
+                calculateMinTempDiff(wifiData.indoorTemperature, config.data[ConfigKeys.T_MIN]) > 0 
+                  ? 'text-green-600' 
+                  : calculateMinTempDiff(wifiData.indoorTemperature, config.data[ConfigKeys.T_MIN]) < 0 
+                    ? 'text-blue-600' 
+                    : 'text-black'
+              }`}>
+                {calculateMinTempDiff(wifiData.indoorTemperature, config.data[ConfigKeys.T_MIN])}°C
+              </span>
+            </div>
             )}
           </div>
         </div>
