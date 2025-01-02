@@ -8,6 +8,7 @@
   "f_names2id": "f_names2id.json",
   "t_update_timer": "180000",
   "diff": "4.1",
+  "t_min": "19",
   "channelNames": {
     "CH1": "VK",
     "CH2": "KU",

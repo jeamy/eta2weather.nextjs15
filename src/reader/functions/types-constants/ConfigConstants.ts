@@ -9,6 +9,7 @@ export type Config = {
     [ConfigKeys.F_NAMES2ID]: string;
     [ConfigKeys.T_UPDATE_TIMER]: string;
     [ConfigKeys.DIFF]: string;
+    [ConfigKeys.T_MIN]: string;
     [ConfigKeys.CHANNEL_NAMES]: {
         [key: string]: string;
     };
@@ -25,6 +26,7 @@ export enum ConfigKeys {
     F_NAMES2ID = 'f_names2id',
     T_UPDATE_TIMER = 't_update_timer',
     DIFF = 'diff',
+    T_MIN = 't_min',
     CHANNEL_NAMES = 'channelNames'
 }
 
@@ -38,6 +40,7 @@ export const defaultConfig: Config = {
     [ConfigKeys.F_NAMES2ID]: 'f_names2id.json',
     [ConfigKeys.T_UPDATE_TIMER]: '300000',
     [ConfigKeys.DIFF]: '0',
+    [ConfigKeys.T_MIN]: '16',
     [ConfigKeys.CHANNEL_NAMES]: {
         'CH1': 'Channel 1',
         'CH2': 'Channel 2',
