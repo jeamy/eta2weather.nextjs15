@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     // Read current config
     const data = await fs.readFile(configFilePath, 'utf-8');
     let config: Config = JSON.parse(data);
-    console.log("Current config:", config);    
+    // console.log("Current config:", config);    
     // Get update data from request body
     const { key, value } = await request.json();
     
