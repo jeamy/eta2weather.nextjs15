@@ -18,6 +18,7 @@ import { EtaApi } from '@/reader/functions/EtaApi';
 import { calculateTemperatureDiff, calculateNewSliderPosition, updateSliderPosition } from '@/utils/Functions';
 import { getAllUris } from '@/utils/etaUtils';
 import { MenuNode } from '@/types/menu';
+import { EtaPos } from '@/reader/functions/types-constants/EtaConstants';
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
 
@@ -244,14 +245,91 @@ class BackgroundService {
     try {
       const state = store.getState();
       const etaState = state.eta;
-      const config = state.config;
+      const config = state.config.data;
 
-      if (!config || !wifiData || !etaState) {
+      if (!config || !wifiData || !etaState?.data) {
         return;
       }
 
+      // Calculate temperature difference
+      const indoorTemp = wifiData.indoorTemperature;
+      const minTemp = Number(config.t_min);
+
+      if (!isNaN(indoorTemp) && !isNaN(minTemp)) {
+        const tempDiff = minTemp - indoorTemp;
+        console.log(`${this.getTimestamp()} Temperature difference: ${tempDiff}°C (min: ${minTemp}°C, indoor: ${indoorTemp}°C)`);
+
+        // Get all button IDs
+        const buttonIds = {
+          ht: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
+          kt: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
+          aa: defaultNames2Id[EtaConstants.AUTOTASTE].id,
+          gt: defaultNames2Id[EtaConstants.GEHENTASTE].id,
+          dt: defaultNames2Id[EtaConstants.ABSENKTASTE].id
+        };
+
+        // Verify all button IDs exist
+        if (!Object.values(buttonIds).every(id => id)) {
+          console.error(`${this.getTimestamp()} Some button IDs not found`);
+          return;
+        }
+
+        // Determine target button based on temperature
+        let targetButton: string;
+        if (tempDiff > 0) {
+          targetButton = buttonIds.kt; // Activate Kommen when below min temp
+        } else {
+          targetButton = buttonIds.aa; // Activate Auto when at or above min temp
+        }
+
+        try {
+          // Set all other buttons to Aus
+          const updates = Object.values(buttonIds)
+            .filter(id => id !== targetButton)
+            .map(id => 
+              fetch('/api/eta/update', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  id: id,
+                  value: EtaPos.AUS,
+                  begin: "0",
+                  end: "0"
+                })
+              })
+            );
+
+          await Promise.all(updates);
+
+          // Set target button to Ein
+          await fetch('/api/eta/update', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              id: targetButton,
+              value: EtaPos.EIN,
+              begin: "0",
+              end: "0"
+            })
+          });
+
+          console.log(`${this.getTimestamp()} Updated all button states (${tempDiff > 0 ? 'KT' : 'AA'} activated)`);
+        } catch (error) {
+          console.error(`${this.getTimestamp()} Error updating button states:`, error);
+        }
+      }
+
+      // Continue with existing temperature diff logic
       console.log(`${this.getTimestamp()} Updating temperature diff...`);
-      const { diff: numericDiff } = calculateTemperatureDiff(config, { 
+      const { diff: numericDiff } = calculateTemperatureDiff({
+        data: config,
+        loadingState: { isLoading: false, error: null },
+        isInitialized: true
+      }, { 
         data: wifiData,
         loadingState: { isLoading: false, error: null }
       });
@@ -260,7 +338,7 @@ class BackgroundService {
         console.log(`${this.getTimestamp()} Numeric diff: ${numericDiff}`);
         const newDiffValue = numericDiff.toString();
         // Only update if the diff value has changed
-        if (newDiffValue !== config.data[ConfigKeys.DIFF]) {
+        if (newDiffValue !== config[ConfigKeys.DIFF]) {
           const etaValues = {
             einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
             schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
@@ -272,10 +350,10 @@ class BackgroundService {
 
           const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
           console.log(`${this.getTimestamp()} New slider position: ${newSliderPosition}`);
-          if (newSliderPosition !== config.data[ConfigKeys.T_SLIDER] || newDiffValue !== config.data[ConfigKeys.DIFF]) {
+          if (newSliderPosition !== config[ConfigKeys.T_SLIDER] || newDiffValue !== config[ConfigKeys.DIFF]) {
             console.log(`${this.getTimestamp()} Updating temperature diff...`);
             store.dispatch(storeConfigData({
-              ...config.data,
+              ...config,
               [ConfigKeys.DIFF]: newDiffValue,
               [ConfigKeys.T_SLIDER]: newSliderPosition
             }));
