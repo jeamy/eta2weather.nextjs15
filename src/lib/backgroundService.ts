@@ -1,6 +1,5 @@
 import { ConfigKeys, defaultConfig } from '../reader/functions/types-constants/ConfigConstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '../reader/functions/types-constants/TimerConstants';
-import { parseXML } from '../reader/functions/EtaData';
 import { defaultNames2Id, EtaConstants } from '../reader/functions/types-constants/Names2IDconstants';
 import { Config } from '../reader/functions/types-constants/ConfigConstants';
 import { WifiAf83Api } from '../reader/functions/WifiAf83Api';
@@ -263,7 +262,6 @@ class BackgroundService {
         const currentTempDiff = Number(config[ConfigKeys.TEMP_DIFF]);
         if (tempDiff !== currentTempDiff) {
           console.log(`${this.getTimestamp()} Temperature difference changed from ${currentTempDiff}°C to ${tempDiff}°C`);
-          
           // Update config with new temperature difference
           await fetch('/api/config/update', {
             method: 'POST',
@@ -443,11 +441,13 @@ class BackgroundService {
   }
 
   private async updateTemperatureDiffWithServerCheck(wifiData: WifiAF83Data) {
+/*    
     const serverReady = await this.isServerReady('/api/health');
     if (!serverReady) {
       console.error('Server is not ready. Aborting update.');
       return;
     }
+*/      
     await this.updateTemperatureDiff(wifiData);
   }
 

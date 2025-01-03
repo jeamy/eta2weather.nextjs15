@@ -6,11 +6,10 @@ import { Config, ConfigKeys } from '@/reader/functions/types-constants/ConfigCon
 export async function POST(request: NextRequest) {
   try {
     const configFilePath = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
-    
     // Read current config
     const data = await fs.readFile(configFilePath, 'utf-8');
     let config: Config = JSON.parse(data);
-    
+    console.log("Current config:", config);    
     // Get update data from request body
     const { key, value } = await request.json();
     
