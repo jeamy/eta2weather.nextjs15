@@ -27,15 +27,6 @@ async function isServerReady(url: string, retries = 5, delay = 1000): Promise<bo
 export default function Home() {
   const [menuItems, setMenuItems] = useState<MenuNode[]>([]);
   const [wifiData, setWifiData] = useState<any>(null);
-  const [serverReady, setServerReady] = useState(false);
-
-  useEffect(() => {
-    async function checkServer() {
-      const ready = await isServerReady('/api/health');
-      setServerReady(ready);
-    }
-    checkServer();
-  }, []);
 
   useEffect(() => {
     const fetchMenuItems = async () => {
@@ -70,10 +61,6 @@ export default function Home() {
     const interval = setInterval(fetchData, 30000); // Update every 30 seconds
     return () => clearInterval(interval);
   }, []);
-
-  if (!serverReady) {
-    return <div>Loading... Please wait for the server to start.</div>;
-  }
 
   return (
     <div className="font-sans min-h-screen p-4 pb-20 gap-8 sm:p-8 md:p-16 lg:p-20">
