@@ -13,6 +13,7 @@ import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types
 import Image from 'next/image';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
+import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 
 enum Buttons {
   HT = 'HT',
@@ -278,7 +279,7 @@ const EtaData: React.FC = () => {
         const minTemp = Number(config.t_min);
         
         if (!isNaN(indoorTemp) && !isNaN(minTemp)) {
-          const tempDiff = minTemp - indoorTemp;
+          const tempDiff = Number(config[ConfigKeys.TEMP_DIFF]);
           const targetButton = tempDiff > 0 ? Buttons.KT : Buttons.AA;
           
           // Only update if the target button is different from current
@@ -290,7 +291,7 @@ const EtaData: React.FC = () => {
     };
 
     checkTemperature();
-  }, [config.t_min, wifiState.data, updateButtonStates]);
+  }, [config.t_min, wifiState.data, updateButtonStates, config]);
 
   const handleButtonClick = useCallback(async (clickedButton: Buttons) => {
     await updateButtonStates(clickedButton);

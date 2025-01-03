@@ -256,70 +256,88 @@ class BackgroundService {
       const minTemp = Number(config.t_min);
 
       if (!isNaN(indoorTemp) && !isNaN(minTemp)) {
-        const tempDiff = minTemp - indoorTemp;
+        const tempDiff = Number((minTemp - indoorTemp).toFixed(1));
         console.log(`${this.getTimestamp()} Temperature difference: ${tempDiff}°C (min: ${minTemp}°C, indoor: ${indoorTemp}°C)`);
 
-        // Get all button IDs
-        const buttonIds = {
-          ht: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
-          kt: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
-          aa: defaultNames2Id[EtaConstants.AUTOTASTE].id,
-          gt: defaultNames2Id[EtaConstants.GEHENTASTE].id,
-          dt: defaultNames2Id[EtaConstants.ABSENKTASTE].id
-        };
-
-        // Verify all button IDs exist
-        if (!Object.values(buttonIds).every(id => id)) {
-          console.error(`${this.getTimestamp()} Some button IDs not found`);
-          return;
-        }
-
-        // Determine target button based on temperature
-        let targetButton: string;
-        if (tempDiff > 0) {
-          targetButton = buttonIds.kt; // Activate Kommen when below min temp
-        } else {
-          targetButton = buttonIds.aa; // Activate Auto when at or above min temp
-        }
-
-        try {
-          // Set all other buttons to Aus
-          const updates = Object.values(buttonIds)
-            .filter(id => id !== targetButton)
-            .map(id => 
-              fetch('/api/eta/update', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  id: id,
-                  value: EtaPos.AUS,
-                  begin: "0",
-                  end: "0"
-                })
-              })
-            );
-
-          await Promise.all(updates);
-
-          // Set target button to Ein
-          await fetch('/api/eta/update', {
+        // Only update states if temperature difference has changed
+        const currentTempDiff = Number(config[ConfigKeys.TEMP_DIFF]);
+        if (tempDiff !== currentTempDiff) {
+          console.log(`${this.getTimestamp()} Temperature difference changed from ${currentTempDiff}°C to ${tempDiff}°C`);
+          
+          // Update config with new temperature difference
+          await fetch('/api/config/update', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              id: targetButton,
-              value: EtaPos.EIN,
-              begin: "0",
-              end: "0"
+              key: ConfigKeys.TEMP_DIFF,
+              value: tempDiff.toString()
             })
           });
+          
+          // Get all button IDs
+          const buttonIds = {
+            ht: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
+            kt: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
+            aa: defaultNames2Id[EtaConstants.AUTOTASTE].id,
+            gt: defaultNames2Id[EtaConstants.GEHENTASTE].id,
+            dt: defaultNames2Id[EtaConstants.ABSENKTASTE].id
+          };
 
-          console.log(`${this.getTimestamp()} Updated all button states (${tempDiff > 0 ? 'KT' : 'AA'} activated)`);
-        } catch (error) {
-          console.error(`${this.getTimestamp()} Error updating button states:`, error);
+          // Verify all button IDs exist
+          if (!Object.values(buttonIds).every(id => id)) {
+            console.error(`${this.getTimestamp()} Some button IDs not found`);
+            return;
+          }
+
+          // Determine target button based on temperature
+          let targetButton: string;
+          if (tempDiff > 0) {
+            targetButton = buttonIds.kt; // Activate Kommen when below min temp
+          } else {
+            targetButton = buttonIds.aa; // Activate Auto when at or above min temp
+          }
+
+          try {
+            // Set all other buttons to Aus
+            const updates = Object.values(buttonIds)
+              .filter(id => id !== targetButton)
+              .map(id => 
+                fetch('/api/eta/update', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    id: id,
+                    value: EtaPos.AUS,
+                    begin: "0",
+                    end: "0"
+                  })
+                })
+              );
+
+            await Promise.all(updates);
+
+            // Set target button to Ein
+            await fetch('/api/eta/update', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                id: targetButton,
+                value: EtaPos.EIN,
+                begin: "0",
+                end: "0"
+              })
+            });
+
+            console.log(`${this.getTimestamp()} Updated all button states (${tempDiff > 0 ? 'KT' : 'AA'} activated)`);
+          } catch (error) {
+            console.error(`${this.getTimestamp()} Error updating button states:`, error);
+          }
         }
       }
 
@@ -422,6 +440,30 @@ class BackgroundService {
     } catch (error) {
       console.error(`${this.getTimestamp()} Error updating temperature diff:`, error);
     }
+  }
+
+  private async updateTemperatureDiffWithServerCheck(wifiData: WifiAF83Data) {
+    const serverReady = await this.isServerReady('/api/health');
+    if (!serverReady) {
+      console.error('Server is not ready. Aborting update.');
+      return;
+    }
+    await this.updateTemperatureDiff(wifiData);
+  }
+
+  private async isServerReady(url: string, retries = 50, delay = 2000): Promise<boolean> {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await fetch(url);
+        if (response.ok) {
+          return true;
+        }
+      } catch (error) {
+        console.warn(`Server not ready, retrying... (${i + 1}/${retries})`);
+      }
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    return false;
   }
 
   async start() {
@@ -648,7 +690,7 @@ class BackgroundService {
       console.log(`${this.getTimestamp()} Logging ECOWITT data DONE!`);
 
       // Update temperature diff after new data is loaded
-      await this.updateTemperatureDiff(transformedData);
+      await this.updateTemperatureDiffWithServerCheck(transformedData);
 
       // Update names2Id in store
       store.dispatch(storeNames2IdData(defaultNames2Id));

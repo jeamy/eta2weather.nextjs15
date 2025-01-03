@@ -9,6 +9,7 @@
   "t_update_timer": "180000",
   "diff": "4.1",
   "t_min": "17.5",
+  "temp_diff": "0",
   "channelNames": {
     "CH1": "VK",
     "CH2": "KU",

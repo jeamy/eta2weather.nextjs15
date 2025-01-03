@@ -1,257 +1,257 @@
 {
   "code": 0,
   "msg": "success",
-  "time": "1735856304",
+  "time": "1735938681",
   "data": {
     "outdoor": {
       "temperature": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "℃",
-        "value": "0.7"
+        "value": "-5.1"
       },
       "feels_like": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "℃",
-        "value": "0.7"
+        "value": "-5.1"
       },
       "app_temp": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "℃",
-        "value": "-1.6"
+        "value": "-8.0"
       },
       "dew_point": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "℃",
-        "value": "0.2"
+        "value": "-5.2"
       },
       "humidity": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "%",
-        "value": "96"
+        "value": "99"
       }
     },
     "indoor": {
       "temperature": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "℃",
-        "value": "20.3"
+        "value": "21.3"
       },
       "humidity": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "%",
-        "value": "53"
+        "value": "55"
       }
     },
     "solar_and_uvi": {
       "solar": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "W/m²",
         "value": "0.0"
       },
       "uvi": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "",
         "value": "0"
       }
     },
     "rainfall": {
       "rain_rate": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "mm/hr",
         "value": "0.0"
       },
       "daily": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "mm",
         "value": "0.0"
       },
       "event": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "mm",
         "value": "0.0"
       },
       "hourly": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "mm",
         "value": "0.0"
       },
       "weekly": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "mm",
         "value": "0.0"
       },
       "monthly": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "mm",
         "value": "0.0"
       },
       "yearly": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "mm",
         "value": "508.9"
       }
     },
     "wind": {
       "wind_speed": {
-        "time": "1735856215",
+        "time": "1735938647",
+        "unit": "km/h",
+        "value": "1.4"
+      },
+      "wind_gust": {
+        "time": "1735938647",
         "unit": "km/h",
         "value": "1.8"
       },
-      "wind_gust": {
-        "time": "1735856215",
-        "unit": "km/h",
-        "value": "3.5"
-      },
       "wind_direction": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "º",
-        "value": "40"
+        "value": "6"
       }
     },
     "pressure": {
       "relative": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "hPa",
-        "value": "1012.9"
+        "value": "1021.8"
       },
       "absolute": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "hPa",
-        "value": "964.1"
+        "value": "973.0"
       }
     },
     "temp_and_humidity_ch1": {
       "temperature": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "℃",
-        "value": "9.4"
+        "value": "10.1"
       },
       "humidity": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "%",
-        "value": "60"
+        "value": "61"
       }
     },
     "temp_and_humidity_ch2": {
       "temperature": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "℃",
-        "value": "18.5"
+        "value": "19.1"
       },
       "humidity": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "%",
-        "value": "58"
+        "value": "59"
       }
     },
     "temp_and_humidity_ch3": {
       "temperature": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "℃",
-        "value": "5.9"
+        "value": "5.0"
       },
       "humidity": {
-        "time": "1735856215",
-        "unit": "%",
-        "value": "68"
-      }
-    },
-    "temp_and_humidity_ch5": {
-      "temperature": {
-        "time": "1735856215",
-        "unit": "℃",
-        "value": "18.8"
-      },
-      "humidity": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "%",
         "value": "62"
       }
     },
-    "temp_and_humidity_ch6": {
+    "temp_and_humidity_ch5": {
       "temperature": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "℃",
-        "value": "10.0"
+        "value": "18.8"
       },
       "humidity": {
-        "time": "1735856215",
+        "time": "1735938647",
+        "unit": "%",
+        "value": "53"
+      }
+    },
+    "temp_and_humidity_ch6": {
+      "temperature": {
+        "time": "1735938647",
+        "unit": "℃",
+        "value": "10.4"
+      },
+      "humidity": {
+        "time": "1735938647",
         "unit": "%",
         "value": "52"
       }
     },
     "temp_and_humidity_ch7": {
       "temperature": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "℃",
-        "value": "-0.1"
+        "value": "-3.9"
       },
       "humidity": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "%",
         "value": "99"
       }
     },
     "temp_and_humidity_ch8": {
       "temperature": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "℃",
-        "value": "18.2"
+        "value": "18.8"
       },
       "humidity": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "%",
-        "value": "56"
+        "value": "57"
       }
     },
     "battery": {
       "t_rh_p_sensor": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "",
         "value": "0"
       },
       "sensor_array": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "",
         "value": "0"
       },
       "temp_humidity_sensor_ch1": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "",
         "value": "0"
       },
       "temp_humidity_sensor_ch2": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "",
         "value": "0"
       },
       "temp_humidity_sensor_ch3": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "",
         "value": "0"
       },
       "temp_humidity_sensor_ch5": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "",
         "value": "0"
       },
       "temp_humidity_sensor_ch6": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "",
         "value": "0"
       },
       "temp_humidity_sensor_ch7": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "",
         "value": "0"
       },
       "temp_humidity_sensor_ch8": {
-        "time": "1735856215",
+        "time": "1735938647",
         "unit": "",
         "value": "0"
       }
     }
   },
-  "datestring": "Donnerstag, 2. Januar 2025 um 23:18:24",
+  "datestring": "Freitag, 3. Januar 2025 um 22:11:21",
   "diff": "0"
 }
