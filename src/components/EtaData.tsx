@@ -13,7 +13,6 @@ import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types
 import Image from 'next/image';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
-import { calculateMinTempDiff } from '@/utils/Functions';
 
 enum Buttons {
   HT = 'HT',
