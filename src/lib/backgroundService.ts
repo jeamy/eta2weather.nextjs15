@@ -19,7 +19,7 @@ import { getAllUris } from '@/utils/etaUtils';
 import { MenuNode } from '@/types/menu';
 import { EtaPos } from '@/reader/functions/types-constants/EtaConstants';
 
-const CONFIG_FILE_PATH = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
+const CONFIG_FILE_PATH = path.join(process.cwd(), process.env.CONFIG_PATH || 'src/config/f_etacfg.json');
 
 // Create a server-side Redux store
 const store = configureStore({
@@ -258,22 +258,19 @@ class BackgroundService {
         const tempDiff = Number((minTemp - indoorTemp).toFixed(1));
         console.log(`${this.getTimestamp()} Temperature difference: ${tempDiff}°C (min: ${minTemp}°C, indoor: ${indoorTemp}°C)`);
 
+        // Update config with new temperature difference directly in the JSON file
+        const data = await fs.promises.readFile(CONFIG_FILE_PATH, 'utf-8');
+        let config = JSON.parse(data);
+        config[ConfigKeys.TEMP_DIFF] = tempDiff.toString();
+        await fs.promises.writeFile(CONFIG_FILE_PATH, JSON.stringify(config, null, 2));
+
+        console.log(`${this.getTimestamp()} Updated temperature difference in config file to ${tempDiff}°C`);
+
         // Only update states if temperature difference has changed
         const currentTempDiff = Number(config[ConfigKeys.TEMP_DIFF]);
         if (tempDiff !== currentTempDiff) {
           console.log(`${this.getTimestamp()} Temperature difference changed from ${currentTempDiff}°C to ${tempDiff}°C`);
-          // Update config with new temperature difference
-          await fetch('/api/config/update', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              key: ConfigKeys.TEMP_DIFF,
-              value: tempDiff.toString()
-            })
-          });
-          
+          store.dispatch(storeConfigData(config));
           // Get all button IDs
           const buttonIds = {
             ht: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
@@ -706,6 +703,5 @@ class BackgroundService {
 }
 
 export const backgroundService = BackgroundService.getInstance();
-
-// Export store for potential use in other server-side code
+  // Export store for potential use in other server-side code
 export const getServerStore = () => store;
