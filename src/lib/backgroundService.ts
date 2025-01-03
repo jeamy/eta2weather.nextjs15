@@ -451,7 +451,7 @@ class BackgroundService {
     await this.updateTemperatureDiff(wifiData);
   }
 
-  private async isServerReady(url: string, retries = 50, delay = 2000): Promise<boolean> {
+  private async isServerReady(url: string, retries = 5, delay = 2000): Promise<boolean> {
     for (let i = 0; i < retries; i++) {
       try {
         const response = await fetch(url);
