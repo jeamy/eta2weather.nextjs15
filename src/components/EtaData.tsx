@@ -284,17 +284,20 @@ const EtaData: React.FC = () => {
     checkTemperature();
   }, [wifiState.data?.indoorTemperature, config.t_min, updateButtonStates]);
 
-  // Reset manual override after a delay (e.g., 1 hour)
+  // Reset manual override after the configured timeout
   useEffect(() => {
     if (lastTempState.current.manualOverride) {
+      const overrideTimeout = parseInt(config.t_override) || 600000; // Default to 10 minutes if not set
+      console.log(`Setting manual override timeout for ${overrideTimeout/1000} seconds`);
+      
       const timer = setTimeout(() => {
         lastTempState.current.manualOverride = false;
         console.log('Manual override timeout: resuming automatic temperature control');
-      }, 10 * 60 * 1000); // 10 minutes
+      }, overrideTimeout);
 
       return () => clearTimeout(timer);
     }
-  }, [wifiState.data?.indoorTemperature]); // Re-run when temperature changes
+  }, [wifiState.data?.indoorTemperature, config.t_override]); // Re-run when temperature or override timeout changes
 
   useEffect(() => {
     const updateTimer = parseInt(config.t_update_timer) || DEFAULT_UPDATE_TIMER;

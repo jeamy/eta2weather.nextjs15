@@ -491,9 +491,9 @@ export class BackgroundService {
             }, {} as Record<string, string>));
 
             console.log(`${this.getTimestamp()} Turning off all other buttons: ${allButtons.map(([name]) => name).join(', ')}`);
-            await Promise.all(allButtons.map(([, id]) => {
+            await Promise.all(allButtons.map(async ([, id]) => {
               console.log(`${this.getTimestamp()} Turning off ${id}`);
-              fetch('/api/eta/update', {
+              const response = await fetch('/api/eta/update', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -504,9 +504,12 @@ export class BackgroundService {
                   begin: "0",
                   end: "0"
                 })
-              })
-            }
-            ));
+              });
+
+              if (!response.ok) {
+                throw new Error(`Failed to turn off button: ${response.statusText}`);
+              }
+            }));
 
             // Then activate the target button
             console.log(`${this.getTimestamp()} Activating ${targetButtonName}`);
@@ -522,6 +525,10 @@ export class BackgroundService {
                 end: "0"
               })
             });
+
+            if (!response.ok) {
+              throw new Error(`Failed to activate button ${targetButtonName}: ${response.statusText}`);
+            }
 
             console.log(`${this.getTimestamp()} Temperature threshold crossed: ${isBelow ? 'dropped below' : 'rose above'} minimum -> Activated ${targetButtonName}`);
           } catch (error) {
