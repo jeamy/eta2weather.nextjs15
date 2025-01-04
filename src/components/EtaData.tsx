@@ -139,7 +139,7 @@ const EtaData: React.FC = () => {
       const allButtons = Object.entries(buttonIds);
       for (const [name, uri] of allButtons) {
         if (etaState.data[uri]?.value === EtaPos.EIN) {
-          console.log(`Turning OFF button: ${name}`);
+          // console.log(`Turning OFF button: ${name}`);
           const response = await fetch('/api/eta/update', {
             method: 'POST',
             headers: {
@@ -160,7 +160,7 @@ const EtaData: React.FC = () => {
       }
 
       // Turn on the active button
-      console.log(`Turning ON button: ${activeButton}`);
+      // console.log(`Turning ON button: ${activeButton}`);
       const response = await fetch('/api/eta/update', {
         method: 'POST',
         headers: {
@@ -240,7 +240,7 @@ const EtaData: React.FC = () => {
     
     Object.values(etaState.data).forEach(entry => {
       if (Object.values(EtaButtons).includes(entry.short as EtaButtons)) {
-        console.log(`Processing button ${entry.short}: value=${entry.value}, strValue=${entry.strValue}`);
+        // console.log(`Processing button ${entry.short}: value=${entry.value}, strValue=${entry.strValue}`);
         newDisplayData[entry.short || ' '] = {
           short: entry.short || 'Unknown',
           long: entry.long || entry.short || 'Unknown',
