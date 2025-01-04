@@ -389,6 +389,33 @@ All endpoints implement proper error handling with appropriate HTTP status codes
 - 404: Resource not found
 - 500: Internal server error
 
+## Recent Updates
+
+### Enhanced Temperature Control System
+
+- **Intelligent Mode Switching**
+  - Automatic switching between comfort mode (`KT`) and auto mode (`AA`) based on temperature thresholds
+  - Smart override prevention during manual control
+  - Smooth transition between heating modes
+
+- **Temperature Monitoring Improvements**
+  - Real-time indoor temperature tracking with 0.1°C precision
+  - Configurable minimum temperature threshold
+  - Automatic temperature difference calculation and logging
+  - State persistence across system restarts
+
+- **System Protection Features**
+  - Button state validation before mode changes
+  - Graceful error handling for API communication
+  - Automatic recovery from connection issues
+  - Memory usage optimization with periodic cleanup
+
+- **Performance Optimizations**
+  - Batch processing for ETA system data updates
+  - Configurable update intervals with minimum API call protection
+  - Efficient data storage with automatic outdated data cleanup
+  - Reduced server load through smart polling
+
 ## Docker Usage
 
 ### Prerequisites
@@ -448,38 +475,6 @@ You can run this application using Docker in two ways:
 The application will be available at `http://localhost:3000`.
 
 Note: The Docker build process will include your configured `.env` and `eco.tsx` files in the image. Make sure these files are properly configured before building the image.
-
-## Recent Updates
-
-### UI Improvements (Latest)
-- Added shadow effects to data cards for better visual hierarchy
-- Improved grid layout with 3-column design for better data organization
-- Updated spacing and padding for better visual consistency
-- Reordered WiFi data categories to show channels after indoor data
-- Added rounded corners and shadow effects to improve visual appeal
-
-### API Integration
-- Migrated API routes from Next.js Pages Router (`pages/api/*`) to App Router (`app/api/*`)
-  - Updated route handlers to use new App Router conventions
-  - Improved error handling and response formatting
-  - Enhanced type safety with TypeScript
-- Improved error handling in API responses
-- Enhanced data fetching reliability for both ETA and WiFi data
-
-### Component Updates
-- **WifiTab**: 
-  - Optimized grid layout (2 columns on mobile, 3 columns on larger screens)
-  - Enhanced card styling with shadow effects
-  - Improved data organization with logical category ordering
-  
-- **EtaTab**:
-  - Improved spacing with consistent padding
-  - Enhanced visual hierarchy with shadow effects
-  - Better background contrast for improved readability
-
-### Configuration
-- Updated configuration handling to support new API parameters
-- Improved error handling for configuration loading
 
 ## Automatic Startup with systemd
 
