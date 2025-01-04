@@ -1,7 +1,7 @@
 {
   "code": 0,
   "msg": "success",
-  "time": "1736009915",
+  "time": "1736009953",
   "data": {
     "outdoor": {
       "temperature": {
@@ -252,6 +252,6 @@
       }
     }
   },
-  "datestring": "Samstag, 4. Januar 2025 um 17:58:35",
+  "datestring": "Samstag, 4. Januar 2025 um 17:59:13",
   "diff": "0"
 }
