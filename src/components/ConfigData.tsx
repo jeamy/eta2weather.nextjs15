@@ -253,6 +253,12 @@ const ConfigData: React.FC = () => {
                                     type="number"
                                     value={editValue}
                                     onChange={(e) => setEditValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleSaveValue();
+                                        }
+                                    }}
                                     className="w-24 px-2 py-1 border rounded border-gray-300"
                                 />
                                 <span className="text-gray-500 text-sm">{unit}</span>
@@ -355,6 +361,12 @@ const ConfigData: React.FC = () => {
                                 type="text"
                                 value={editValue}
                                 onChange={(e) => setEditValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleSaveValue();
+                                    }
+                                }}
                                 className={`w-full px-2 py-1 border rounded ${
                                     validator && !validator(editValue) ? 'border-red-500' : 'border-gray-300'
                                 }`}
@@ -455,6 +467,12 @@ const ConfigData: React.FC = () => {
                                     type="number"
                                     value={editValue}
                                     onChange={(e) => setEditValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleSaveValue();
+                                        }
+                                    }}
                                     className="w-24 px-2 py-1 border rounded border-gray-300"
                                 />
                                 <span className="text-gray-500 text-sm">min</span>

@@ -155,9 +155,11 @@ export class BackgroundService {
         console.log(`${this.getTimestamp()} Logging CONFIG data DONE!`);
         this.config = newConfig;
 
+        /*
         this.loadAndStoreData().catch(error => {
           console.error(`${this.getTimestamp()} Error in background update:`, error);
         });
+        */
 
         if (oldUpdateTimer !== newUpdateTimer && this.isRunning) {
           console.log(`${this.getTimestamp()} Update timer changed, restarting interval...`);
