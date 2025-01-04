@@ -27,3 +27,11 @@ export enum EtaText {
   EIN = "Ein",
   AUS = "Aus",
 }
+
+export enum EtaButtons {
+  HT = 'HT',  // Heizen Taste
+  KT = 'KT',  // Kommen Taste
+  AA = 'AA',  // Auto Taste
+  GT = 'GT',  // Gehen Taste
+  DT = 'DT',  // Absenken Taste
+}

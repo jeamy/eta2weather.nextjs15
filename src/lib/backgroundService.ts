@@ -4,52 +4,46 @@ import { defaultNames2Id, EtaConstants } from '../reader/functions/types-constan
 import { Config } from '../reader/functions/types-constants/ConfigConstants';
 import { WifiAf83Api } from '../reader/functions/WifiAf83Api';
 import { WifiAF83Data } from '../reader/functions/types-constants/WifiAf83';
-import fs from 'fs';
-import path from 'path';
-import { configureStore } from '@reduxjs/toolkit';
-import configReducer, { storeData as storeConfigData } from '../redux/configSlice';
-import etaReducer, { storeData as storeEtaData } from '../redux/etaSlice';
-import wifiAf83Reducer, { storeData as storeWifiAf83Data } from '../redux/wifiAf83Slice';
-import names2IdReducer, { storeData as storeNames2IdData } from '../redux/names2IdSlice';
+import { EtaApi } from '../reader/functions/EtaApi';
+import { store, RootState } from '../redux/store';
+import { storeData as storeWifiAf83Data } from '../redux/wifiAf83Slice';
+import { storeData as storeEtaData } from '../redux/etaSlice';
+import { storeData as storeConfigData } from '../redux/configSlice';
+import { storeData as storeNames2IdData } from '../redux/names2IdSlice';
+import { getAllUris } from '../utils/etaUtils';
+import { MenuNode } from '@/types/menu';
+import { EtaPos, EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
 import { logData } from '@/utils/logging';
 import { getWifiAf83Data } from '@/utils/cache';
-import { EtaApi } from '@/reader/functions/EtaApi';
-import { calculateTemperatureDiff, calculateNewSliderPosition, updateSliderPosition } from '@/utils/Functions';
-import { getAllUris } from '@/utils/etaUtils';
-import { MenuNode } from '@/types/menu';
-import { EtaPos } from '@/reader/functions/types-constants/EtaConstants';
+import * as fs from 'fs';
+import path from 'path';
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), process.env.CONFIG_PATH || 'src/config/f_etacfg.json');
 
-// Create a server-side Redux store
-const store = configureStore({
-  reducer: {
-    config: configReducer,
-    eta: etaReducer,
-    wifiAf83: wifiAf83Reducer,
-    names2Id: names2IdReducer,
-  },
-});
+// Export the store getter for API routes
+export function getServerStore() {
+  return store;
+}
 
-class BackgroundService {
+export class BackgroundService {
   private static instance: BackgroundService;
   private updateInterval: NodeJS.Timeout | null = null;
   private config: Config = defaultConfig;
   private isRunning = false;
   private configWatcher: fs.FSWatcher | null = null;
   private lastConfigCheck = 0;
-  private configCheckInterval = 1000; // Check config file every second
+  private configCheckInterval = 10000;
   private isUpdating = false;
   private configChangeTimeout: NodeJS.Timeout | null = null;
+  private lastConfigContent: string = '';
   private memoryMonitorInterval: NodeJS.Timeout | null = null;
-  private readonly MEMORY_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+  private readonly MEMORY_CHECK_INTERVAL = 15 * 60 * 1000; // 15 minutes
   private readonly MAX_HEAP_SIZE = 1024 * 1024 * 1024; // 1GB
   private readonly DATA_RETENTION_PERIOD = 24 * 60 * 60 * 1000; // 24 hours
   private etaApi: EtaApi | null = null;
-  private lastSliderUpdate: string | null = null;
   private lastTempState: { wasBelow: boolean | null } = { wasBelow: null };
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): BackgroundService {
     if (!BackgroundService.instance) {
@@ -111,15 +105,29 @@ class BackgroundService {
     }
 
     try {
+      // Initialize last config content
+      if (fs.existsSync(CONFIG_FILE_PATH)) {
+        this.lastConfigContent = fs.readFileSync(CONFIG_FILE_PATH, 'utf-8');
+      }
+
       // Watch the config file directory
       const configDir = path.dirname(CONFIG_FILE_PATH);
       this.configWatcher = fs.watch(configDir, (eventType, filename) => {
         if (filename === path.basename(CONFIG_FILE_PATH)) {
           const now = Date.now();
-          // Debounce config reloading to prevent multiple reloads
+          // Only proceed if enough time has passed since last check
           if (now - this.lastConfigCheck >= this.configCheckInterval) {
-            this.lastConfigCheck = now;
-            this.handleConfigChange();
+            try {
+              // Read current content and compare with last content
+              const currentContent = fs.readFileSync(CONFIG_FILE_PATH, 'utf-8');
+              if (currentContent !== this.lastConfigContent) {
+                this.lastConfigCheck = now;
+                this.lastConfigContent = currentContent;
+                this.handleConfigChange();
+              }
+            } catch (error) {
+              console.error(`${this.getTimestamp()} Error reading config file:`, error);
+            }
           }
         }
       });
@@ -134,7 +142,7 @@ class BackgroundService {
     if (this.configChangeTimeout) {
       clearTimeout(this.configChangeTimeout);
     }
-    
+
     this.configChangeTimeout = setTimeout(async () => {
       try {
         console.log(`${this.getTimestamp()} Config file changed, reloading...`);
@@ -146,7 +154,7 @@ class BackgroundService {
         await logData('config', newConfig);
         console.log(`${this.getTimestamp()} Logging CONFIG data DONE!`);
         this.config = newConfig;
-        
+
         this.loadAndStoreData().catch(error => {
           console.error(`${this.getTimestamp()} Error in background update:`, error);
         });
@@ -182,356 +190,7 @@ class BackgroundService {
     console.log(`${this.getTimestamp()} Update interval restarted with timer: ${updateTimer}ms`);
   }
 
-  private monitorMemoryUsage() {
-    const used = process.memoryUsage();
-    const heapUsedMB = Math.round(used.heapUsed / 1024 / 1024);
-    const heapTotalMB = Math.round(used.heapTotal / 1024 / 1024);
-    
-    console.log(`${this.getTimestamp()} Memory usage - heapTotal: ${heapTotalMB}MB, heapUsed: ${heapUsedMB}MB`);
-    
-    // Alert if memory usage is too high
-    if (used.heapUsed > this.MAX_HEAP_SIZE) {
-      console.warn(`${this.getTimestamp()} High memory usage detected! Running emergency cleanup...`);
-      this.cleanupOldData(true).catch(error => {
-        console.error(`${this.getTimestamp()} Error during emergency cleanup:`, error);
-      });
-      global.gc?.(); // Optional: Force garbage collection if --expose-gc flag is set
-    }
-  }
-
-  private async cleanupOldData(emergency: boolean = false) {
-    console.log(`${this.getTimestamp()} Running data cleanup${emergency ? ' (emergency)' : ''}...`);
-    
-    try {
-      const state = store.getState();
-      const retentionPeriod = emergency ? this.DATA_RETENTION_PERIOD / 2 : this.DATA_RETENTION_PERIOD;
-      const cutoffTime = Date.now() - retentionPeriod;
-
-      let needsRefresh = false;
-
-      // Check WiFi AF83 data
-      const wifiData = state.wifiAf83.data;
-      if (wifiData?.time && wifiData.time < cutoffTime) {
-        console.log(`${this.getTimestamp()} WiFi AF83 data is outdated`);
-        needsRefresh = true;
-      }
-
-      // Check ETA data
-      const etaData = state.eta;
-      if (etaData) {
-        const hasOldData = Object.values(etaData).some((value: any) => 
-          value?.timestamp && value.timestamp < cutoffTime
-        );
-        if (hasOldData) {
-          console.log(`${this.getTimestamp()} ETA data is outdated`);
-          needsRefresh = true;
-        }
-      }
-
-      // If any data is outdated, refresh all data
-      if (needsRefresh) {
-        console.log(`${this.getTimestamp()} Refreshing all data...`);
-        await this.loadAndStoreData();
-        console.log(`${this.getTimestamp()} Data refresh complete`);
-      } else {
-        console.log(`${this.getTimestamp()} All data is current, no refresh needed`);
-      }
-    } catch (error) {
-      console.error(`${this.getTimestamp()} Error during data cleanup and refresh:`, error);
-    }
-  }
-
-  private async updateTemperatureDiff(wifiData: WifiAF83Data) {
-    try {
-      const etaState = store.getState().eta;
-      const config = store.getState().config.data;
-
-      if (!config || !wifiData || !etaState.data) {
-        console.log(`${this.getTimestamp()} Missing required data for temperature diff update`);
-        return;
-      }
-
-      // Calculate temperature difference
-      const indoorTemp = wifiData.indoorTemperature;
-      const minTemp = Number(config.t_min);
-
-      if (!isNaN(indoorTemp) && !isNaN(minTemp)) {
-        const tempDiff = Number((minTemp - indoorTemp).toFixed(1));
-        console.log(`${this.getTimestamp()} Temperature difference: ${tempDiff}°C (min: ${minTemp}°C, indoor: ${indoorTemp}°C)`);
-
-        // Update config with new temperature difference directly in the JSON file
-        const data = await fs.promises.readFile(CONFIG_FILE_PATH, 'utf-8');
-        let config = JSON.parse(data);
-        config[ConfigKeys.TEMP_DIFF] = tempDiff.toString();
-        await fs.promises.writeFile(CONFIG_FILE_PATH, JSON.stringify(config, null, 2));
-
-        console.log(`${this.getTimestamp()} Updated temperature difference in config file to ${tempDiff}°C`);
-
-        // Check if we crossed the temperature threshold
-        const isBelow = tempDiff > 0;
-        if (this.lastTempState.wasBelow !== null && this.lastTempState.wasBelow !== isBelow) {
-          // Get all button IDs
-          const buttonIds = {
-            ht: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
-            kt: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
-            aa: defaultNames2Id[EtaConstants.AUTOTASTE].id,
-            gt: defaultNames2Id[EtaConstants.GEHENTASTE].id,
-            dt: defaultNames2Id[EtaConstants.ABSENKTASTE].id
-          };
-
-          // Verify all button IDs exist
-          if (!Object.values(buttonIds).every(id => id)) {
-            console.error(`${this.getTimestamp()} Some button IDs not found`);
-            return;
-          }
-
-          const targetButton = isBelow ? buttonIds.kt : buttonIds.aa;
-          const targetButtonName = isBelow ? 'KT' : 'AA';
-
-          try {
-            // Set all other buttons to Aus
-            const updates = Object.values(buttonIds)
-              .filter(id => id !== targetButton)
-              .map(id => 
-                fetch('/api/eta/update', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    id: id,
-                    value: EtaPos.AUS,
-                    begin: "0",
-                    end: "0"
-                  })
-                })
-              );
-
-            await Promise.all(updates);
-
-            // Set target button to Ein
-            await fetch('/api/eta/update', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                id: targetButton,
-                value: EtaPos.EIN,
-                begin: "0",
-                end: "0"
-              })
-            });
-
-            console.log(`${this.getTimestamp()} Temperature threshold crossed: ${isBelow ? 'dropped below' : 'rose above'} minimum -> Activated ${targetButtonName}`);
-          } catch (error) {
-            console.error(`${this.getTimestamp()} Error updating button states:`, error);
-          }
-        }
-
-        // Update the last temperature state
-        this.lastTempState.wasBelow = isBelow;
-        
-        // Continue with existing temperature diff logic
-        console.log(`${this.getTimestamp()} Updating temperature diff...`);
-        const { diff: numericDiff } = calculateTemperatureDiff({
-          data: config,
-          loadingState: { isLoading: false, error: null },
-          isInitialized: true
-        }, { 
-          data: wifiData,
-          loadingState: { isLoading: false, error: null }
-        });
-        
-        if (numericDiff !== null) {
-          console.log(`${this.getTimestamp()} Numeric diff: ${numericDiff}`);
-          const newDiffValue = numericDiff.toString();
-          // Only update if the diff value has changed
-          if (newDiffValue !== config[ConfigKeys.DIFF]) {
-            const etaValues = {
-              einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
-              schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
-              heizentaste: etaState.data[defaultNames2Id[EtaConstants.HEIZENTASTE].id]?.strValue || '0',
-              kommentaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
-              tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
-              tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
-            };
-
-            const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
-            console.log(`${this.getTimestamp()} New slider position: ${newSliderPosition}`);
-            if (newSliderPosition !== config[ConfigKeys.T_SLIDER] || newDiffValue !== config[ConfigKeys.DIFF]) {
-              console.log(`${this.getTimestamp()} Updating temperature diff...`);
-              store.dispatch(storeConfigData({
-                ...config,
-                [ConfigKeys.DIFF]: newDiffValue,
-                [ConfigKeys.T_SLIDER]: newSliderPosition
-              }));
-
-              // Log the temperature diff update
-              console.log(`${this.getTimestamp()} Updated temperature diff - Diff: ${newDiffValue}, Slider: ${newSliderPosition}`);
-              await logData('temp_diff', { 
-                timestamp: Date.now(),
-                diff: newDiffValue,
-                sliderPosition: newSliderPosition,
-                indoor: wifiData.indoorTemperature,
-                outdoor: wifiData.temperature
-              });
-
-              // Update the physical slider position if needed
-              const recommendedPos = Math.round(parseFloat(newSliderPosition));
-              const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
-              const currentPos = etaSP ? parseFloat(etaSP.strValue || '0') : recommendedPos;
-              console.log(`${this.getTimestamp()} Current slider position: ${currentPos}, Recommended slider position: ${recommendedPos}`);
-              
-              // Only update if the positions are different, values are valid, and it's not the same update
-              if (etaSP && 
-                  recommendedPos !== currentPos && 
-                  !isNaN(recommendedPos) && 
-                  !isNaN(currentPos) &&
-                  this.lastSliderUpdate !== newSliderPosition) {
-                
-                this.lastSliderUpdate = newSliderPosition;
-                
-                if (!this.etaApi) {
-                  console.error(`${this.getTimestamp()} EtaApi not initialized`);
-                  return;
-                }
-
-                try {
-                  console.log(`${this.getTimestamp()} Update slider position from ${currentPos} to ${recommendedPos}`);
-
-                  const result = await updateSliderPosition(
-                    recommendedPos,
-                    currentPos,
-                    defaultNames2Id,
-                    this.etaApi
-                  );
-                  
-                  if (result.success) {
-                    // Update the SP value in the Redux store
-                    const updatedEtaData = { ...etaState.data };
-                    const spId = defaultNames2Id[EtaConstants.SCHIEBERPOS].id;
-                    if (updatedEtaData[spId]) {
-                      updatedEtaData[spId] = {
-                        ...updatedEtaData[spId],
-                        strValue: (result.position).toString()
-                      };
-                      store.dispatch(storeEtaData(updatedEtaData));
-                      console.log(`${this.getTimestamp()} Successfully updated slider position to ${result.position}`);
-                    }
-                  } else if (result.error) {
-                    console.error(`${this.getTimestamp()} Failed to update slider position:`, result.error);
-                  }
-                } catch (error) {
-                  console.error(`${this.getTimestamp()} Error updating slider position:`, error);
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error(`${this.getTimestamp()} Error updating temperature diff:`, error);
-    }
-  }
-
-  private async updateTemperatureDiffWithServerCheck(wifiData: WifiAF83Data) {
-/*    
-    const serverReady = await this.isServerReady('/api/health');
-    if (!serverReady) {
-      console.error('Server is not ready. Aborting update.');
-      return;
-    }
-*/      
-    await this.updateTemperatureDiff(wifiData);
-  }
-
-  private async isServerReady(url: string, retries = 5, delay = 2000): Promise<boolean> {
-    for (let i = 0; i < retries; i++) {
-      try {
-        const response = await fetch(url);
-        if (response.ok) {
-          return true;
-        }
-      } catch (error) {
-        console.warn(`Server not ready, retrying... (${i + 1}/${retries})`);
-      }
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-    return false;
-  }
-
-  async start() {
-    if (this.isRunning) {
-      console.log(`${this.getTimestamp()} Background service is already running`);
-      return;
-    }
-
-    console.log(`${this.getTimestamp()} Loading configuration...`);
-    this.config = await this.loadConfig();
-    
-    // Initialize EtaApi
-    if (this.config[ConfigKeys.S_ETA]) {
-      this.etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
-    }
-    
-    console.log(`${this.getTimestamp()} Starting config file watcher...`);
-    this.startConfigWatcher();
-    
-    // Start memory monitoring
-    this.memoryMonitorInterval = setInterval(() => {
-      this.monitorMemoryUsage();
-    }, this.MEMORY_CHECK_INTERVAL);
-    
-    console.log(`${this.getTimestamp()} Background service started`);
-    
-    try {
-      // Set up periodic updates
-      this.restartUpdateInterval();
-
-      // Initial load of all data
-      await this.loadAndStoreData();
-
-
-      this.isRunning = true;
-      console.log(`${this.getTimestamp()} Background service initialization complete`);
-    } catch (error) {
-      console.error(`${this.getTimestamp()} Error starting background service:`, error);
-      throw error;
-    }
-  }
-
-  stop() {
-    if (this.updateInterval) {
-      clearInterval(this.updateInterval);
-      this.updateInterval = null;
-    }
-    if (this.configWatcher) {
-      try {
-        this.configWatcher.close();
-      } catch (error) {
-        console.error(`${this.getTimestamp()} Error closing config watcher:`, error);
-      }
-      this.configWatcher = null;
-    }
-    if (this.configChangeTimeout) {
-      clearTimeout(this.configChangeTimeout);
-      this.configChangeTimeout = null;
-    }
-    if (this.memoryMonitorInterval) {
-      clearInterval(this.memoryMonitorInterval);
-      this.memoryMonitorInterval = null;
-    }
-    this.isRunning = false;
-    this.isUpdating = false;
-    console.log(`${this.getTimestamp()} Background service stopped`);
-  }
-
-  isServiceRunning(): boolean {
-    return this.isRunning;
-  }
-
-  async loadAndStoreData() {
+  private async loadAndStoreData() {
     if (this.isUpdating) {
       console.log(`${this.getTimestamp()} Update already in progress, skipping...`);
       return;
@@ -541,7 +200,7 @@ class BackgroundService {
     try {
       // Run cleanup before loading new data
       await this.cleanupOldData();
-      
+
       // Create EtaApi instance if not exists
       if (!this.etaApi) {
         this.etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
@@ -564,7 +223,7 @@ class BackgroundService {
 
         const lines = xmlString.split('\n');
         const nodeStack: MenuNode[] = [];
-        
+
         lines.forEach(line => {
           if (!line.trim() || line.includes('<?xml') || line.includes('</eta>')) {
             return;
@@ -618,7 +277,7 @@ class BackgroundService {
       console.log(`${this.getTimestamp()} Fetching ETA data...`);
       const menuData: Record<string, string> = {};
       const batchSize = 5; // Process 5 URIs at a time
-      
+
       for (let i = 0; i < uris.length; i += batchSize) {
         const batch = uris.slice(i, i + batchSize);
         const promises = batch.map(async (uri) => {
@@ -635,7 +294,7 @@ class BackgroundService {
         });
 
         await Promise.all(promises);
-        
+
         // Add a small delay between batches to prevent overwhelming the server
         if (i + batchSize < uris.length) {
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -652,7 +311,7 @@ class BackgroundService {
       // Load WiFi AF83 data
       const wifiApi = new WifiAf83Api();
       const allData = await getWifiAf83Data(() => wifiApi.getAllRealtime());
-      
+
       // Extract and validate temperature values
       const outdoorTemp = allData.outdoor?.temperature?.value;
       const indoorTemp = allData.indoor?.temperature?.value;
@@ -698,8 +357,283 @@ class BackgroundService {
       this.isUpdating = false;
     }
   }
-}
 
-export const backgroundService = BackgroundService.getInstance();
-  // Export store for potential use in other server-side code
-export const getServerStore = () => store;
+  private monitorMemoryUsage() {
+    const used = process.memoryUsage();
+    const heapUsedMB = Math.round(used.heapUsed / 1024 / 1024);
+    const heapTotalMB = Math.round(used.heapTotal / 1024 / 1024);
+
+    console.log(`${this.getTimestamp()} Memory usage - heapTotal: ${heapTotalMB}MB, heapUsed: ${heapUsedMB}MB`);
+
+    // Alert if memory usage is too high
+    if (used.heapUsed > this.MAX_HEAP_SIZE) {
+      console.warn(`${this.getTimestamp()} High memory usage detected! Running emergency cleanup...`);
+      this.cleanupOldData(true).catch(error => {
+        console.error(`${this.getTimestamp()} Error during emergency cleanup:`, error);
+      });
+      global.gc?.(); // Optional: Force garbage collection if --expose-gc flag is set
+    }
+  }
+
+  private async cleanupOldData(emergency: boolean = false) {
+    console.log(`${this.getTimestamp()} Running data cleanup${emergency ? ' (emergency)' : ''}...`);
+
+    try {
+      const state = store.getState() as RootState;
+      const retentionPeriod = emergency ? this.DATA_RETENTION_PERIOD / 2 : this.DATA_RETENTION_PERIOD;
+      const cutoffTime = Date.now() - retentionPeriod;
+
+      let needsRefresh = false;
+
+      // Check WiFi AF83 data
+      const wifiData = state.wifiAf83.data;
+      if (wifiData?.time && wifiData.time < cutoffTime) {
+        console.log(`${this.getTimestamp()} WiFi AF83 data is outdated`);
+        needsRefresh = true;
+      }
+
+      // Check ETA data
+      const etaData = state.eta.data;
+      if (etaData) {
+        const hasOldData = Object.values(etaData).some((value: any) =>
+          value?.timestamp && value.timestamp < cutoffTime
+        );
+        if (hasOldData) {
+          console.log(`${this.getTimestamp()} ETA data is outdated`);
+          needsRefresh = true;
+        }
+      }
+
+      // If any data is outdated, refresh all data
+      if (needsRefresh) {
+        // Clear outdated data from store with empty data objects
+        store.dispatch(storeWifiAf83Data({
+          time: Date.now(),
+          datestring: new Date().toLocaleString('de-DE', {
+            hour: 'numeric',
+            minute: 'numeric',
+            second: 'numeric',
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          }),
+          temperature: 0,
+          indoorTemperature: 0,
+          allData: null
+        }));
+        store.dispatch(storeEtaData({}));
+        console.log(`${this.getTimestamp()} Cleared outdated data from store`);
+      }
+
+      return needsRefresh;
+    } catch (error) {
+      console.error(`${this.getTimestamp()} Error during data cleanup:`, error);
+      return false;
+    }
+  }
+
+  private async updateTemperatureDiff(wifiData: WifiAF83Data) {
+    try {
+      const etaState = store.getState().eta;
+      const config = store.getState().config.data;
+
+      if (!config || !wifiData || !etaState.data) {
+        console.log(`${this.getTimestamp()} Missing required data for temperature diff update`);
+        return;
+      }
+
+      // Calculate temperature difference
+      const indoorTemp = wifiData.indoorTemperature;
+      const minTemp = Number(config.t_min);
+
+      if (!isNaN(indoorTemp) && !isNaN(minTemp)) {
+        const tempDiff = Number((minTemp - indoorTemp).toFixed(1));
+        console.log(`${this.getTimestamp()} Temperature difference: ${tempDiff}°C (min: ${minTemp}°C, indoor: ${indoorTemp}°C)`);
+
+        // Update config with new temperature difference directly in the JSON file
+        const data = await fs.promises.readFile(CONFIG_FILE_PATH, 'utf-8');
+        let config = JSON.parse(data);
+        config[ConfigKeys.TEMP_DIFF] = tempDiff.toString();
+        await fs.promises.writeFile(CONFIG_FILE_PATH, JSON.stringify(config, null, 2));
+
+        console.log(`${this.getTimestamp()} Updated temperature difference in config file to ${tempDiff}°C`);
+
+        // Check if we crossed the temperature threshold
+        const isBelow = tempDiff > 0;
+        if (this.lastTempState.wasBelow !== null && this.lastTempState.wasBelow !== isBelow) {
+          // Get button IDs from defaultNames2Id
+          const buttonIds: Record<string, string> = {
+            [EtaButtons.HT]: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
+            [EtaButtons.KT]: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
+            [EtaButtons.AA]: defaultNames2Id[EtaConstants.AUTOTASTE].id,
+            [EtaButtons.GT]: defaultNames2Id[EtaConstants.GEHENTASTE].id,
+            [EtaButtons.DT]: defaultNames2Id[EtaConstants.ABSENKTASTE].id
+          };
+
+          const targetButtonName = isBelow ? EtaButtons.KT : EtaButtons.AA;
+          const targetButton = buttonIds[targetButtonName];
+
+          if (!targetButton) {
+            throw new Error(`Button ID not found for ${targetButtonName}. Available buttons: ${Object.keys(buttonIds).join(', ')}`);
+          }
+
+          try {
+            // Turn off all buttons first
+            const allButtons = Object.entries(buttonIds).filter(([name]) => name !== targetButtonName);
+
+            console.log(`${this.getTimestamp()} Current button states:`, Object.entries(etaState.data).reduce((acc, [_, data]) => {
+              const buttonName = data.short;
+              if (buttonName && Object.values(EtaButtons).includes(buttonName as EtaButtons)) {
+                acc[buttonName] = data.value === EtaPos.EIN ? 'EIN' : 'AUS';
+              }
+              return acc;
+            }, {} as Record<string, string>));
+
+            console.log(`${this.getTimestamp()} Turning off all other buttons: ${allButtons.map(([name]) => name).join(', ')}`);
+            await Promise.all(allButtons.map(([, id]) => {
+              console.log(`${this.getTimestamp()} Turning off ${id}`);
+              fetch('/api/eta/update', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  id: id,
+                  value: EtaPos.AUS,
+                  begin: "0",
+                  end: "0"
+                })
+              })
+            }
+            ));
+
+            // Then activate the target button
+            console.log(`${this.getTimestamp()} Activating ${targetButtonName}`);
+            const response = await fetch('/api/eta/update', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                id: targetButton,
+                value: EtaPos.EIN,
+                begin: "0",
+                end: "0"
+              })
+            });
+
+            console.log(`${this.getTimestamp()} Temperature threshold crossed: ${isBelow ? 'dropped below' : 'rose above'} minimum -> Activated ${targetButtonName}`);
+          } catch (error) {
+            console.error(`${this.getTimestamp()} Error updating button states:`, error);
+          }
+        }
+
+        // Update the last temperature state
+        this.lastTempState.wasBelow = isBelow;
+      }
+    } catch (error) {
+      console.error(`${this.getTimestamp()} Error updating temperature diff:`, error);
+      throw error;
+    }
+  }
+
+  private async updateTemperatureDiffWithServerCheck(wifiData: WifiAF83Data) {
+    try {
+      /*
+      const serverReady = await this.isServerReady('/api/health');
+      if (!serverReady) {
+        console.error('Server is not ready. Aborting update.');
+        return;
+      }
+      */
+      await this.updateTemperatureDiff(wifiData);
+    } catch (error) {
+      console.error(`${this.getTimestamp()} Error in updateTemperatureDiffWithServerCheck:`, error);
+      throw error;
+    }
+  }
+
+  private async isServerReady(url: string, retries = 5, delay = 2000): Promise<boolean> {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await fetch(url);
+        if (response.ok) {
+          return true;
+        }
+      } catch (error) {
+        console.warn(`Server not ready, retrying... (${i + 1}/${retries})`);
+      }
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    return false;
+  }
+
+  async start() {
+    if (this.isRunning) {
+      console.log(`${this.getTimestamp()} Background service is already running`);
+      return;
+    }
+
+    try {
+      this.isRunning = true;
+      console.log(`${this.getTimestamp()} Starting background service...`);
+
+      // Start memory monitoring
+      this.memoryMonitorInterval = setInterval(() => {
+        this.monitorMemoryUsage();
+      }, this.MEMORY_CHECK_INTERVAL);
+      console.log(`${this.getTimestamp()} Memory monitoring started`);
+
+      // Load initial config
+      this.config = await this.loadConfig();
+
+      // Start config watcher
+      this.startConfigWatcher();
+
+      // Load initial data
+      await this.loadAndStoreData();
+
+      // Start update interval
+      this.restartUpdateInterval();
+
+      console.log(`${this.getTimestamp()} Background service started successfully`);
+    } catch (error) {
+      console.error(`${this.getTimestamp()} Error starting background service:`, error);
+      this.stop();
+      throw error;
+    }
+  }
+
+  stop() {
+    console.log(`${this.getTimestamp()} Stopping background service...`);
+
+    // Clear memory monitoring interval
+    if (this.memoryMonitorInterval) {
+      clearInterval(this.memoryMonitorInterval);
+      this.memoryMonitorInterval = null;
+      console.log(`${this.getTimestamp()} Memory monitoring stopped`);
+    }
+
+    // Clear update interval
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = null;
+    }
+
+    // Stop config watcher
+    if (this.configWatcher) {
+      this.configWatcher.close();
+      this.configWatcher = null;
+    }
+
+    // Clear config change timeout
+    if (this.configChangeTimeout) {
+      clearTimeout(this.configChangeTimeout);
+      this.configChangeTimeout = null;
+    }
+
+    this.isRunning = false;
+    console.log(`${this.getTimestamp()} Background service stopped`);
+  }
+}

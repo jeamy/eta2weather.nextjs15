@@ -22,8 +22,9 @@ async function startServer() {
     await app.prepare();
     
     // Import and initialize background service
-    const { backgroundService } = await import('./src/lib/backgroundService.js');
+    const { BackgroundService } = await import('./src/lib/backgroundService.js');
     console.log('Initializing background service');
+    const backgroundService = BackgroundService.getInstance();
     await backgroundService.start();
     console.log('Background service initialized successfully');
 
@@ -53,7 +54,8 @@ async function cleanup() {
     server = null;
   }
   
-  const { backgroundService } = await import('./src/lib/backgroundService.js');
+  const { BackgroundService } = await import('./src/lib/backgroundService.js');
+  const backgroundService = BackgroundService.getInstance();
   await backgroundService.stop();
   console.log('Server shutdown complete');
   process.exit(0);

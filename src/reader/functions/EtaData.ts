@@ -18,7 +18,7 @@ export const fetchEtaData = async (
 };
 
 export const parseXML = (content: string, shortkey: string, names2id: Names2Id | null): ParsedXmlData => {
-    // console.log(`Parsing ${shortkey} Content:`, content);
+//    console.log(`Parsing XML for ${shortkey}:`, content);
     
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(content, 'text/xml');
@@ -31,13 +31,22 @@ export const parseXML = (content: string, shortkey: string, names2id: Names2Id |
         longName = names2id[shortkey]?.['name'] ?? 'N/A';
     }
 
+    const textValue = valueElement?.textContent ?? 'N/A';
+    const strValue = valueElement?.getAttribute('strValue') ?? 'N/A';
+/*    
+    console.log(`XML Parse Result for ${shortkey}:`, {
+        textValue,
+        strValue,
+        uri: valueElement?.getAttribute('uri'),
+    });
+*/
     const result: ParsedXmlData = {
         id: valueElement?.getAttribute('uri') ?? '',
         parentId: null,
-        value: valueElement?.textContent ?? 'N/A',
+        value: textValue,
         long: longName,
         short: shortkey,
-        strValue: valueElement?.getAttribute('strValue') ?? 'N/A',
+        strValue: strValue,
         unit: valueElement?.getAttribute('unit') ?? '',
         uri: valueElement?.getAttribute('uri') ?? '',
         scaleFactor: valueElement?.getAttribute('scaleFactor') ?? '1',
