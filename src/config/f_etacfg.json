@@ -8,7 +8,7 @@
   "f_names2id": "f_names2id.json",
   "t_update_timer": "30000",
   "diff": "4.1",
-  "t_min": "18",
+  "t_min": "24",
   "temp_diff": "-3.5",
   "t_override": "300000",
   "channelNames": {
