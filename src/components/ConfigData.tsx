@@ -459,7 +459,7 @@ const ConfigData: React.FC = () => {
         return (
             <div className="flex flex-col space-y-1">
                 <div className="flex justify-between items-center">
-                    <span className="font-medium">Manual Override Duration:</span>
+                    <span className="font-medium">Manual override:</span>
                     {isEditingThis ? (
                         <div className="flex space-x-2">
                             <div className="flex items-center space-x-1">
