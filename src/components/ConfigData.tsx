@@ -247,19 +247,16 @@ const ConfigData: React.FC = () => {
                 <div className="flex justify-between items-center">
                     <span className="font-medium">{label}:</span>
                     {isEditingThis ? (
-                        <div className="flex items-center space-x-2">
-                            <input
-                                type="range"
-                                min={min}
-                                max={max}
-                                step={step}
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                className="w-24"
-                            />
-                            <span className="w-16 text-right font-mono">
-                                {editValue}{unit}
-                            </span>
+                        <div className="flex space-x-2">
+                            <div className="flex items-center space-x-1">
+                                <input
+                                    type="number"
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    className="w-24 px-2 py-1 border rounded border-gray-300"
+                                />
+                                <span className="text-gray-500 text-sm">{unit}</span>
+                            </div>
                             <button
                                 type="button"
                                 onClick={handleSaveValue}
@@ -279,7 +276,7 @@ const ConfigData: React.FC = () => {
                         </div>
                     ) : (
                         <div 
-                            className="cursor-pointer hover:text-blue-600 font-mono"
+                            className="cursor-pointer hover:text-blue-600 flex items-center space-x-1"
                             onClick={handleEditStart}
                             role="button"
                             tabIndex={0}
@@ -290,7 +287,8 @@ const ConfigData: React.FC = () => {
                                 }
                             }}
                         >
-                            <span>{value}{unit}</span>
+                            <span>{value}</span>
+                            <span className="text-gray-500 text-sm">{unit}</span>
                         </div>
                     )}
                 </div>
@@ -301,7 +299,8 @@ const ConfigData: React.FC = () => {
     const renderEditableText = (key: ConfigKeys, label: string, validator?: (value: string) => boolean) => {
         const isEditingThis = isEditing === key;
         const configValue = config.data[key] || '';
-        const value = typeof configValue === 'string' ? configValue.replace('*', '') : '';
+        const rawValue = typeof configValue === 'string' ? configValue.replace('*', '') : '';
+        const value = rawValue;
 
         const handleEditStart = () => {
             setEditValue(value);
@@ -399,6 +398,106 @@ const ConfigData: React.FC = () => {
         );
     };
 
+    const renderManualOverride = () => {
+        const isEditingThis = isEditing === ConfigKeys.T_OVERRIDE;
+        const configValue = config.data[ConfigKeys.T_OVERRIDE] || '';
+        const rawValue = typeof configValue === 'string' ? configValue.replace('*', '') : '';
+        const value = rawValue ? parseInt(rawValue) / 60000 : 0;
+
+        const handleEditStart = () => {
+            setEditValue(String(value));
+            setIsEditing(ConfigKeys.T_OVERRIDE);
+        };
+
+        const handleSaveValue = async () => {
+            if (!isEditing) return;
+            
+            try {
+                const minutes = parseInt(editValue);
+                const valueToSave = String(minutes * 60000);
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        key: ConfigKeys.T_OVERRIDE,
+                        value: valueToSave.trim()
+                    }),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to update config');
+                }
+
+                const result = await response.json();
+                if (result.success && result.config) {
+                    dispatch(storeData(result.config));
+                    setIsEditing(null);
+                } else {
+                    throw new Error('Invalid response format');
+                }
+            } catch (error) {
+                console.error('Error updating config:', error);
+                alert('Failed to update config. Please try again.');
+            }
+        };
+
+        return (
+            <div className="flex flex-col space-y-1">
+                <div className="flex justify-between items-center">
+                    <span className="font-medium">Manual Override Duration:</span>
+                    {isEditingThis ? (
+                        <div className="flex space-x-2">
+                            <div className="flex items-center space-x-1">
+                                <input
+                                    type="number"
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    className="w-24 px-2 py-1 border rounded border-gray-300"
+                                />
+                                <span className="text-gray-500 text-sm">min</span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleSaveValue}
+                                className="text-green-600 hover:text-green-800 px-1"
+                                title="Save"
+                            >
+                                ✓
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleCancel}
+                                className="text-red-600 hover:text-red-800 px-1"
+                                title="Cancel"
+                            >
+                                ✗
+                            </button>
+                        </div>
+                    ) : (
+                        <div 
+                            className="cursor-pointer hover:text-blue-600 flex items-center space-x-1"
+                            onClick={handleEditStart}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    handleEditStart();
+                                }
+                            }}
+                        >
+                            <span>{value}</span>
+                            <span className="text-gray-500 text-sm ml-1">min</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
             <div className="flex flex-col items-center mb-4">
@@ -418,6 +517,7 @@ const ConfigData: React.FC = () => {
                 {renderEditableValue(ConfigKeys.T_SOLL, 'Solltemperatur', 10, 25, 0.5, '°C')}
                 {renderEditableValue(ConfigKeys.T_DELTA, 'Deltatemperatur', -5, 5, 0.5, '°C')}
                 {renderEditableValue(ConfigKeys.T_MIN, 'Minimumtemperatur', 10, 25, 0.5, '°C')}
+                {renderManualOverride()}
                 {renderEditableValue(
                     ConfigKeys.T_UPDATE_TIMER,
                     'Updates',
