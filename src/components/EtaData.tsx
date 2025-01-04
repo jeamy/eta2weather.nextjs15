@@ -8,19 +8,11 @@ import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
 import { storeData as storeEtaData } from '@/redux/etaSlice';
 import { storeData as storeConfigData } from '@/redux/configSlice';
-import { EtaData as EtaDataType, EtaPos, EtaText } from '@/reader/functions/types-constants/EtaConstants';
+import { EtaData as EtaDataType, EtaPos, EtaText, EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
-
-enum Buttons {
-  HT = 'HT',
-  KT = 'KT',
-  AA = 'AA',
-  GT = 'GT',
-  DT = 'DT',
-}
 
 // Constants
 
@@ -53,52 +45,11 @@ const EtaData: React.FC = () => {
 
   // Type for the button state
   type ButtonState = {
-    button: Buttons;
+    button: EtaButtons;
     manual: boolean;
   };
 
-  // Create default values for each switch
-  const defaultValues: Record<Buttons, DisplayEtaValue> = {
-    HT: { 
-      short: Buttons.HT,
-      long: 'Heizen Taste',
-      strValue: EtaText.AUS,
-      unit: ''
-    },
-    DT: { 
-      short: Buttons.DT,
-      long: 'Absenken Taste',
-      strValue: EtaText.AUS,
-      unit: ''
-    },
-    AA: { 
-      short: Buttons.AA,
-      long: 'Autotaste',
-      strValue: EtaText.EIN,
-      unit: ''
-    },
-    GT: {
-      short: Buttons.GT,
-      long: 'Gehen Taste',
-      strValue: EtaText.AUS,
-      unit: ''
-    },
-    KT: {
-      short: Buttons.KT,
-      long: 'Kommen Taste',
-      strValue: EtaText.AUS,
-      unit: ''
-    }
-  };
-
-  // Initialize displayData with default values
-  const [displayData, setDisplayData] = useState<DisplayDataType>(() => ({
-    HT: defaultValues.HT,
-    DT: defaultValues.DT,
-    AA: defaultValues.AA,
-    GT: defaultValues.GT,
-    KT: defaultValues.KT,
-  }));
+  const [displayData, setDisplayData] = useState<DisplayDataType | null>(null);
 
   const [manualOverride, setManualOverride] = useState(false);
 
@@ -119,18 +70,19 @@ const EtaData: React.FC = () => {
       setLoadingState({ isLoading: true, error: '' });
       lastApiCall.current = now;
 
-      const response = await fetch('/api/eta/read');
+      const response = await fetch('/api/eta/read', {
+        method: 'GET'
+      });
+
       if (!response.ok) {
-        throw new Error('Failed to fetch ETA data');
+        throw new Error(`Failed to fetch ETA data: ${response.statusText}`);
       }
 
       const { data, config: updatedConfig } = await response.json() as ApiResponse;
 
-//      console.log('Received ETA data:', data);
       // Update the Redux store
       dispatch(storeEtaData(data));
 
-      // Update config in Redux if provided
       if (updatedConfig) {
         dispatch(storeConfigData(updatedConfig));
       }
@@ -154,67 +106,36 @@ const EtaData: React.FC = () => {
 
   // Update display data when etaState changes
   useEffect(() => {
-    if (etaState.data) {
-//      console.log('Received etaState data:', etaState.data);
-      setDisplayData(prevData => {
-        const newDisplayData: DisplayDataType = { ...prevData };
-        
-        Object.values(etaState.data).forEach(entry => {
-          if (Object.values(Buttons).includes(entry.short as Buttons)) {
-//             console.log('Found button:', entry.short, entry?.uri);
-            newDisplayData[entry.short || ' '] = {
-              short: entry.short || 'Unknown',
-              long: entry.long || entry.short || 'Unknown',
-              strValue: entry.value === EtaPos.EIN ? EtaText.EIN : EtaText.AUS,
-              unit: entry.unit || ''
-            };
-          }
-        });
-        
-        return newDisplayData;
+    if (!etaState.data) return;
+
+//    console.log('Raw ETA State Data:', JSON.stringify(etaState.data, null, 2));
+
+    setDisplayData(prevData => {
+      const newDisplayData: DisplayDataType = {};  // Start fresh each time
+      
+      Object.values(etaState.data).forEach(entry => {
+        if (Object.values(EtaButtons).includes(entry.short as EtaButtons)) {
+          console.log(`Processing button ${entry.short}: value=${entry.value}, strValue=${entry.strValue}`);
+          newDisplayData[entry.short || ' '] = {
+            short: entry.short || 'Unknown',
+            long: entry.long || entry.short || 'Unknown',
+            strValue: entry.value === EtaPos.EIN ? EtaText.EIN : EtaText.AUS,
+            unit: entry.unit || ''
+          };
+        }
       });
-    }
+      
+      console.log('New Display Data:', JSON.stringify(newDisplayData, null, 2));
+      return newDisplayData;  // Replace entire state instead of merging
+    });
   }, [etaState.data]);
 
-  useEffect(() => {
-    const updateDisplayData = () => {
-      if (!etaState.data || !defaultNames2Id) return;
-
-      setDisplayData(prevData => {
-        const newDisplayData: DisplayDataType = {
-          ...prevData
-        };
-
-        // Update values from etaState
-        Object.entries(etaState.data).forEach(([key, value]) => {
-          if (
-            value &&
-            typeof value === 'object' &&
-            'type' in value &&
-            'strValue' in value
-          ) {
-            newDisplayData[key] = {
-              short: value.type || 'Unknown',
-              long: defaultNames2Id[key]?.name || key,
-              strValue: value.strValue || '',
-              unit: value.unit || ''
-            };
-          }
-        });
-
-        return newDisplayData;
-      });
-    };
-
-    updateDisplayData();
-  }, [etaState.data]);
-
-  const updateButtonStates = useCallback(async (activeButton: Buttons, isManual: boolean = false) => {
+  const updateButtonStates = useCallback(async (activeButton: EtaButtons, isManual: boolean = false) => {
     try {
       // Find button IDs from state data
       const buttonIds: Record<string, string> = {};
       Object.entries(etaState.data).forEach(([uri, data]) => {
-        if (Object.values(Buttons).includes(data.short as Buttons)) {
+        if (Object.values(EtaButtons).includes(data.short as EtaButtons)) {
           buttonIds[data.short ?? ''] = uri;
         }
       });
@@ -223,27 +144,47 @@ const EtaData: React.FC = () => {
         throw new Error(`Button ID not found for ${activeButton}`);
       }
 
-      // Set other buttons to Aus (1802)
-      console.log('Setting other buttons to Aus (1802)...');
-      const otherButtons = Object.keys(buttonIds).filter(key => key !== activeButton) as Array<Buttons>;
-      await Promise.all(otherButtons.map(button => 
-        fetch('/api/eta/update', {
+      // Turn off all other buttons first
+      const allButtons = Object.entries(buttonIds).filter(([name]) => name !== activeButton);
+      
+      console.log(`Turning off all other buttons: ${allButtons.map(([name]) => name).join(', ')}`);
+      
+      // Turn off buttons one by one to ensure each request completes
+      for (const [name, id] of allButtons) {
+        console.log(`Turning off button: ${name}`);
+        const response = await fetch('/api/eta/update', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({
-            id: buttonIds[button],
+            id: id,
             value: EtaPos.AUS,
             begin: "0",
             end: "0"
           })
-        })
-      ));
+        });
 
-      // Set active button to Ein (1803)
-      console.log(`Setting ${activeButton} to Ein (1803)...`);
-      await fetch('/api/eta/update', {
+        if (!response.ok) {
+          throw new Error(`Failed to turn off button ${name}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(`Failed to turn off button ${name}: ${result.error}`);
+        }
+
+        // Wait a short time between requests to ensure state is updated
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Then activate the requested button
+      console.log(`Activating button: ${activeButton}`);
+      const response = await fetch('/api/eta/update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           id: buttonIds[activeButton],
           value: EtaPos.EIN,
@@ -252,14 +193,31 @@ const EtaData: React.FC = () => {
         })
       });
 
-      // Refresh data after updates with force flag for manual actions
-      await loadAndStoreEta(isManual);
+      if (!response.ok) {
+        throw new Error(`Failed to activate button ${activeButton}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(`Failed to activate button ${activeButton}: ${result.error}`);
+      }
+
+      // Update manual override state
+      setManualOverride(isManual);
+
+      // Wait a moment to ensure state is updated
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Refresh the data to get the new state
+      await loadAndStoreEta(true);
+
     } catch (error) {
-      console.error('Error updating button state:', error);
+      console.error('Error updating button states:', error);
+      setLoadingState(prev => ({ ...prev, error: (error as Error).message }));
     }
   }, [etaState.data, loadAndStoreEta]);
 
-  const handleButtonClick = useCallback(async (clickedButton: Buttons) => {
+  const handleButtonClick = useCallback(async (clickedButton: EtaButtons) => {
     setManualOverride(true);  // Set manual override when button is clicked
     await updateButtonStates(clickedButton, true);
   }, [updateButtonStates]);
@@ -283,10 +241,10 @@ const EtaData: React.FC = () => {
       if (lastTempState.current.wasBelow !== null && lastTempState.current.wasBelow !== isBelow) {
         if (isBelow) {
           console.log(`Temperature crossed below minimum: indoor=${indoorTemp}°C, min=${minTemp}°C -> activating Kommen`);
-          await updateButtonStates(Buttons.KT, false);
+          await updateButtonStates(EtaButtons.KT, false);
         } else {
           console.log(`Temperature crossed above minimum: indoor=${indoorTemp}°C, min=${minTemp}°C -> activating Auto`);
-          await updateButtonStates(Buttons.AA, false);
+          await updateButtonStates(EtaButtons.AA, false);
         }
       }
 
@@ -368,7 +326,7 @@ const EtaData: React.FC = () => {
               alt="ETA"
               width={150}
               height={150}
-              style={{ objectFit: 'contain' }}
+              style={{ width: 'auto', height: '150px', objectFit: 'contain' }}
               priority
             />
           </div>
@@ -390,7 +348,7 @@ const EtaData: React.FC = () => {
             alt="ETA"
             width={150}
             height={150}
-            style={{ objectFit: 'contain' }}
+            style={{ width: 'auto', height: '150px', objectFit: 'contain' }}
             priority
           />
         </div>
@@ -402,7 +360,7 @@ const EtaData: React.FC = () => {
             {Object.entries(etaState.data)
               .filter(([key, value]) => {
                 // Filter out HT, AA, DT entries and empty values
-                if (Object.values(Buttons).includes(value.short as Buttons)) {
+                if (Object.values(EtaButtons).includes(value.short as EtaButtons)) {
                   return false;
                 }
                 if (!value.strValue || value.strValue.trim() === '') return false;
@@ -449,18 +407,18 @@ const EtaData: React.FC = () => {
                 </div>
               ))}
             {/* Render switches separately */}
-            {Object.values(Buttons).map(key => {
-              const value = displayData[key] || defaultValues[key];
+            {Object.values(EtaButtons).map(key => {
+              const value = displayData[key] || { short: key, long: '', strValue: '', unit: '' };
               return (
                 <div key={key} className="flex flex-col">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex flex-col">
                       <span className="font-medium">
-                        {key === Buttons.HT ? 'Heizen Taste' :
-                         key === Buttons.AA ? 'Autotaste' :
-                         key === Buttons.DT ? 'Absenken Taste' :
-                         key === Buttons.GT ? 'Gehen Taste' :
-                         key === Buttons.KT ? 'Kommen Taste' :
+                        {key === EtaButtons.HT ? 'Heizen Taste' :
+                         key === EtaButtons.AA ? 'Autotaste' :
+                         key === EtaButtons.DT ? 'Absenken Taste' :
+                         key === EtaButtons.GT ? 'Gehen Taste' :
+                         key === EtaButtons.KT ? 'Kommen Taste' :
                          value.long}:
                       </span>
                     </div>
@@ -507,10 +465,10 @@ const EtaData: React.FC = () => {
   );
 };
 
-type HeatingKey = Buttons;
+type HeatingKey = EtaButtons;
 
 const isHeatingKey = (key: string): key is HeatingKey => {
-  return Object.values(Buttons).includes(key as Buttons);
+  return Object.values(EtaButtons).includes(key as EtaButtons);
 };
 
 export default EtaData;
