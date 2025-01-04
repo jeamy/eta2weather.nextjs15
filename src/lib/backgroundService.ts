@@ -47,6 +47,7 @@ class BackgroundService {
   private readonly DATA_RETENTION_PERIOD = 24 * 60 * 60 * 1000; // 24 hours
   private etaApi: EtaApi | null = null;
   private lastSliderUpdate: string | null = null;
+  private lastTempState: { wasBelow: boolean | null } = { wasBelow: null };
 
   private constructor() {}
 
@@ -242,11 +243,11 @@ class BackgroundService {
 
   private async updateTemperatureDiff(wifiData: WifiAF83Data) {
     try {
-      const state = store.getState();
-      const etaState = state.eta;
-      const config = state.config.data;
+      const etaState = store.getState().eta;
+      const config = store.getState().config.data;
 
-      if (!config || !wifiData || !etaState?.data) {
+      if (!config || !wifiData || !etaState.data) {
+        console.log(`${this.getTimestamp()} Missing required data for temperature diff update`);
         return;
       }
 
@@ -266,11 +267,9 @@ class BackgroundService {
 
         console.log(`${this.getTimestamp()} Updated temperature difference in config file to ${tempDiff}°C`);
 
-        // Only update states if temperature difference has changed
-        const currentTempDiff = Number(config[ConfigKeys.TEMP_DIFF]);
-        if (tempDiff !== currentTempDiff) {
-          console.log(`${this.getTimestamp()} Temperature difference changed from ${currentTempDiff}°C to ${tempDiff}°C`);
-          store.dispatch(storeConfigData(config));
+        // Check if we crossed the temperature threshold
+        const isBelow = tempDiff > 0;
+        if (this.lastTempState.wasBelow !== null && this.lastTempState.wasBelow !== isBelow) {
           // Get all button IDs
           const buttonIds = {
             ht: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
@@ -286,13 +285,8 @@ class BackgroundService {
             return;
           }
 
-          // Determine target button based on temperature
-          let targetButton: string;
-          if (tempDiff > 0) {
-            targetButton = buttonIds.kt; // Activate Kommen when below min temp
-          } else {
-            targetButton = buttonIds.aa; // Activate Auto when at or above min temp
-          }
+          const targetButton = isBelow ? buttonIds.kt : buttonIds.aa;
+          const targetButtonName = isBelow ? 'KT' : 'AA';
 
           try {
             // Set all other buttons to Aus
@@ -329,105 +323,109 @@ class BackgroundService {
               })
             });
 
-            console.log(`${this.getTimestamp()} Updated all button states (${tempDiff > 0 ? 'KT' : 'AA'} activated)`);
+            console.log(`${this.getTimestamp()} Temperature threshold crossed: ${isBelow ? 'dropped below' : 'rose above'} minimum -> Activated ${targetButtonName}`);
           } catch (error) {
             console.error(`${this.getTimestamp()} Error updating button states:`, error);
           }
         }
-      }
 
-      // Continue with existing temperature diff logic
-      console.log(`${this.getTimestamp()} Updating temperature diff...`);
-      const { diff: numericDiff } = calculateTemperatureDiff({
-        data: config,
-        loadingState: { isLoading: false, error: null },
-        isInitialized: true
-      }, { 
-        data: wifiData,
-        loadingState: { isLoading: false, error: null }
-      });
-      
-      if (numericDiff !== null) {
-        console.log(`${this.getTimestamp()} Numeric diff: ${numericDiff}`);
-        const newDiffValue = numericDiff.toString();
-        // Only update if the diff value has changed
-        if (newDiffValue !== config[ConfigKeys.DIFF]) {
-          const etaValues = {
-            einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
-            schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
-            heizentaste: etaState.data[defaultNames2Id[EtaConstants.HEIZENTASTE].id]?.strValue || '0',
-            kommentaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
-            tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
-            tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
-          };
+        // Update the last temperature state
+        this.lastTempState.wasBelow = isBelow;
+        
+        // Continue with existing temperature diff logic
+        console.log(`${this.getTimestamp()} Updating temperature diff...`);
+        const { diff: numericDiff } = calculateTemperatureDiff({
+          data: config,
+          loadingState: { isLoading: false, error: null },
+          isInitialized: true
+        }, { 
+          data: wifiData,
+          loadingState: { isLoading: false, error: null }
+        });
+        
+        if (numericDiff !== null) {
+          console.log(`${this.getTimestamp()} Numeric diff: ${numericDiff}`);
+          const newDiffValue = numericDiff.toString();
+          // Only update if the diff value has changed
+          if (newDiffValue !== config[ConfigKeys.DIFF]) {
+            const etaValues = {
+              einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
+              schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
+              heizentaste: etaState.data[defaultNames2Id[EtaConstants.HEIZENTASTE].id]?.strValue || '0',
+              kommentaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
+              tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
+              tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
+            };
 
-          const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
-          console.log(`${this.getTimestamp()} New slider position: ${newSliderPosition}`);
-          if (newSliderPosition !== config[ConfigKeys.T_SLIDER] || newDiffValue !== config[ConfigKeys.DIFF]) {
-            console.log(`${this.getTimestamp()} Updating temperature diff...`);
-            store.dispatch(storeConfigData({
-              ...config,
-              [ConfigKeys.DIFF]: newDiffValue,
-              [ConfigKeys.T_SLIDER]: newSliderPosition
-            }));
+            const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
+            console.log(`${this.getTimestamp()} New slider position: ${newSliderPosition}`);
+            if (newSliderPosition !== config[ConfigKeys.T_SLIDER] || newDiffValue !== config[ConfigKeys.DIFF]) {
+              console.log(`${this.getTimestamp()} Updating temperature diff...`);
+              store.dispatch(storeConfigData({
+                ...config,
+                [ConfigKeys.DIFF]: newDiffValue,
+                [ConfigKeys.T_SLIDER]: newSliderPosition
+              }));
 
-            // Log the temperature diff update
-            console.log(`${this.getTimestamp()} Updated temperature diff - Diff: ${newDiffValue}, Slider: ${newSliderPosition}`);
-            await logData('temp_diff', { 
-              timestamp: Date.now(),
-              diff: newDiffValue,
-              sliderPosition: newSliderPosition,
-              indoor: wifiData.indoorTemperature,
-              outdoor: wifiData.temperature
-            });
+              // Log the temperature diff update
+              console.log(`${this.getTimestamp()} Updated temperature diff - Diff: ${newDiffValue}, Slider: ${newSliderPosition}`);
+              await logData('temp_diff', { 
+                timestamp: Date.now(),
+                diff: newDiffValue,
+                sliderPosition: newSliderPosition,
+                indoor: wifiData.indoorTemperature,
+                outdoor: wifiData.temperature
+              });
 
-            // Update the physical slider position if needed
-            const recommendedPos = Math.round(parseFloat(newSliderPosition));
-            const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
-            const currentPos = etaSP ? parseFloat(etaSP.strValue || '0') : recommendedPos;
-            console.log(`${this.getTimestamp()} Current slider position: ${currentPos}, Recommended slider position: ${recommendedPos}`);
-            // Only update if the positions are different, values are valid, and it's not the same update
-            if (etaSP && 
-                recommendedPos !== currentPos && 
-                !isNaN(recommendedPos) && 
-                !isNaN(currentPos) &&
-                this.lastSliderUpdate !== newSliderPosition) {
+              // Update the physical slider position if needed
+              const recommendedPos = Math.round(parseFloat(newSliderPosition));
+              const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
+              const currentPos = etaSP ? parseFloat(etaSP.strValue || '0') : recommendedPos;
+              console.log(`${this.getTimestamp()} Current slider position: ${currentPos}, Recommended slider position: ${recommendedPos}`);
+              
+              // Only update if the positions are different, values are valid, and it's not the same update
+              if (etaSP && 
+                  recommendedPos !== currentPos && 
+                  !isNaN(recommendedPos) && 
+                  !isNaN(currentPos) &&
+                  this.lastSliderUpdate !== newSliderPosition) {
                 
                 this.lastSliderUpdate = newSliderPosition;
                 
                 if (!this.etaApi) {
-                    console.error(`${this.getTimestamp()} EtaApi not initialized`);
-                    return;
+                  console.error(`${this.getTimestamp()} EtaApi not initialized`);
+                  return;
                 }
 
                 try {
-                    console.log(`${this.getTimestamp()} Update slider position from ${currentPos} to ${recommendedPos}`);
+                  console.log(`${this.getTimestamp()} Update slider position from ${currentPos} to ${recommendedPos}`);
 
-                    const result = await updateSliderPosition(
-                        recommendedPos,
-                        currentPos,
-                        defaultNames2Id,
-                        this.etaApi
-                    );
-                    
-                    if (result.success) {
-                        // Update the SP value in the Redux store
-                        const updatedEtaData = { ...etaState.data };
-                        const spId = defaultNames2Id[EtaConstants.SCHIEBERPOS].id;
-                        if (updatedEtaData[spId]) {
-                            updatedEtaData[spId] = {
-                                ...updatedEtaData[spId],
-                                strValue: (result.position).toString()
-                            };
-                            store.dispatch(storeEtaData(updatedEtaData));
-                            console.log(`${this.getTimestamp()} Successfully updated slider position to ${result.position}`);
-                        }
-                    } else if (result.error) {
-                        console.error(`${this.getTimestamp()} Failed to update slider position:`, result.error);
+                  const result = await updateSliderPosition(
+                    recommendedPos,
+                    currentPos,
+                    defaultNames2Id,
+                    this.etaApi
+                  );
+                  
+                  if (result.success) {
+                    // Update the SP value in the Redux store
+                    const updatedEtaData = { ...etaState.data };
+                    const spId = defaultNames2Id[EtaConstants.SCHIEBERPOS].id;
+                    if (updatedEtaData[spId]) {
+                      updatedEtaData[spId] = {
+                        ...updatedEtaData[spId],
+                        strValue: (result.position).toString()
+                      };
+                      store.dispatch(storeEtaData(updatedEtaData));
+                      console.log(`${this.getTimestamp()} Successfully updated slider position to ${result.position}`);
                     }
+                  } else if (result.error) {
+                    console.error(`${this.getTimestamp()} Failed to update slider position:`, result.error);
+                  }
                 } catch (error) {
-                    console.error(`${this.getTimestamp()} Error updating slider position:`, error);
+                  console.error(`${this.getTimestamp()} Error updating slider position:`, error);
                 }
+              }
             }
           }
         }

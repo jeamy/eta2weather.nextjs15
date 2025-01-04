@@ -13,7 +13,6 @@ import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types
 import Image from 'next/image';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
-import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 
 enum Buttons {
   HT = 'HT',
@@ -51,7 +50,12 @@ const EtaData: React.FC = () => {
   const intervalId = useRef<NodeJS.Timeout | null>(null);
   const lastApiCall = useRef<number>(0);
   const etaApiRef = useRef<EtaApi | null>(null);
-  const lastActiveButton = useRef<Buttons | null>(null);
+
+  // Type for the button state
+  type ButtonState = {
+    button: Buttons;
+    manual: boolean;
+  };
 
   // Create default values for each switch
   const defaultValues: Record<Buttons, DisplayEtaValue> = {
@@ -96,15 +100,17 @@ const EtaData: React.FC = () => {
     KT: defaultValues.KT,
   }));
 
+  const [manualOverride, setManualOverride] = useState(false);
+
   useEffect(() => {
     if (config?.s_eta) {
       etaApiRef.current = new EtaApi(config.s_eta);
     }
   }, [config]);
 
-  const loadAndStoreEta = useCallback(async () => {
+  const loadAndStoreEta = useCallback(async (force: boolean = false) => {
     const now = Date.now();
-    if (now - lastApiCall.current < MIN_API_INTERVAL) {
+    if (!force && now - lastApiCall.current < MIN_API_INTERVAL) {
       console.log('Skipping API call - too frequent');
       return;
     }
@@ -203,7 +209,7 @@ const EtaData: React.FC = () => {
     updateDisplayData();
   }, [etaState.data]);
 
-  const updateButtonStates = useCallback(async (activeButton: Buttons) => {
+  const updateButtonStates = useCallback(async (activeButton: Buttons, isManual: boolean = false) => {
     try {
       // Find button IDs from state data
       const buttonIds: Record<string, string> = {};
@@ -218,6 +224,7 @@ const EtaData: React.FC = () => {
       }
 
       // Set other buttons to Aus (1802)
+      console.log('Setting other buttons to Aus (1802)...');
       const otherButtons = Object.keys(buttonIds).filter(key => key !== activeButton) as Array<Buttons>;
       await Promise.all(otherButtons.map(button => 
         fetch('/api/eta/update', {
@@ -233,6 +240,7 @@ const EtaData: React.FC = () => {
       ));
 
       // Set active button to Ein (1803)
+      console.log(`Setting ${activeButton} to Ein (1803)...`);
       await fetch('/api/eta/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -244,16 +252,21 @@ const EtaData: React.FC = () => {
         })
       });
 
-      // Update last active button
-      lastActiveButton.current = activeButton;
-
-      // Refresh data after updates
-      await loadAndStoreEta();
+      // Refresh data after updates with force flag for manual actions
+      await loadAndStoreEta(isManual);
     } catch (error) {
       console.error('Error updating button state:', error);
-      lastActiveButton.current = null;
     }
   }, [etaState.data, loadAndStoreEta]);
+
+  const handleButtonClick = useCallback(async (clickedButton: Buttons) => {
+    setManualOverride(true);  // Set manual override when button is clicked
+    await updateButtonStates(clickedButton, true);
+  }, [updateButtonStates]);
+
+  const lastTempState = useRef<{
+    wasBelow: boolean | null;
+  }>({ wasBelow: null });
 
   useEffect(() => {
     const checkTemperature = async () => {
@@ -264,28 +277,41 @@ const EtaData: React.FC = () => {
       
       if (isNaN(indoorTemp) || isNaN(minTemp)) return;
 
-      // Determine which button should be active based on temperature
-      const targetButton = indoorTemp < minTemp ? Buttons.KT : Buttons.AA;
-      
-      // Only update if the target button is different from current
-      if (lastActiveButton.current !== targetButton) {
-        console.log(`Temperature check: indoor=${indoorTemp}°C, min=${minTemp}°C -> activating ${targetButton}`);
-        await updateButtonStates(targetButton);
+      const isBelow = indoorTemp < minTemp;
+
+      // Only act if the temperature crosses the threshold
+      if (lastTempState.current.wasBelow !== null && lastTempState.current.wasBelow !== isBelow) {
+        if (isBelow) {
+          console.log(`Temperature crossed below minimum: indoor=${indoorTemp}°C, min=${minTemp}°C -> activating Kommen`);
+          await updateButtonStates(Buttons.KT, false);
+        } else {
+          console.log(`Temperature crossed above minimum: indoor=${indoorTemp}°C, min=${minTemp}°C -> activating Auto`);
+          await updateButtonStates(Buttons.AA, false);
+        }
       }
+
+      // Update the last temperature state
+      lastTempState.current.wasBelow = isBelow;
     };
 
     // Run temperature check
     checkTemperature();
   }, [wifiState.data?.indoorTemperature, config.t_min, updateButtonStates]);
 
-  const handleButtonClick = useCallback(async (clickedButton: Buttons) => {
-    await updateButtonStates(clickedButton);
-  }, [updateButtonStates]);
+  // Reset manual override after a certain time (e.g., 1 hour)
+  useEffect(() => {
+    if (manualOverride) {
+      const timer = setTimeout(() => {
+        setManualOverride(false);
+        console.log('Manual override timeout: resuming automatic temperature control');
+      }, 60 * 60 * 1000); // 1 hour
 
-  // Timer effect for periodic data updates
+      return () => clearTimeout(timer);
+    }
+  }, [manualOverride]);
+
   useEffect(() => {
     const updateTimer = parseInt(config.t_update_timer) || DEFAULT_UPDATE_TIMER;
-    
     if (updateTimer > 0) {
       // Ensure timer is not less than minimum interval
       const safeTimer = Math.max(updateTimer, MIN_API_INTERVAL);
@@ -298,7 +324,6 @@ const EtaData: React.FC = () => {
       // Set new interval with safe timer value
       intervalId.current = setInterval(loadAndStoreEta, safeTimer);
     }
-
     // Cleanup function
     return () => {
       if (intervalId.current) {
