@@ -448,95 +448,99 @@ export class BackgroundService {
       const minTemp = Number(config.t_min);
 
       if (!isNaN(indoorTemp) && !isNaN(minTemp)) {
-        const tempDiff = Number((minTemp - indoorTemp).toFixed(1));
-        console.log(`${this.getTimestamp()} Temperature difference: ${tempDiff}°C (min: ${minTemp}°C, indoor: ${indoorTemp}°C)`);
+        const isBelow = indoorTemp < minTemp;
+        console.log(`${this.getTimestamp()} Temperature check: Indoor ${indoorTemp}°C, Min ${minTemp}°C, Is Below: ${isBelow}`);
 
-        // Update config with new temperature difference directly in the JSON file
+        // Update config with new temperature difference
+        const tempDiff = Number((minTemp - indoorTemp).toFixed(1));
         const data = await fs.promises.readFile(CONFIG_FILE_PATH, 'utf-8');
         let config = JSON.parse(data);
         config[ConfigKeys.TEMP_DIFF] = tempDiff.toString();
         await fs.promises.writeFile(CONFIG_FILE_PATH, JSON.stringify(config, null, 2));
 
-        console.log(`${this.getTimestamp()} Updated temperature difference in config file to ${tempDiff}°C`);
-
         // Check if we crossed the temperature threshold
-        const isBelow = tempDiff > 0;
-        if (this.lastTempState.wasBelow !== null && this.lastTempState.wasBelow !== isBelow) {
-          // Get button IDs from defaultNames2Id
-          const buttonIds: Record<string, string> = {
-            [EtaButtons.HT]: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
-            [EtaButtons.KT]: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
-            [EtaButtons.AA]: defaultNames2Id[EtaConstants.AUTOTASTE].id,
-            [EtaButtons.GT]: defaultNames2Id[EtaConstants.GEHENTASTE].id,
-            [EtaButtons.DT]: defaultNames2Id[EtaConstants.ABSENKTASTE].id
-          };
+        if (this.lastTempState.wasBelow !== isBelow) {
+          console.log(`${this.getTimestamp()} Temperature threshold crossed: ${isBelow ? 'dropped below' : 'rose above'} minimum`);
 
-          const targetButtonName = isBelow ? EtaButtons.KT : EtaButtons.AA;
-          const targetButton = buttonIds[targetButtonName];
+          // Check for manual override
+          const manualButtonActive = Object.entries(etaState.data).some(([_, data]) => {
+            const buttonName = data.short;
+            return buttonName && 
+                   Object.values(EtaButtons).includes(buttonName as EtaButtons) && 
+                   buttonName !== EtaButtons.AA && 
+                   data.value === EtaPos.EIN;
+          });
 
-          if (!targetButton) {
-            throw new Error(`Button ID not found for ${targetButtonName}. Available buttons: ${Object.keys(buttonIds).join(', ')}`);
-          }
+          if (!manualButtonActive) {
+            // Get button IDs
+            const buttonIds: Record<string, string> = {
+              [EtaButtons.HT]: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
+              [EtaButtons.KT]: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
+              [EtaButtons.AA]: defaultNames2Id[EtaConstants.AUTOTASTE].id,
+              [EtaButtons.GT]: defaultNames2Id[EtaConstants.GEHENTASTE].id,
+              [EtaButtons.DT]: defaultNames2Id[EtaConstants.ABSENKTASTE].id
+            };
 
-          try {
-            // Turn off all buttons first
-            const allButtons = Object.entries(buttonIds).filter(([name]) => name !== targetButtonName);
+            const targetButtonName = isBelow ? EtaButtons.KT : EtaButtons.AA;
+            const targetButton = buttonIds[targetButtonName];
 
-            console.log(`${this.getTimestamp()} Current button states:`, Object.entries(etaState.data).reduce((acc, [_, data]) => {
-              const buttonName = data.short;
-              if (buttonName && Object.values(EtaButtons).includes(buttonName as EtaButtons)) {
-                acc[buttonName] = data.value === EtaPos.EIN ? 'EIN' : 'AUS';
-              }
-              return acc;
-            }, {} as Record<string, string>));
+            if (!targetButton) {
+              throw new Error(`Button ID not found for ${targetButtonName}`);
+            }
 
-            console.log(`${this.getTimestamp()} Turning off all other buttons: ${allButtons.map(([name]) => name).join(', ')}`);
-            await Promise.all(allButtons.map(async ([, id]) => {
-              console.log(`${this.getTimestamp()} Turning off ${id}`);
+            try {
+              // First turn off all buttons
+              console.log(`${this.getTimestamp()} Turning off all buttons before activating ${targetButtonName}`);
+              await Promise.all(Object.entries(buttonIds).map(async ([name, id]) => {
+                if (name !== targetButtonName) {
+                  const response = await fetch('/api/eta/update', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      id: id,
+                      value: EtaPos.AUS,
+                      begin: "0",
+                      end: "0"
+                    })
+                  });
+
+                  if (!response.ok) {
+                    throw new Error(`Failed to turn off button ${name}: ${response.statusText}`);
+                  }
+                }
+              }));
+
+              // Then activate target button
+              console.log(`${this.getTimestamp()} Activating ${targetButtonName}`);
               const response = await fetch('/api/eta/update', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  id: id,
-                  value: EtaPos.AUS,
+                  id: targetButton,
+                  value: EtaPos.EIN,
                   begin: "0",
                   end: "0"
                 })
               });
 
               if (!response.ok) {
-                throw new Error(`Failed to turn off button: ${response.statusText}`);
+                throw new Error(`Failed to activate ${targetButtonName}: ${response.statusText}`);
               }
-            }));
 
-            // Then activate the target button
-            console.log(`${this.getTimestamp()} Activating ${targetButtonName}`);
-            const response = await fetch('/api/eta/update', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                id: targetButton,
-                value: EtaPos.EIN,
-                begin: "0",
-                end: "0"
-              })
-            });
-
-            if (!response.ok) {
-              throw new Error(`Failed to activate button ${targetButtonName}: ${response.statusText}`);
+              console.log(`${this.getTimestamp()} Successfully switched to ${targetButtonName} mode`);
+            } catch (error) {
+              console.error(`${this.getTimestamp()} Error updating button states:`, error);
             }
-
-            console.log(`${this.getTimestamp()} Temperature threshold crossed: ${isBelow ? 'dropped below' : 'rose above'} minimum -> Activated ${targetButtonName}`);
-          } catch (error) {
-            console.error(`${this.getTimestamp()} Error updating button states:`, error);
+          } else {
+            console.log(`${this.getTimestamp()} Manual override active, skipping automatic temperature control`);
           }
         }
 
-        // Update the last temperature state
+        // Update last temperature state
         this.lastTempState.wasBelow = isBelow;
       }
     } catch (error) {

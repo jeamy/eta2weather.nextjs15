@@ -77,30 +77,30 @@ const EtaData: React.FC = () => {
 
       const { data, config: updatedConfig } = await response.json() as ApiResponse;
 
-      // Create new data object with all buttons off by default
-      const newData = { ...data };
-      Object.entries(newData).forEach(([uri, item]) => {
-        if (Object.values(EtaButtons).includes(item.short as EtaButtons)) {
-          newData[uri] = {
-            ...item,
-            value: EtaPos.AUS
-          };
+      // Find currently active button
+      let activeButton: EtaButtons | null = null;
+      Object.entries(data).forEach(([_, item]) => {
+        if (Object.values(EtaButtons).includes(item.short as EtaButtons) && 
+            item.value === EtaPos.EIN && 
+            item.short !== EtaButtons.AA) {  // Prioritize non-AA buttons
+          activeButton = item.short as EtaButtons;
         }
       });
 
-      // Restore only the last active button state if it exists
-      if (lastActiveButton.current) {
-        const { uri, value } = lastActiveButton.current;
-        if (newData[uri]) {
-          newData[uri] = {
-            ...newData[uri],
-            value: value
-          };
-        }
+      // If a manual button is active, ensure AA is off
+      if (activeButton && activeButton !== EtaButtons.AA) {
+        Object.entries(data).forEach(([uri, item]) => {
+          if (item.short === EtaButtons.AA) {
+            data[uri] = {
+              ...item,
+              value: EtaPos.AUS
+            };
+          }
+        });
       }
 
-      // Update the Redux store
-      dispatch(storeEtaData(newData));
+      // Update the Redux store with the modified data
+      dispatch(storeEtaData(data));
 
       if (updatedConfig) {
         dispatch(storeConfigData(updatedConfig));
@@ -113,8 +113,13 @@ const EtaData: React.FC = () => {
     }
   }, [dispatch]);
 
-  // Track the last activated button
-  const lastActiveButton = useRef<{ uri: string; value: EtaPos } | null>(null);
+  // Initial load effect
+  useEffect(() => {
+    if (isFirstLoad.current) {
+      loadAndStoreEta(true);
+      isFirstLoad.current = false;
+    }
+  }, [loadAndStoreEta]);
 
   const updateButtonStates = useCallback(async (activeButton: EtaButtons, isManual: boolean = false) => {
     try {
@@ -173,13 +178,7 @@ const EtaData: React.FC = () => {
         throw new Error(`Failed to turn on button ${activeButton}: ${response.statusText}`);
       }
 
-      // Update the last active button reference
-      lastActiveButton.current = {
-        uri: buttonIds[activeButton],
-        value: EtaPos.EIN
-      };
-
-      // Trigger a refresh of the data
+      // Trigger a refresh of the data to get the updated state
       await loadAndStoreEta(true);
     } catch (error) {
       console.error('Error updating button states:', error);
@@ -187,13 +186,51 @@ const EtaData: React.FC = () => {
     }
   }, [etaState.data, loadAndStoreEta]);
 
-  // Initial load effect
-  useEffect(() => {
-    if (isFirstLoad.current) {
-      loadAndStoreEta();
-      isFirstLoad.current = false;
+  // Get the currently active button from etaState
+  const getActiveButton = useCallback(() => {
+    for (const [uri, data] of Object.entries(etaState.data)) {
+      if (Object.values(EtaButtons).includes(data.short as EtaButtons) && data.value === EtaPos.EIN) {
+        return data.short as EtaButtons;
+      }
     }
-  }, [loadAndStoreEta]);
+    return null;
+  }, [etaState.data]);
+
+  // Effect for temperature control
+  useEffect(() => {
+    const checkTemperature = async () => {
+      if (lastTempState.current.manualOverride) {
+        return;
+      }
+
+      const indoorTemp = wifiState.data?.indoorTemperature;
+      const minTemp = Number(config.t_min);
+
+      if (isNaN(indoorTemp) || isNaN(minTemp)) {
+        return;
+      }
+
+      const isBelow = indoorTemp < minTemp;
+      
+      // Only act if temperature state has changed
+      if (lastTempState.current.wasBelow !== isBelow) {
+        const targetButton = isBelow ? EtaButtons.KT : EtaButtons.AA;
+        const currentButton = getActiveButton();
+
+        // Only update if the target button is different from the current button
+        if (currentButton !== targetButton) {
+          await updateButtonStates(targetButton, false);
+        }
+        
+        lastTempState.current.wasBelow = isBelow;
+      }
+    };
+
+    // Run temperature check
+    if (wifiState.data?.indoorTemperature && config.t_min) {
+      checkTemperature();
+    }
+  }, [wifiState.data?.indoorTemperature, config.t_min, updateButtonStates, getActiveButton]);
 
   // Update display data when etaState changes
   useEffect(() => {
@@ -241,14 +278,19 @@ const EtaData: React.FC = () => {
 
   const handleButtonClick = useCallback(async (clickedButton: EtaButtons) => {
     // Set manual override when a button is clicked, except for AA
-    lastTempState.current.manualOverride = clickedButton !== EtaButtons.AA;
-    
-    if (clickedButton === EtaButtons.AA) {
-      console.log('Auto button clicked - resuming automatic temperature control');
+    if (clickedButton !== EtaButtons.AA) {
+      lastTempState.current.manualOverride = true;
+      lastTempState.current.manualOverrideTime = Date.now();
+      const overrideMinutes = parseInt(config.t_override) || 60;
+      console.log(`Manual override activated for ${overrideMinutes} minutes`);
     }
-    
-    await updateButtonStates(clickedButton, true);
-  }, [updateButtonStates]);
+
+    try {
+      await updateButtonStates(clickedButton, true);
+    } catch (error) {
+      console.error('Error handling button click:', error);
+    }
+  }, [updateButtonStates, config.t_override]);
 
   useEffect(() => {
     const checkTemperature = async () => {
@@ -301,20 +343,19 @@ const EtaData: React.FC = () => {
     checkTemperature();
   }, [wifiState.data?.indoorTemperature, config.t_min, updateButtonStates]);
 
-  // Reset manual override after the configured timeout
   useEffect(() => {
-    if (lastTempState.current.manualOverride) {
-      const overrideTimeout = parseInt(config.t_override) || 600000; // Default to 10 minutes if not set
-      console.log(`Setting manual override timeout for ${overrideTimeout/1000} seconds`);
-      
-      const timer = setTimeout(() => {
+    const overrideTimeoutMinutes = parseInt(config.t_override) || 60; // Default to 60 minutes if not set
+    const overrideTimeoutMs = overrideTimeoutMinutes * 60 * 1000; // Convert minutes to milliseconds
+    
+    if (lastTempState.current.manualOverride && lastTempState.current.manualOverrideTime) {
+      const now = Date.now();
+      if (now - lastTempState.current.manualOverrideTime >= overrideTimeoutMs) {
+        console.log(`Manual override timeout (${overrideTimeoutMinutes} minutes) reached, resuming automatic temperature control`);
         lastTempState.current.manualOverride = false;
-        console.log('Manual override timeout: resuming automatic temperature control');
-      }, overrideTimeout);
-
-      return () => clearTimeout(timer);
+        lastTempState.current.manualOverrideTime = null;
+      }
     }
-  }, [wifiState.data?.indoorTemperature, config.t_override]); // Re-run when temperature or override timeout changes
+  }, [config.t_override]); // Re-run when override timeout changes
 
   useEffect(() => {
     const updateTimer = parseInt(config.t_update_timer) || DEFAULT_UPDATE_TIMER;
@@ -344,11 +385,13 @@ const EtaData: React.FC = () => {
     lastUpdate: number;
     isUpdating: boolean;
     manualOverride: boolean;
+    manualOverrideTime: number | null;
   }>({ 
     wasBelow: null, 
     lastUpdate: 0,
     isUpdating: false,
-    manualOverride: false
+    manualOverride: false,
+    manualOverrideTime: null
   });
 
   if (loadingState.isLoading) {
