@@ -25,6 +25,24 @@ Connect with Codeium:
   - Comprehensive system parameter management
   - Name-to-ID mapping functionality
   - Configurable update intervals
+  - Temperature Control Features:
+    - **Minimum Temperature Protection (`t_min`)**
+      - Prevents room temperature from falling below specified threshold
+      - Default value: 16°C
+      - Configurable through settings interface
+      - Automatically triggers heating when temperature drops below threshold
+    - **ETA Strategy Control**
+      - Enable/disable automatic temperature control via `f_eta` setting
+      - Dynamic temperature adjustment based on:
+        - Target temperature (`t_soll`)
+        - Temperature delta (`t_delta`)
+        - Slider position (`t_slider`)
+      - Temperature override duration (`t_override`)
+      - Configurable temperature difference threshold (`temp_diff`)
+    - **Update Intervals**
+      - System update timer (`t_update_timer`, default: 300000ms)
+      - Minimum API interval protection
+      - Automatic data synchronization
   
 - **User Interface**
   - Modern, responsive design with Tailwind CSS
