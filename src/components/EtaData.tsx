@@ -12,7 +12,6 @@ import { EtaData as EtaDataType, EtaPos, EtaText, EtaButtons } from '@/reader/fu
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
 import { EtaApi } from '@/reader/functions/EtaApi';
-import { defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 
 // Constants
 
@@ -50,8 +49,6 @@ const EtaData: React.FC = () => {
   };
 
   const [displayData, setDisplayData] = useState<DisplayDataType | null>(null);
-
-  const [manualOverride, setManualOverride] = useState(false);
 
   useEffect(() => {
     if (config?.s_eta) {
@@ -108,27 +105,45 @@ const EtaData: React.FC = () => {
   useEffect(() => {
     if (!etaState.data) return;
 
-//    console.log('Raw ETA State Data:', JSON.stringify(etaState.data, null, 2));
-
+    const newDisplayData: DisplayDataType = {};
+    
+    Object.values(etaState.data).forEach(entry => {
+      if (Object.values(EtaButtons).includes(entry.short as EtaButtons)) {
+        console.log(`Processing button ${entry.short}: value=${entry.value}, strValue=${entry.strValue}`);
+        newDisplayData[entry.short || ' '] = {
+          short: entry.short || 'Unknown',
+          long: entry.long || entry.short || 'Unknown',
+          strValue: entry.value === EtaPos.EIN ? EtaText.EIN : EtaText.AUS,
+          unit: entry.unit || ''
+        };
+      }
+    });
+    
+    // Only update if the data has actually changed
     setDisplayData(prevData => {
-      const newDisplayData: DisplayDataType = {};  // Start fresh each time
+      if (!prevData) return newDisplayData;
       
-      Object.values(etaState.data).forEach(entry => {
-        if (Object.values(EtaButtons).includes(entry.short as EtaButtons)) {
-          console.log(`Processing button ${entry.short}: value=${entry.value}, strValue=${entry.strValue}`);
-          newDisplayData[entry.short || ' '] = {
-            short: entry.short || 'Unknown',
-            long: entry.long || entry.short || 'Unknown',
-            strValue: entry.value === EtaPos.EIN ? EtaText.EIN : EtaText.AUS,
-            unit: entry.unit || ''
-          };
-        }
+      // Check if any values have changed
+      const hasChanges = Object.entries(newDisplayData).some(([key, value]) => {
+        return !prevData[key] || prevData[key].strValue !== value.strValue;
       });
       
-      console.log('New Display Data:', JSON.stringify(newDisplayData, null, 2));
-      return newDisplayData;  // Replace entire state instead of merging
+      return hasChanges ? newDisplayData : prevData;
     });
   }, [etaState.data]);
+
+  // Create a local update function to keep UI in sync
+  const updateLocalState = useCallback((uri: string, value: EtaPos) => {
+    if (!etaState.data?.[uri]) return;
+    
+    dispatch(storeEtaData({
+      ...etaState.data,
+      [uri]: {
+        ...etaState.data[uri],
+        value
+      }
+    }));
+  }, [dispatch, etaState.data]);
 
   const updateButtonStates = useCallback(async (activeButton: EtaButtons, isManual: boolean = false) => {
     try {
@@ -144,21 +159,23 @@ const EtaData: React.FC = () => {
         throw new Error(`Button ID not found for ${activeButton}`);
       }
 
-      // Turn off all other buttons first
-      const allButtons = Object.entries(buttonIds).filter(([name]) => name !== activeButton);
-      
-      console.log(`Turning off all other buttons: ${allButtons.map(([name]) => name).join(', ')}`);
-      
-      // Turn off buttons one by one to ensure each request completes
-      for (const [name, id] of allButtons) {
-        console.log(`Turning off button: ${name}`);
+      // Get the current state of the clicked button
+      const activeButtonUri = buttonIds[activeButton];
+      const currentButtonState = etaState.data[activeButtonUri]?.value === EtaPos.EIN;
+
+      // If the button is already ON, turn it OFF
+      if (currentButtonState) {
+        console.log(`Turning OFF button: ${activeButton}`);
+        // Update local state immediately
+        updateLocalState(activeButtonUri, EtaPos.AUS);
+        
         const response = await fetch('/api/eta/update', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            id: id,
+            id: activeButtonUri,
             value: EtaPos.AUS,
             begin: "0",
             end: "0"
@@ -166,27 +183,54 @@ const EtaData: React.FC = () => {
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to turn off button ${name}: ${response.statusText}`);
+          // Revert local state on error
+          updateLocalState(activeButtonUri, EtaPos.EIN);
+          throw new Error(`Failed to turn off button ${activeButton}: ${response.statusText}`);
         }
-
-        const result = await response.json();
-        if (!result.success) {
-          throw new Error(`Failed to turn off button ${name}: ${result.error}`);
-        }
-
-        // Wait a short time between requests to ensure state is updated
-        await new Promise(resolve => setTimeout(resolve, 100));
+        return;
       }
 
-      // Then activate the requested button
-      console.log(`Activating button: ${activeButton}`);
+      // Turn off all other buttons first
+      const allButtons = Object.entries(buttonIds);
+      for (const [name, uri] of allButtons) {
+        if (name !== activeButton && etaState.data[uri]?.value === EtaPos.EIN) {
+          console.log(`Turning OFF button: ${name}`);
+          // Update local state immediately
+          updateLocalState(uri, EtaPos.AUS);
+          
+          const response = await fetch('/api/eta/update', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              id: uri,
+              value: EtaPos.AUS,
+              begin: "0",
+              end: "0"
+            })
+          });
+
+          if (!response.ok) {
+            // Revert local state on error
+            updateLocalState(uri, EtaPos.EIN);
+            throw new Error(`Failed to turn off button ${name}: ${response.statusText}`);
+          }
+        }
+      }
+
+      // Turn on the clicked button
+      console.log(`Turning ON button: ${activeButton}`);
+      // Update local state immediately
+      updateLocalState(activeButtonUri, EtaPos.EIN);
+      
       const response = await fetch('/api/eta/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: buttonIds[activeButton],
+          id: activeButtonUri,
           value: EtaPos.EIN,
           begin: "0",
           end: "0"
@@ -194,37 +238,32 @@ const EtaData: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to activate button ${activeButton}: ${response.statusText}`);
+        // Revert local state on error
+        updateLocalState(activeButtonUri, EtaPos.AUS);
+        throw new Error(`Failed to turn on button ${activeButton}: ${response.statusText}`);
       }
 
-      const result = await response.json();
-      if (!result.success) {
-        throw new Error(`Failed to activate button ${activeButton}: ${result.error}`);
-      }
-
-      // Update manual override state
-      setManualOverride(isManual);
-
-      // Wait a moment to ensure state is updated
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      // Refresh the data to get the new state
+      // Trigger a refresh of the data to ensure consistency
       await loadAndStoreEta(true);
-
     } catch (error) {
       console.error('Error updating button states:', error);
       setLoadingState(prev => ({ ...prev, error: (error as Error).message }));
     }
-  }, [etaState.data, loadAndStoreEta]);
+  }, [etaState.data, loadAndStoreEta, updateLocalState]);
 
   const handleButtonClick = useCallback(async (clickedButton: EtaButtons) => {
-    setManualOverride(true);  // Set manual override when button is clicked
     await updateButtonStates(clickedButton, true);
   }, [updateButtonStates]);
 
   const lastTempState = useRef<{
     wasBelow: boolean | null;
-  }>({ wasBelow: null });
+    lastUpdate: number;
+    isUpdating: boolean;
+  }>({ 
+    wasBelow: null, 
+    lastUpdate: 0,
+    isUpdating: false 
+  });
 
   useEffect(() => {
     const checkTemperature = async () => {
@@ -236,37 +275,44 @@ const EtaData: React.FC = () => {
       if (isNaN(indoorTemp) || isNaN(minTemp)) return;
 
       const isBelow = indoorTemp < minTemp;
+      const now = Date.now();
+
+      // Prevent rapid updates by enforcing a minimum time between updates
+      if (now - lastTempState.current.lastUpdate < 5000) return;
+
+      // Prevent concurrent updates
+      if (lastTempState.current.isUpdating) return;
 
       // Only act if the temperature crosses the threshold
-      if (lastTempState.current.wasBelow !== null && lastTempState.current.wasBelow !== isBelow) {
-        if (isBelow) {
-          console.log(`Temperature crossed below minimum: indoor=${indoorTemp}°C, min=${minTemp}°C -> activating Kommen`);
-          await updateButtonStates(EtaButtons.KT, false);
-        } else {
-          console.log(`Temperature crossed above minimum: indoor=${indoorTemp}°C, min=${minTemp}°C -> activating Auto`);
-          await updateButtonStates(EtaButtons.AA, false);
-        }
-      }
+      if (lastTempState.current.wasBelow !== null && 
+          lastTempState.current.wasBelow !== isBelow) {
+        try {
+          lastTempState.current.isUpdating = true;
+          
+          if (isBelow) {
+            console.log(`Temperature crossed below minimum: indoor=${indoorTemp}°C, min=${minTemp}°C -> activating Kommen`);
+            await updateButtonStates(EtaButtons.KT, false);
+          } else {
+            console.log(`Temperature crossed above minimum: indoor=${indoorTemp}°C, min=${minTemp}°C -> activating Auto`);
+            await updateButtonStates(EtaButtons.AA, false);
+          }
 
-      // Update the last temperature state
-      lastTempState.current.wasBelow = isBelow;
+          // Update the last temperature state and timestamp only after successful update
+          lastTempState.current.wasBelow = isBelow;
+          lastTempState.current.lastUpdate = now;
+        } finally {
+          lastTempState.current.isUpdating = false;
+        }
+      } else if (lastTempState.current.wasBelow === null) {
+        // Initialize the state without triggering an update
+        lastTempState.current.wasBelow = isBelow;
+        lastTempState.current.lastUpdate = now;
+      }
     };
 
     // Run temperature check
     checkTemperature();
   }, [wifiState.data?.indoorTemperature, config.t_min, updateButtonStates]);
-
-  // Reset manual override after a certain time (e.g., 1 hour)
-  useEffect(() => {
-    if (manualOverride) {
-      const timer = setTimeout(() => {
-        setManualOverride(false);
-        console.log('Manual override timeout: resuming automatic temperature control');
-      }, 60 * 60 * 1000); // 1 hour
-
-      return () => clearTimeout(timer);
-    }
-  }, [manualOverride]);
 
   useEffect(() => {
     const updateTimer = parseInt(config.t_update_timer) || DEFAULT_UPDATE_TIMER;
