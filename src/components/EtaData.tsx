@@ -204,24 +204,6 @@ const EtaData: React.FC = () => {
   }, [etaState.data]);
 
   const updateButtonStates = useCallback(async (activeButton: Buttons) => {
-    // Skip if this button is already active
-    if (lastActiveButton.current === activeButton) {
-      return;
-    }
-    
-    const newDisplayData = { ...displayData };
-    
-    // Reset all buttons to 'Aus' first
-    Object.keys(newDisplayData).forEach(key => {
-      newDisplayData[key as keyof typeof displayData].strValue = EtaText.AUS;
-    });
-    
-    // Set the active button to 'Ein'
-    newDisplayData[activeButton].strValue = EtaText.EIN;
-    
-    setDisplayData(newDisplayData);
-    lastActiveButton.current = activeButton;
-    
     try {
       // Find button IDs from state data
       const buttonIds: Record<string, string> = {};
@@ -240,9 +222,7 @@ const EtaData: React.FC = () => {
       await Promise.all(otherButtons.map(button => 
         fetch('/api/eta/update', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             id: buttonIds[button],
             value: EtaPos.AUS,
@@ -255,9 +235,7 @@ const EtaData: React.FC = () => {
       // Set active button to Ein (1803)
       await fetch('/api/eta/update', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: buttonIds[activeButton],
           value: EtaPos.EIN,
@@ -266,32 +244,39 @@ const EtaData: React.FC = () => {
         })
       });
 
+      // Update last active button
+      lastActiveButton.current = activeButton;
+
+      // Refresh data after updates
+      await loadAndStoreEta();
     } catch (error) {
       console.error('Error updating button state:', error);
-      lastActiveButton.current = null; // Reset on error to allow retry
+      lastActiveButton.current = null;
     }
-  }, [displayData, etaState.data]);
+  }, [etaState.data, loadAndStoreEta]);
 
   useEffect(() => {
     const checkTemperature = async () => {
-      if (wifiState.data && config.t_min) {
-        const indoorTemp = wifiState.data.indoorTemperature;
-        const minTemp = Number(config.t_min);
-        
-        if (!isNaN(indoorTemp) && !isNaN(minTemp)) {
-          const tempDiff = Number(config[ConfigKeys.TEMP_DIFF]);
-          const targetButton = tempDiff > 0 ? Buttons.KT : Buttons.AA;
-          
-          // Only update if the target button is different from current
-          if (lastActiveButton.current !== targetButton) {
-            await updateButtonStates(targetButton);
-          }
-        }
+      if (!wifiState.data?.indoorTemperature || !config.t_min) return;
+
+      const indoorTemp = wifiState.data.indoorTemperature;
+      const minTemp = Number(config.t_min);
+      
+      if (isNaN(indoorTemp) || isNaN(minTemp)) return;
+
+      // Determine which button should be active based on temperature
+      const targetButton = indoorTemp < minTemp ? Buttons.KT : Buttons.AA;
+      
+      // Only update if the target button is different from current
+      if (lastActiveButton.current !== targetButton) {
+        console.log(`Temperature check: indoor=${indoorTemp}°C, min=${minTemp}°C -> activating ${targetButton}`);
+        await updateButtonStates(targetButton);
       }
     };
 
+    // Run temperature check
     checkTemperature();
-  }, [config.t_min, wifiState.data, updateButtonStates, config]);
+  }, [wifiState.data?.indoorTemperature, config.t_min, updateButtonStates]);
 
   const handleButtonClick = useCallback(async (clickedButton: Buttons) => {
     await updateButtonStates(clickedButton);
