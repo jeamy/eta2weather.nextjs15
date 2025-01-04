@@ -517,7 +517,6 @@ const ConfigData: React.FC = () => {
                 {renderEditableValue(ConfigKeys.T_SOLL, 'Solltemperatur', 10, 25, 0.5, '°C')}
                 {renderEditableValue(ConfigKeys.T_DELTA, 'Deltatemperatur', -5, 5, 0.5, '°C')}
                 {renderEditableValue(ConfigKeys.T_MIN, 'Minimumtemperatur', 10, 25, 0.5, '°C')}
-                {renderManualOverride()}
                 {renderEditableValue(
                     ConfigKeys.T_UPDATE_TIMER,
                     'Updates',
@@ -530,6 +529,7 @@ const ConfigData: React.FC = () => {
                         toStorage: convertMinutesToMs
                     }
                 )}
+                {renderManualOverride()}
                 <div className="flex justify-between items-center">
                     <span className="font-medium">Next Update:</span>
                     <span className="font-mono">{nextUpdate} s</span>

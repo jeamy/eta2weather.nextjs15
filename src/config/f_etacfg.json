@@ -9,7 +9,7 @@
   "t_update_timer": "30000",
   "diff": "4.1",
   "t_min": "18",
-  "temp_diff": "3.6",
+  "temp_diff": "-3.4",
   "t_override": "300000",
   "channelNames": {
     "CH1": "VK",
