@@ -77,14 +77,34 @@ const EtaData: React.FC = () => {
 
       const { data, config: updatedConfig } = await response.json() as ApiResponse;
 
+      // Create new data object with all buttons off by default
+      const newData = { ...data };
+      Object.entries(newData).forEach(([uri, item]) => {
+        if (Object.values(EtaButtons).includes(item.short as EtaButtons)) {
+          newData[uri] = {
+            ...item,
+            value: EtaPos.AUS
+          };
+        }
+      });
+
+      // Restore only the last active button state if it exists
+      if (lastActiveButton.current) {
+        const { uri, value } = lastActiveButton.current;
+        if (newData[uri]) {
+          newData[uri] = {
+            ...newData[uri],
+            value: value
+          };
+        }
+      }
+
       // Update the Redux store
-      dispatch(storeEtaData(data));
+      dispatch(storeEtaData(newData));
 
       if (updatedConfig) {
         dispatch(storeConfigData(updatedConfig));
       }
-
-      // Let the useEffect handle the display data update
     } catch (error) {
       console.error('Error fetching ETA data:', error);
       setLoadingState({ isLoading: false, error: (error as Error).message });
@@ -93,57 +113,8 @@ const EtaData: React.FC = () => {
     }
   }, [dispatch]);
 
-  // Initial load effect
-  useEffect(() => {
-    if (isFirstLoad.current) {
-      loadAndStoreEta();
-      isFirstLoad.current = false;
-    }
-  }, [loadAndStoreEta]);
-
-  // Update display data when etaState changes
-  useEffect(() => {
-    if (!etaState.data) return;
-
-    const newDisplayData: DisplayDataType = {};
-    
-    Object.values(etaState.data).forEach(entry => {
-      if (Object.values(EtaButtons).includes(entry.short as EtaButtons)) {
-        console.log(`Processing button ${entry.short}: value=${entry.value}, strValue=${entry.strValue}`);
-        newDisplayData[entry.short || ' '] = {
-          short: entry.short || 'Unknown',
-          long: entry.long || entry.short || 'Unknown',
-          strValue: entry.value === EtaPos.EIN ? EtaText.EIN : EtaText.AUS,
-          unit: entry.unit || ''
-        };
-      }
-    });
-    
-    // Only update if the data has actually changed
-    setDisplayData(prevData => {
-      if (!prevData) return newDisplayData;
-      
-      // Check if any values have changed
-      const hasChanges = Object.entries(newDisplayData).some(([key, value]) => {
-        return !prevData[key] || prevData[key].strValue !== value.strValue;
-      });
-      
-      return hasChanges ? newDisplayData : prevData;
-    });
-  }, [etaState.data]);
-
-  // Create a local update function to keep UI in sync
-  const updateLocalState = useCallback((uri: string, value: EtaPos) => {
-    if (!etaState.data?.[uri]) return;
-    
-    dispatch(storeEtaData({
-      ...etaState.data,
-      [uri]: {
-        ...etaState.data[uri],
-        value
-      }
-    }));
-  }, [dispatch, etaState.data]);
+  // Track the last activated button
+  const lastActiveButton = useRef<{ uri: string; value: EtaPos } | null>(null);
 
   const updateButtonStates = useCallback(async (activeButton: EtaButtons, isManual: boolean = false) => {
     try {
@@ -202,6 +173,12 @@ const EtaData: React.FC = () => {
         throw new Error(`Failed to turn on button ${activeButton}: ${response.statusText}`);
       }
 
+      // Update the last active button reference
+      lastActiveButton.current = {
+        uri: buttonIds[activeButton],
+        value: EtaPos.EIN
+      };
+
       // Trigger a refresh of the data
       await loadAndStoreEta(true);
     } catch (error) {
@@ -210,17 +187,57 @@ const EtaData: React.FC = () => {
     }
   }, [etaState.data, loadAndStoreEta]);
 
-  const lastTempState = useRef<{
-    wasBelow: boolean | null;
-    lastUpdate: number;
-    isUpdating: boolean;
-    manualOverride: boolean;
-  }>({ 
-    wasBelow: null, 
-    lastUpdate: 0,
-    isUpdating: false,
-    manualOverride: false
-  });
+  // Initial load effect
+  useEffect(() => {
+    if (isFirstLoad.current) {
+      loadAndStoreEta();
+      isFirstLoad.current = false;
+    }
+  }, [loadAndStoreEta]);
+
+  // Update display data when etaState changes
+  useEffect(() => {
+    if (!etaState.data) return;
+
+    const newDisplayData: DisplayDataType = {};
+    
+    Object.values(etaState.data).forEach(entry => {
+      if (Object.values(EtaButtons).includes(entry.short as EtaButtons)) {
+        console.log(`Processing button ${entry.short}: value=${entry.value}, strValue=${entry.strValue}`);
+        newDisplayData[entry.short || ' '] = {
+          short: entry.short || 'Unknown',
+          long: entry.long || entry.short || 'Unknown',
+          strValue: entry.value === EtaPos.EIN ? EtaText.EIN : EtaText.AUS,
+          unit: entry.unit || ''
+        };
+      }
+    });
+    
+    // Only update if the data has actually changed
+    setDisplayData(prevData => {
+      if (!prevData) return newDisplayData;
+      
+      // Check if any values have changed
+      const hasChanges = Object.entries(newDisplayData).some(([key, value]) => {
+        return !prevData[key] || prevData[key].strValue !== value.strValue;
+      });
+      
+      return hasChanges ? newDisplayData : prevData;
+    });
+  }, [etaState.data]);
+
+  // Create a local update function to keep UI in sync
+  const updateLocalState = useCallback((uri: string, value: EtaPos) => {
+    if (!etaState.data?.[uri]) return;
+    
+    dispatch(storeEtaData({
+      ...etaState.data,
+      [uri]: {
+        ...etaState.data[uri],
+        value
+      }
+    }));
+  }, [dispatch, etaState.data]);
 
   const handleButtonClick = useCallback(async (clickedButton: EtaButtons) => {
     // Set manual override when a button is clicked, except for AA
@@ -321,6 +338,18 @@ const EtaData: React.FC = () => {
       }
     };
   }, [loadAndStoreEta, config.t_update_timer]);
+
+  const lastTempState = useRef<{
+    wasBelow: boolean | null;
+    lastUpdate: number;
+    isUpdating: boolean;
+    manualOverride: boolean;
+  }>({ 
+    wasBelow: null, 
+    lastUpdate: 0,
+    isUpdating: false,
+    manualOverride: false
+  });
 
   if (loadingState.isLoading) {
     return (
