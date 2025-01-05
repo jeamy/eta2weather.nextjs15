@@ -1,4 +1,5 @@
 import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
+import { JSX } from 'react';
 
 export interface FormattedValue {
   text: JSX.Element | string;

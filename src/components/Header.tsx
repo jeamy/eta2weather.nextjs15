@@ -12,7 +12,7 @@ export default function Header({ menuData = [] }: HeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showEtaMenu, setShowEtaMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const [popupData, setPopupData] = useState<{
     isOpen: boolean;
     title: string;
@@ -23,19 +23,19 @@ export default function Header({ menuData = [] }: HeaderProps) {
     menuItems: [],
   });
 
-  const clearHideTimeout = useCallback(() => {
+  const clearHideTimeout = useCallback((): void => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = undefined;
     }
   }, []);
 
-  const handleMenuEnter = useCallback(() => {
+  const handleMenuEnter = useCallback((): void => {
     clearHideTimeout();
     setShowEtaMenu(true);
   }, [clearHideTimeout]);
 
-  const handleMenuLeave = useCallback(() => {
+  const handleMenuLeave = useCallback((): void => {
     clearHideTimeout();
     timeoutRef.current = setTimeout(() => {
       setShowEtaMenu(false);
