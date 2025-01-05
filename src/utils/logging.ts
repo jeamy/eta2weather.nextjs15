@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-type LogType = 'ecowitt' | 'eta' | 'config' | 'temp_diff';
+type LogType = 'ecowitt' | 'eta' | 'config' | 'temp_diff' | 'min_temp_status';
 
 export const logData = async (type: LogType, data: any) => {
     const now = new Date();
@@ -27,10 +27,10 @@ export const logData = async (type: LogType, data: any) => {
         formattedData = `<?xml version="1.0" encoding="UTF-8"?>
 <${type}Data timestamp="${now.toISOString()}">
 ${Object.entries(data).map(([key, value]) => {
-    // Convert path-like keys to valid XML element names
-    const safeKey = key.replace(/[\/\.]/g, '_').replace(/^_+|_+$/g, '');
-    return `  <variable path="${key}">${JSON.stringify(value)}</variable>`;
-}).join('\n')}
+            // Convert path-like keys to valid XML element names
+            const safeKey = key.replace(/[\/\.]/g, '_').replace(/^_+|_+$/g, '');
+            return `  <variable path="${key}">${JSON.stringify(value)}</variable>`;
+        }).join('\n')}
 </${type}Data>`;
     } else {
         // Handle other XML types (like ecowitt)
@@ -58,7 +58,7 @@ export const getLogFiles = async (type: LogType) => {
         // Recursively get all files
         const processDir = async (dir: string) => {
             const items = await fs.promises.readdir(dir, { withFileTypes: true });
-            
+
             for (const item of items) {
                 const fullPath = path.join(dir, item.name);
                 if (item.isDirectory()) {

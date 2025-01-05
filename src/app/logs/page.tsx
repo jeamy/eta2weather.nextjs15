@@ -126,6 +126,7 @@ export default function LogsPage() {
                         <option value="eta">ETA</option>
                         <option value="config">Config</option>
                         <option value="temp_diff">Temperature Difference</option>
+                        <option value="min_temp_status">Min temperature Status</option>
                     </select>
                 </div>
             </div>
