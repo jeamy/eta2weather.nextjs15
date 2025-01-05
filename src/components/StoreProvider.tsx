@@ -11,10 +11,10 @@ export default function StoreProvider({
   children: React.ReactNode
   initialState?: ReturnType<AppStore['getState']>
 }) {
-  const storeRef = useRef<AppStore>()
+  const storeRef = useRef<AppStore | undefined>(undefined);
   if (!storeRef.current) {
     // Create the store instance the first time this renders
-    storeRef.current = makeStore()
+    storeRef.current = makeStore(initialState);
   }
 
   return <Provider store={storeRef.current}>{children}</Provider>
