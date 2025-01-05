@@ -480,8 +480,10 @@ export class BackgroundService {
               [ConfigKeys.T_SLIDER]: newSliderPosition
             }));
 
+            const { t_soll, t_delta } = config.data;
             // Log the temperature diff update
-            console.log(`${this.getTimestamp()} Updated temperature diff - Diff: ${newDiffValue}, Slider: ${newSliderPosition}`);
+            console.log(`${this.getTimestamp()} Updated temperature diff ${t_soll} + ${t_delta} - 
+            ${wifiData.indoorTemperature} - Diff: ${newDiffValue}, Slider: ${newSliderPosition}`);
             await logData('temp_diff', {
               timestamp: Date.now(),
               diff: newDiffValue,
