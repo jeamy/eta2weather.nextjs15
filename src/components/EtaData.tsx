@@ -42,12 +42,6 @@ const EtaData: React.FC = () => {
   const lastApiCall = useRef<number>(0);
   const etaApiRef = useRef<EtaApi | null>(null);
 
-  // Type for the button state
-  type ButtonState = {
-    button: EtaButtons;
-    manual: boolean;
-  };
-
   const [displayData, setDisplayData] = useState<DisplayDataType | null>(null);
 
   useEffect(() => {
@@ -80,9 +74,9 @@ const EtaData: React.FC = () => {
       // Find currently active button
       let activeButton: EtaButtons | null = null;
       Object.entries(data).forEach(([_, item]) => {
-        if (Object.values(EtaButtons).includes(item.short as EtaButtons) && 
-            item.value === EtaPos.EIN && 
-            item.short !== EtaButtons.AA) {  // Prioritize non-AA buttons
+        if (Object.values(EtaButtons).includes(item.short as EtaButtons) &&
+          item.value === EtaPos.EIN &&
+          item.short !== EtaButtons.AA) {  // Prioritize non-AA buttons
           activeButton = item.short as EtaButtons;
         }
       });
@@ -125,6 +119,7 @@ const EtaData: React.FC = () => {
     try {
       // Find button IDs from state data
       const buttonIds: Record<string, string> = {};
+
       Object.entries(etaState.data).forEach(([uri, data]) => {
         if (Object.values(EtaButtons).includes(data.short as EtaButtons)) {
           buttonIds[data.short ?? ''] = uri;
@@ -138,7 +133,7 @@ const EtaData: React.FC = () => {
       // Turn off all buttons first
       const allButtons = Object.entries(buttonIds);
       for (const [name, uri] of allButtons) {
-        if (etaState.data[uri]?.value === EtaPos.EIN) {
+        if (name !== EtaButtons.AA && etaState.data[uri]?.value === EtaPos.EIN) {
           // console.log(`Turning OFF button: ${name}`);
           const response = await fetch('/api/eta/update', {
             method: 'POST',
@@ -173,6 +168,26 @@ const EtaData: React.FC = () => {
           end: "0"
         })
       });
+
+      if (activeButton !== EtaButtons.AA) {
+        // console.log(`Turning OFF button: ${EtaButtons.AA}`);
+        const response = await fetch('/api/eta/update', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: buttonIds[EtaButtons.AA],
+            value: EtaPos.AUS,
+            begin: "0",
+            end: "0"
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to turn off button ${EtaButtons.AA}: ${response.statusText}`);
+        }
+      }
 
       if (!response.ok) {
         throw new Error(`Failed to turn on button ${activeButton}: ${response.statusText}`);
@@ -211,7 +226,7 @@ const EtaData: React.FC = () => {
       }
 
       const isBelow = indoorTemp < minTemp;
-      
+
       // Only act if temperature state has changed
       if (lastTempState.current.wasBelow !== isBelow) {
         const targetButton = isBelow ? EtaButtons.KT : EtaButtons.AA;
@@ -221,7 +236,7 @@ const EtaData: React.FC = () => {
         if (currentButton !== targetButton) {
           await updateButtonStates(targetButton, false);
         }
-        
+
         lastTempState.current.wasBelow = isBelow;
       }
     };
@@ -237,7 +252,7 @@ const EtaData: React.FC = () => {
     if (!etaState.data) return;
 
     const newDisplayData: DisplayDataType = {};
-    
+
     Object.values(etaState.data).forEach(entry => {
       if (Object.values(EtaButtons).includes(entry.short as EtaButtons)) {
         // console.log(`Processing button ${entry.short}: value=${entry.value}, strValue=${entry.strValue}`);
@@ -249,16 +264,16 @@ const EtaData: React.FC = () => {
         };
       }
     });
-    
+
     // Only update if the data has actually changed
     setDisplayData(prevData => {
       if (!prevData) return newDisplayData;
-      
+
       // Check if any values have changed
       const hasChanges = Object.entries(newDisplayData).some(([key, value]) => {
         return !prevData[key] || prevData[key].strValue !== value.strValue;
       });
-      
+
       return hasChanges ? newDisplayData : prevData;
     });
   }, [etaState.data]);
@@ -266,7 +281,7 @@ const EtaData: React.FC = () => {
   // Create a local update function to keep UI in sync
   const updateLocalState = useCallback((uri: string, value: EtaPos) => {
     if (!etaState.data?.[uri]) return;
-    
+
     dispatch(storeEtaData({
       ...etaState.data,
       [uri]: {
@@ -301,7 +316,7 @@ const EtaData: React.FC = () => {
 
       const indoorTemp = wifiState.data.indoorTemperature;
       const minTemp = Number(config.t_min);
-      
+
       if (isNaN(indoorTemp) || isNaN(minTemp)) return;
 
       const isBelow = indoorTemp < minTemp;
@@ -315,9 +330,9 @@ const EtaData: React.FC = () => {
 
       try {
         // Only act when temperature state changes
-        if (lastTempState.current.wasBelow !== null && 
-            lastTempState.current.wasBelow !== isBelow) {
-          
+        if (lastTempState.current.wasBelow !== null &&
+          lastTempState.current.wasBelow !== isBelow) {
+
           lastTempState.current.isUpdating = true;
 
           if (isBelow) {
@@ -346,7 +361,7 @@ const EtaData: React.FC = () => {
   useEffect(() => {
     const overrideTimeoutMinutes = parseInt(config.t_override) || 60; // Default to 60 minutes if not set
     const overrideTimeoutMs = overrideTimeoutMinutes * 60 * 1000; // Convert minutes to milliseconds
-    
+
     if (lastTempState.current.manualOverride && lastTempState.current.manualOverrideTime) {
       const now = Date.now();
       if (now - lastTempState.current.manualOverrideTime >= overrideTimeoutMs) {
@@ -362,12 +377,12 @@ const EtaData: React.FC = () => {
     if (updateTimer > 0) {
       // Ensure timer is not less than minimum interval
       const safeTimer = Math.max(updateTimer, MIN_API_INTERVAL);
-      
+
       // Clear existing interval if any
       if (intervalId.current) {
         clearInterval(intervalId.current);
       }
-      
+
       // Set new interval with safe timer value
       intervalId.current = setInterval(loadAndStoreEta, safeTimer);
     }
@@ -386,8 +401,8 @@ const EtaData: React.FC = () => {
     isUpdating: boolean;
     manualOverride: boolean;
     manualOverrideTime: number | null;
-  }>({ 
-    wasBelow: null, 
+  }>({
+    wasBelow: null,
     lastUpdate: 0,
     isUpdating: false,
     manualOverride: false,
@@ -470,8 +485,8 @@ const EtaData: React.FC = () => {
                 return true;
               })
               .sort(([_, a], [__, b]) => {
-                const order: Record<string, number> = { 
-                  SP: 1, AT: 2, KZ: 3, VT: 4, HK: 5, 
+                const order: Record<string, number> = {
+                  SP: 1, AT: 2, KZ: 3, VT: 4, HK: 5,
                   IP: 6, VR: 7, SZ: 8, EAT: 9
                 };
                 const aShort = a.short || '';
@@ -487,21 +502,20 @@ const EtaData: React.FC = () => {
                       <span className="font-medium">{value.long}:</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`font-mono ${
-                        value.short === 'SP' 
-                          ? Number(value.strValue) > 0 
-                            ? 'text-black' 
-                            : Number(value.strValue) < 0 
-                              ? 'text-blue-600' 
-                              : 'text-black'
-                          : value.short === 'AT' || value.unit === '°C'
-                            ? Number(value.strValue) > 0
-                              ? 'text-black'
-                              : Number(value.strValue) < 0
-                                ? 'text-blue-600'
-                                : 'text-black'
+                      <span className={`font-mono ${value.short === 'SP'
+                        ? Number(value.strValue) > 0
+                          ? 'text-black'
+                          : Number(value.strValue) < 0
+                            ? 'text-blue-600'
                             : 'text-black'
-                      }`}>
+                        : value.short === 'AT' || value.unit === '°C'
+                          ? Number(value.strValue) > 0
+                            ? 'text-black'
+                            : Number(value.strValue) < 0
+                              ? 'text-blue-600'
+                              : 'text-black'
+                          : 'text-black'
+                        }`}>
                         {value.strValue}
                         {value.unit && <span className="text-gray-500">{value.unit}</span>}
                       </span>
@@ -518,19 +532,18 @@ const EtaData: React.FC = () => {
                     <div className="flex flex-col">
                       <span className="font-medium">
                         {key === EtaButtons.HT ? 'Heizen Taste' :
-                         key === EtaButtons.AA ? 'Autotaste' :
-                         key === EtaButtons.DT ? 'Absenken Taste' :
-                         key === EtaButtons.GT ? 'Gehen Taste' :
-                         key === EtaButtons.KT ? 'Kommen Taste' :
-                         value.long}:
+                          key === EtaButtons.AA ? 'Autotaste' :
+                            key === EtaButtons.DT ? 'Absenken Taste' :
+                              key === EtaButtons.GT ? 'Gehen Taste' :
+                                key === EtaButtons.KT ? 'Kommen Taste' :
+                                  value.long}:
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`font-mono ${
-                        value.strValue === EtaText.EIN ? 'text-green-500' : 
-                        value.strValue === EtaText.AUS ? 'text-red-500' : 
-                        'text-black'
-                      }`}>
+                      <span className={`font-mono ${value.strValue === EtaText.EIN ? 'text-green-500' :
+                        value.strValue === EtaText.AUS ? 'text-red-500' :
+                          'text-black'
+                        }`}>
                         {value.strValue}
                       </span>
                       <button
@@ -539,17 +552,15 @@ const EtaData: React.FC = () => {
                             handleButtonClick(key);
                           }
                         }}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                          value.strValue === EtaText.EIN ? 'bg-green-600' : 'bg-red-600'
-                        }`}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${value.strValue === EtaText.EIN ? 'bg-green-600' : 'bg-red-600'
+                          }`}
                         role="switch"
                         aria-checked={value.strValue === EtaText.EIN}
                       >
                         <span className="sr-only">Toggle {value.long}</span>
                         <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            value.strValue === EtaText.EIN ? 'translate-x-6' : 'translate-x-1'
-                          }`}
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${value.strValue === EtaText.EIN ? 'translate-x-6' : 'translate-x-1'
+                            }`}
                         />
                       </button>
                     </div>
