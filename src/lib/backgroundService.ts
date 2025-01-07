@@ -609,6 +609,7 @@ export class BackgroundService {
 
         if (!isManualOverride) {
           const buttonIds = {
+              [EtaButtons.HT]: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
               [EtaButtons.KT]: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
               [EtaButtons.AA]: defaultNames2Id[EtaConstants.AUTOTASTE].id,
               [EtaButtons.GT]: defaultNames2Id[EtaConstants.GEHENTASTE].id,
