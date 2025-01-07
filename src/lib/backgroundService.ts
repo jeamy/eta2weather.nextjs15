@@ -42,7 +42,15 @@ export class BackgroundService {
   private readonly MAX_HEAP_SIZE = 1024 * 1024 * 1024; // 1GB
   private readonly DATA_RETENTION_PERIOD = 24 * 60 * 60 * 1000; // 24 hours
   private etaApi: EtaApi | null = null;
-  private lastTempState: { wasBelow: boolean | null } = { wasBelow: null };
+  private lastTempState: { 
+    wasBelow: boolean | null;
+    manualOverride: boolean;
+    manualOverrideTime: number | null;
+  } = { 
+    wasBelow: null,
+    manualOverride: false,
+    manualOverrideTime: null
+  };
   private lastSliderUpdate: string | null = null;
 
   private constructor() { }
@@ -549,117 +557,141 @@ export class BackgroundService {
 
   private async updateTemperatureDiff(wifiData: WifiAF83Data) {
     try {
-      const etaState = store.getState().eta;
-      const config = store.getState().config.data;
+      const indoorTemp = wifiData.indoorTemperature;
+      const minTemp = Number(this.config.t_min);
 
-      if (!config || !wifiData || !etaState.data) {
-        console.log(`${this.getTimestamp()} Missing required data for temperature diff update`);
+      if (isNaN(indoorTemp) || isNaN(minTemp)) {
+        console.log(`${this.getTimestamp()} Invalid temperature values: indoor=${indoorTemp}, min=${minTemp}`);
         return;
       }
 
-      // Calculate temperature difference
-      const indoorTemp = wifiData.indoorTemperature;
-      const minTemp = Number(config.t_min);
+      const isBelow = indoorTemp < minTemp;
 
-      if (!isNaN(indoorTemp) && !isNaN(minTemp)) {
-        const isBelow = indoorTemp < minTemp;
-        console.log(`${this.getTimestamp()} Temperature check: Indoor ${indoorTemp}°C, Min ${minTemp}°C, Is Below: ${isBelow}`);
+      // Only act if temperature state has changed
+      if (this.lastTempState.wasBelow !== isBelow) {
+        console.log(`${this.getTimestamp()} Temperature state changed: wasBelow=${this.lastTempState.wasBelow}, isBelow=${isBelow}`);
 
-        // Update config with new temperature difference
-        const tempDiff = Number((minTemp - indoorTemp).toFixed(1));
-        const data = await fs.promises.readFile(CONFIG_FILE_PATH, 'utf-8');
-        let config = JSON.parse(data);
-        config[ConfigKeys.TEMP_DIFF] = tempDiff.toString();
-        await fs.promises.writeFile(CONFIG_FILE_PATH, JSON.stringify(config, null, 2));
+        // Get current state from Redux store
+        const state = store.getState() as RootState;
+        const etaState = state.eta;
 
-        // Check if we crossed the temperature threshold
-        if (this.lastTempState.wasBelow !== isBelow) {
-          console.log(`${this.getTimestamp()} Temperature threshold crossed: ${isBelow ? 'dropped below' : 'rose above'} minimum`);
-          // Log the temperature diff update
-          await logData('min_temp_status', {
-            timestamp: Date.now(),
-            diff: tempDiff.toString(),
-            isBelow: isBelow ? 'dropped below' : 'rose above',
-            indoor: indoorTemp,
-            minTemp: minTemp
-          });
+        // Check for manual override
+        const manualOverrideMinutes = parseInt(state.config.data?.t_override || '60');
+        const manualOverrideTime = manualOverrideMinutes * 60 * 1000;
+        let isManualOverride = false;
 
-          // Check for manual override
-          const manualButtonActive = Object.entries(etaState.data).some(([_, data]) => {
-            const buttonName = data.short;
-            return buttonName &&
-              Object.values(EtaButtons).includes(buttonName as EtaButtons) &&
-              buttonName !== EtaButtons.AA &&
-              data.value === EtaPos.EIN;
-          });
+        // Find currently active button and check manual override
+        let activeButton: EtaButtons | null = null;
+        Object.entries(etaState.data).forEach(([_, item]) => {
+          if (Object.values(EtaButtons).includes(item.short as EtaButtons) &&
+              item.value === EtaPos.EIN &&
+              item.short !== EtaButtons.AA) {
+            activeButton = item.short as EtaButtons;
+            // If a manual button is active, set manual override
+            this.lastTempState.manualOverride = true;
+            this.lastTempState.manualOverrideTime = Date.now();
+            isManualOverride = true;
+          }
+        });
 
-          if (!manualButtonActive) {
-            // Get button IDs
-            const buttonIds: Record<string, string> = {
-              [EtaButtons.HT]: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
+        // Check if manual override is still active
+        if (this.lastTempState.manualOverride && this.lastTempState.manualOverrideTime) {
+          const timeSinceOverride = Date.now() - this.lastTempState.manualOverrideTime;
+          if (timeSinceOverride > manualOverrideTime) {
+            // Reset manual override if time has expired
+            this.lastTempState.manualOverride = false;
+            this.lastTempState.manualOverrideTime = null;
+            isManualOverride = false;
+          } else {
+            isManualOverride = true;
+          }
+        }
+
+        if (!isManualOverride) {
+          const buttonIds = {
               [EtaButtons.KT]: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
               [EtaButtons.AA]: defaultNames2Id[EtaConstants.AUTOTASTE].id,
               [EtaButtons.GT]: defaultNames2Id[EtaConstants.GEHENTASTE].id,
               [EtaButtons.DT]: defaultNames2Id[EtaConstants.ABSENKTASTE].id
-            };
+          };
 
-            const targetButtonName = isBelow ? EtaButtons.KT : EtaButtons.AA;
-            const targetButton = buttonIds[targetButtonName];
+          const targetButtonName = isBelow ? EtaButtons.KT : EtaButtons.AA;
+          const targetButton = buttonIds[targetButtonName];
 
-            if (!targetButton) {
-              throw new Error(`Button ID not found for ${targetButtonName}`);
-            }
+          if (!targetButton) {
+            throw new Error(`Button ID not found for ${targetButtonName}`);
+          }
 
-            try {
-              // First turn off all buttons
-              console.log(`${this.getTimestamp()} Turning off all buttons before activating ${targetButtonName}`);
-              await Promise.all(Object.entries(buttonIds).map(async ([name, id]) => {
-                if (name !== targetButtonName) {
-                  const response = await fetch('/api/eta/update', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      id: id,
-                      value: EtaPos.AUS,
-                      begin: "0",
-                      end: "0"
-                    })
-                  });
+          try {
+            // First turn off all buttons except AA
+            console.log(`${this.getTimestamp()} Turning off all buttons (except AA) before activating ${targetButtonName}`);
+            await Promise.all(Object.entries(buttonIds).map(async ([name, id]) => {
+              if (name !== EtaButtons.AA && name !== targetButtonName) {
+                const response = await fetch('/api/eta/update', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    id: id,
+                    value: EtaPos.AUS,
+                    begin: "0",
+                    end: "0"
+                  })
+                });
 
-                  if (!response.ok) {
-                    throw new Error(`Failed to turn off button ${name}: ${response.statusText}`);
-                  }
+                if (!response.ok) {
+                  throw new Error(`Failed to turn off button ${name}: ${response.statusText}`);
                 }
-              }));
+              }
+            }));
 
-              // Then activate target button
-              console.log(`${this.getTimestamp()} Activating ${targetButtonName}`);
+            // Then activate target button
+            console.log(`${this.getTimestamp()} Activating ${targetButtonName}`);
+            const response = await fetch('/api/eta/update', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                id: targetButton,
+                value: EtaPos.EIN,
+                begin: "0",
+                end: "0"
+              })
+            });
+
+            // Special handling for AA button - turn it off if target is not AA
+            if (targetButtonName !== EtaButtons.AA) {
+              console.log(`${this.getTimestamp()} Turning off AA button as manual button will be active`);
               const response = await fetch('/api/eta/update', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  id: targetButton,
-                  value: EtaPos.EIN,
+                  id: buttonIds[EtaButtons.AA],
+                  value: EtaPos.AUS,
                   begin: "0",
                   end: "0"
                 })
               });
 
               if (!response.ok) {
-                throw new Error(`Failed to activate ${targetButtonName}: ${response.statusText}`);
+                throw new Error(`Failed to turn off AA button: ${response.statusText}`);
               }
-
-              console.log(`${this.getTimestamp()} Successfully switched to ${targetButtonName} mode`);
-            } catch (error) {
-              console.error(`${this.getTimestamp()} Error updating button states:`, error);
             }
-          } else {
-            console.log(`${this.getTimestamp()} Manual override active, skipping automatic temperature control`);
+
+            if (!response.ok) {
+              throw new Error(`Failed to activate ${targetButtonName}: ${response.statusText}`);
+            }
+
+            console.log(`${this.getTimestamp()} Successfully switched to ${targetButtonName} mode`);
+          } catch (error) {
+            console.error(`${this.getTimestamp()} Error updating button states:`, error);
           }
+        } else {
+          console.log(`${this.getTimestamp()} Manual override active, skipping automatic temperature control`);
         }
 
         // Update last temperature state
