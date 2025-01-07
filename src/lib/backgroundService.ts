@@ -566,6 +566,7 @@ export class BackgroundService {
       }
 
       const isBelow = indoorTemp < minTemp;
+      console.log(`${this.getTimestamp()} Temperature state: isBelow=${isBelow}`);
 
       // Only act if temperature state has changed
       if (this.lastTempState.wasBelow !== isBelow) {
