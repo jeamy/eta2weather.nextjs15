@@ -43,11 +43,11 @@ export class BackgroundService {
   private readonly DATA_RETENTION_PERIOD = 24 * 60 * 60 * 1000; // 24 hours
   private etaApi: EtaApi | null = null;
   private lastTempState: { 
-    wasBelow: boolean | null;
+    wasBelow: boolean;
     manualOverride: boolean;
     manualOverrideTime: number | null;
   } = { 
-    wasBelow: null,
+    wasBelow: false,
     manualOverride: false,
     manualOverrideTime: null
   };
@@ -577,7 +577,7 @@ export class BackgroundService {
         const etaState = state.eta;
 
         // Check for manual override
-        const manualOverrideMinutes = parseInt(state.config.data?.t_override || '60');
+        const manualOverrideMinutes = parseInt(state.config.data?.t_override || '3');
         const manualOverrideTime = manualOverrideMinutes * 60 * 1000;
         let isManualOverride = false;
 
