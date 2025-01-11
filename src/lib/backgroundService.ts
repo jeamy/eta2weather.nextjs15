@@ -470,12 +470,12 @@ export class BackgroundService {
         // Only update if the diff value has changed
         if (newDiffValue !== config.data[ConfigKeys.DIFF]) {
           const etaValues = {
-            einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
-            schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
-            heizentaste: etaState.data[defaultNames2Id[EtaConstants.HEIZENTASTE].id]?.strValue || '0',
-            kommentaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
-            tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
-            tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
+              einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
+              schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
+              heizentaste: etaState.data[defaultNames2Id[EtaConstants.HEIZENTASTE].id]?.strValue || '0',
+              kommentaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
+              tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
+              tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
           };
 
           const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
@@ -625,83 +625,39 @@ export class BackgroundService {
           }
 
           try {
+            // Initialize EtaApi
+            const etaApi = new EtaApi(this.config.s_eta);
+
             // First turn off all buttons except AA
             console.log(`${this.getTimestamp()} Turning off all buttons (except AA) before activating ${targetButtonName}`);
+
             await Promise.all(Object.entries(buttonIds).map(async ([name, id]) => {
               if (name !== EtaButtons.AA && name !== targetButtonName) {
-                const response = await fetch('/api/eta/update', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    id: id,
-                    value: EtaPos.AUS,
-                    begin: "0",
-                    end: "0"
-                  })
-                });
-
-                if (!response.ok) {
-                  throw new Error(`Failed to turn off button ${name}: ${response.statusText}`);
-                }
+                await etaApi.setUserVar(id, EtaPos.AUS, "0", "0");
               }
             }));
 
             // Then activate target button
             console.log(`${this.getTimestamp()} Activating ${targetButtonName}`);
-            const response = await fetch('/api/eta/update', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                id: targetButton,
-                value: EtaPos.EIN,
-                begin: "0",
-                end: "0"
-              })
-            });
+            await etaApi.setUserVar(targetButton, EtaPos.EIN, "0", "0");
 
             // Special handling for AA button - turn it off if target is not AA
             if (targetButtonName !== EtaButtons.AA) {
               console.log(`${this.getTimestamp()} Turning off AA button as manual button will be active`);
-              const response = await fetch('/api/eta/update', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  id: buttonIds[EtaButtons.AA],
-                  value: EtaPos.AUS,
-                  begin: "0",
-                  end: "0"
-                })
-              });
-
-              if (!response.ok) {
-                throw new Error(`Failed to turn off AA button: ${response.statusText}`);
-              }
+              await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.AUS, "0", "0");
             }
 
-            if (!response.ok) {
-              throw new Error(`Failed to activate ${targetButtonName}: ${response.statusText}`);
-            }
+            // Update state
+            this.lastTempState.wasBelow = isBelow;
 
-            console.log(`${this.getTimestamp()} Successfully switched to ${targetButtonName} mode`);
           } catch (error) {
-            console.error(`${this.getTimestamp()} Error updating button states:`, error);
+            console.error(`${this.getTimestamp()} Error updating temperature state:`, error);
+            throw error;
           }
-        } else {
-          console.log(`${this.getTimestamp()} Manual override active, skipping automatic temperature control`);
         }
-
-        // Update last temperature state
-        this.lastTempState.wasBelow = isBelow;
       }
     } catch (error) {
-      console.error(`${this.getTimestamp()} Error updating temperature diff:`, error);
-      throw error;
+      console.error(`${this.getTimestamp()} Error in updateTemperatureDiff:`, error);
     }
   }
 
