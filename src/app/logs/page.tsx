@@ -25,9 +25,11 @@ export default function LogsPage() {
     const [logs, setLogs] = useState<LogFile[]>([]);
     const [selectedType, setSelectedType] = useState<string>('all');
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchLogs = async () => {
+            setIsLoading(true);
             try {
                 const response = await fetch('/api/logs');
                 const data = await response.json();
@@ -38,6 +40,8 @@ export default function LogsPage() {
                 }
             } catch (error) {
                 console.error('Error fetching logs:', error);
+            } finally {
+                setIsLoading(false);
             }
         };
 
@@ -110,90 +114,102 @@ export default function LogsPage() {
                             d="M10 19l-7-7m0 0l7-7m-7 7h18" 
                         />
                     </svg>
-                    Back
+                    Back to Dashboard
                 </Link>
             </div>
-            <div className="flex justify-between items-center mb-8">
-                <h1 className="text-2xl font-bold">System Logs</h1>
-                <div className="space-x-2">
-                    <select 
-                        value={selectedType}
-                        onChange={(e) => setSelectedType(e.target.value)}
-                        className="px-3 py-2 border rounded-md"
-                    >
-                        <option value="all">All Logs</option>
-                        <option value="ecowitt">Ecowitt</option>
-                        <option value="eta">ETA</option>
-                        <option value="config">Config</option>
-                        <option value="temp_diff">Temperature Difference</option>
-                        <option value="min_temp_status">Min temperature Status</option>
-                    </select>
-                </div>
-            </div>
 
-            <div className="space-y-4">
-                {Object.entries(groupedLogs).map(([type, yearGroups]) => (
-                    <div key={type} className="border rounded-lg p-4">
-                        <div 
-                            className="flex items-center cursor-pointer"
-                            onClick={() => toggleNode(type)}
-                        >
-                            <ChevronIcon expanded={expandedNodes.has(type)} />
-                            <h2 className="text-lg font-semibold ml-2 capitalize">{type}</h2>
+            {isLoading ? (
+                <div className="flex items-center justify-center min-h-[200px]">
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-gray-600" style={{ fontFamily: 'var(--font-geist-sans)' }}>Loading logs...</p>
+                    </div>
+                </div>
+            ) : (
+                <div>
+                    <div className="flex justify-between items-center mb-8">
+                        <h1 className="text-2xl font-bold">System Logs</h1>
+                        <div className="space-x-2">
+                            <select 
+                                value={selectedType}
+                                onChange={(e) => setSelectedType(e.target.value)}
+                                className="px-3 py-2 border rounded-md"
+                            >
+                                <option value="all">All Logs</option>
+                                <option value="ecowitt">Ecowitt</option>
+                                <option value="eta">ETA</option>
+                                <option value="config">Config</option>
+                                <option value="temp_diff">Temperature Difference</option>
+                                <option value="min_temp_status">Min temperature Status</option>
+                            </select>
                         </div>
-                        
-                        {expandedNodes.has(type) && Object.entries(yearGroups).map(([year, monthGroups]) => (
-                            <div key={year} className="ml-6 mt-2">
+                    </div>
+
+                    <div className="space-y-4">
+                        {Object.entries(groupedLogs).map(([type, yearGroups]) => (
+                            <div key={type} className="border rounded-lg p-4">
                                 <div 
                                     className="flex items-center cursor-pointer"
-                                    onClick={() => toggleNode(`${type}-${year}`)}
+                                    onClick={() => toggleNode(type)}
                                 >
-                                    <ChevronIcon expanded={expandedNodes.has(`${type}-${year}`)} />
-                                    <span className="ml-2 font-medium">{year}</span>
+                                    <ChevronIcon expanded={expandedNodes.has(type)} />
+                                    <h2 className="text-lg font-semibold ml-2 capitalize">{type}</h2>
                                 </div>
                                 
-                                {expandedNodes.has(`${type}-${year}`) && Object.entries(monthGroups).map(([month, dayGroups]) => (
-                                    <div key={month} className="ml-6 mt-1">
+                                {expandedNodes.has(type) && Object.entries(yearGroups).map(([year, monthGroups]) => (
+                                    <div key={year} className="ml-6 mt-2">
                                         <div 
                                             className="flex items-center cursor-pointer"
-                                            onClick={() => toggleNode(`${type}-${year}-${month}`)}
+                                            onClick={() => toggleNode(`${type}-${year}`)}
                                         >
-                                            <ChevronIcon expanded={expandedNodes.has(`${type}-${year}-${month}`)} />
-                                            <span className="ml-2">{getMonthName(month)}</span>
+                                            <ChevronIcon expanded={expandedNodes.has(`${type}-${year}`)} />
+                                            <span className="ml-2 font-medium">{year}</span>
                                         </div>
                                         
-                                        {expandedNodes.has(`${type}-${year}-${month}`) && Object.entries(dayGroups).map(([day, logs]) => (
-                                            <div key={day} className="ml-6 mt-1">
+                                        {expandedNodes.has(`${type}-${year}`) && Object.entries(monthGroups).map(([month, dayGroups]) => (
+                                            <div key={month} className="ml-6 mt-1">
                                                 <div 
                                                     className="flex items-center cursor-pointer"
-                                                    onClick={() => toggleNode(`${type}-${year}-${month}-${day}`)}
+                                                    onClick={() => toggleNode(`${type}-${year}-${month}`)}
                                                 >
-                                                    <ChevronIcon expanded={expandedNodes.has(`${type}-${year}-${month}-${day}`)} />
-                                                    <span className="ml-2">{parseInt(day, 10)}</span>
+                                                    <ChevronIcon expanded={expandedNodes.has(`${type}-${year}-${month}`)} />
+                                                    <span className="ml-2">{getMonthName(month)}</span>
                                                 </div>
                                                 
-                                                {expandedNodes.has(`${type}-${year}-${month}-${day}`) && (
-                                                    <div className="ml-6 mt-1">
-                                                        {logs.sort((a, b) => b.time.localeCompare(a.time)).map((log, index) => (
-                                                            <div 
-                                                                key={index}
-                                                                className="flex justify-between items-center px-2 py-1 rounded text-sm hover:bg-gray-100"
-                                                            >
-                                                                <span className="text-gray-600">
-                                                                    {log.time}
-                                                                </span>
-                                                                <Link 
-                                                                    href={`/api/logs/${log.path}`}
-                                                                    className="text-blue-600 hover:text-blue-800"
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                >
-                                                                    View
-                                                                </Link>
+                                                {expandedNodes.has(`${type}-${year}-${month}`) && Object.entries(dayGroups).map(([day, logs]) => (
+                                                    <div key={day} className="ml-6 mt-1">
+                                                        <div 
+                                                            className="flex items-center cursor-pointer"
+                                                            onClick={() => toggleNode(`${type}-${year}-${month}-${day}`)}
+                                                        >
+                                                            <ChevronIcon expanded={expandedNodes.has(`${type}-${year}-${month}-${day}`)} />
+                                                            <span className="ml-2">{parseInt(day, 10)}</span>
+                                                        </div>
+                                                        
+                                                        {expandedNodes.has(`${type}-${year}-${month}-${day}`) && (
+                                                            <div className="ml-6 mt-1">
+                                                                {logs.sort((a, b) => b.time.localeCompare(a.time)).map((log, index) => (
+                                                                    <div 
+                                                                        key={index}
+                                                                        className="flex justify-between items-center px-2 py-1 rounded text-sm hover:bg-gray-100"
+                                                                    >
+                                                                        <span className="text-gray-600">
+                                                                            {log.time}
+                                                                        </span>
+                                                                        <Link 
+                                                                            href={`/api/logs/${log.path}`}
+                                                                            className="text-blue-600 hover:text-blue-800"
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                        >
+                                                                            View
+                                                                        </Link>
+                                                                    </div>
+                                                                ))}
                                                             </div>
-                                                        ))}
+                                                        )}
                                                     </div>
-                                                )}
+                                                ))}
                                             </div>
                                         ))}
                                     </div>
@@ -201,8 +217,8 @@ export default function LogsPage() {
                             </div>
                         ))}
                     </div>
-                ))}
-            </div>
+                </div>
+            )}
         </div>
     );
 }
