@@ -36,5 +36,7 @@ yarn-error.log*
 next-env.d.ts
 
 eco.ts
+eco.tsx
+
 public/log/*
 docker-compose.yml
