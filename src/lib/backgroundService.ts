@@ -478,6 +478,7 @@ export class BackgroundService {
               tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
           };
 
+          console.log(`${this.getTimestamp()} Eta values: ${JSON.stringify(etaValues)}`);
           const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
           console.log(`${this.getTimestamp()} New slider position: ${newSliderPosition}`);
           if (newSliderPosition !== config.data[ConfigKeys.T_SLIDER] || newDiffValue !== config.data[ConfigKeys.DIFF]) {
