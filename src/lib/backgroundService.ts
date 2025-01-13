@@ -42,15 +42,15 @@ export class BackgroundService {
   private readonly MAX_HEAP_SIZE = 1024 * 1024 * 1024; // 1GB
   private readonly DATA_RETENTION_PERIOD = 24 * 60 * 60 * 1000; // 24 hours
   private etaApi: EtaApi | null = null;
-  private lastTempState: { 
+  private lastTempState: {
     wasBelow: boolean;
     manualOverride: boolean;
     manualOverrideTime: number | null;
-  } = { 
-    wasBelow: false,
-    manualOverride: false,
-    manualOverrideTime: null
-  };
+  } = {
+      wasBelow: false,
+      manualOverride: false,
+      manualOverrideTime: null
+    };
   private lastSliderUpdate: string | null = null;
 
   private constructor() { }
@@ -470,12 +470,12 @@ export class BackgroundService {
         // Only update if the diff value has changed
         if (newDiffValue !== config.data[ConfigKeys.DIFF]) {
           const etaValues = {
-              einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
-              schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
-              heizentaste: etaState.data[defaultNames2Id[EtaConstants.HEIZENTASTE].id]?.strValue || '0',
-              kommentaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
-              tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
-              tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
+            einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
+            schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
+            heizentaste: etaState.data[defaultNames2Id[EtaConstants.HEIZENTASTE].id]?.strValue || '0',
+            kommentaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
+            tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
+            tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
           };
 
           console.log(`${this.getTimestamp()} Eta values: ${JSON.stringify(etaValues)}`);
@@ -571,8 +571,17 @@ export class BackgroundService {
 
       // Only act if temperature state has changed
       if (this.lastTempState.wasBelow !== isBelow) {
-        console.log(`${this.getTimestamp()} Temperature state changed: wasBelow=${this.lastTempState.wasBelow}, isBelow=${isBelow}`);
+        const tempDiff = Number((minTemp - indoorTemp).toFixed(1));
+        console.log(`${this.getTimestamp()} Temperature state changed: wasBelow=${this.lastTempState.wasBelow}, isBelow=${isBelow}, tempDiff=${tempDiff}`);
 
+        // Log the temperature diff update
+        await logData('min_temp_status', {
+          timestamp: Date.now(),
+          diff: tempDiff.toString(),
+          isBelow: isBelow ? 'dropped below' : 'rose above',
+          indoor: indoorTemp,
+          minTemp: minTemp
+        });
         // Get current state from Redux store
         const state = store.getState() as RootState;
         const etaState = state.eta;
@@ -586,8 +595,8 @@ export class BackgroundService {
         let activeButton: EtaButtons | null = null;
         Object.entries(etaState.data).forEach(([_, item]) => {
           if (Object.values(EtaButtons).includes(item.short as EtaButtons) &&
-              item.value === EtaPos.EIN &&
-              item.short !== EtaButtons.AA) {
+            item.value === EtaPos.EIN &&
+            item.short !== EtaButtons.AA) {
             activeButton = item.short as EtaButtons;
             // If a manual button is active, set manual override
             this.lastTempState.manualOverride = true;
@@ -611,11 +620,11 @@ export class BackgroundService {
 
         if (!isManualOverride) {
           const buttonIds = {
-              [EtaButtons.HT]: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
-              [EtaButtons.KT]: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
-              [EtaButtons.AA]: defaultNames2Id[EtaConstants.AUTOTASTE].id,
-              [EtaButtons.GT]: defaultNames2Id[EtaConstants.GEHENTASTE].id,
-              [EtaButtons.DT]: defaultNames2Id[EtaConstants.ABSENKTASTE].id
+            [EtaButtons.HT]: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
+            [EtaButtons.KT]: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
+            [EtaButtons.AA]: defaultNames2Id[EtaConstants.AUTOTASTE].id,
+            [EtaButtons.GT]: defaultNames2Id[EtaConstants.GEHENTASTE].id,
+            [EtaButtons.DT]: defaultNames2Id[EtaConstants.ABSENKTASTE].id
           };
 
           const targetButtonName = isBelow ? EtaButtons.KT : EtaButtons.AA;
