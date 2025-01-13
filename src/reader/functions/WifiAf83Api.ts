@@ -45,7 +45,7 @@ export class WifiAf83Api {
         throw new Error(`HTTP-Fehler! Status: ${response.status}`);
       }
       const data = await response.json();
-      console.log("WifiAf83 data: ", data);
+//      console.log("WifiAf83 data: ", data);
       return data;
     } catch (error) {
       console.error('Fehler beim Abrufen der All-Daten:', error);
