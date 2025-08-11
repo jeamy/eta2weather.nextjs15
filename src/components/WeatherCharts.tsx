@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import type {
   ChartOptions,
   Chart as ChartJS,
@@ -61,16 +61,9 @@ interface WeatherChartsProps {
   timeRange: string;
   onTimeRangeChange: (range: string) => void;
   resetZoom: () => void;
-  mainChartRef: React.RefObject<ChartJS<'line'>>;
-  channelTempChartRef: React.RefObject<ChartJS<'line'>>;
-  channelHumidityChartRef: React.RefObject<ChartJS<'line'>>;
-  mainChartOptions: ChartOptions<'line'>;
-  channelTempChartOptions: ChartOptions<'line'>;
-  channelHumidityChartOptions: ChartOptions<'line'>;
-  mainChartData: any;
-  channelTempChartData: any;
-  channelHumidityChartData: any;
-  getChannelName: (channel: string) => string;
+  mainChartRef: React.RefObject<ChartJS<'line'> | null>;
+  channelTempChartRef: React.RefObject<ChartJS<'line'> | null>;
+  channelHumidityChartRef: React.RefObject<ChartJS<'line'> | null>;
   channelNames: { [key: string]: string };
 }
 
@@ -102,33 +95,10 @@ export default function WeatherCharts({
   mainChartRef,
   channelTempChartRef,
   channelHumidityChartRef,
-  mainChartOptions,
-  channelTempChartOptions,
-  channelHumidityChartOptions,
-  mainChartData,
-  channelTempChartData,
-  channelHumidityChartData,
-  getChannelName,
   channelNames
 }: WeatherChartsProps) {
   
-  useEffect(() => {
-    // Register all required components
-    Chart.register(
-      CategoryScale,
-      LinearScale,
-      PointElement,
-      LineElement,
-      Title,
-      Tooltip,
-      Legend,
-      TimeScale,
-      TimeSeriesScale,
-      zoomPlugin
-    );
-  }, []);
-
-  type ChartRef = ChartJS<'line'>;
+  type ChartRef = ChartJS<'line'> | null;
 
   // Memoize time range buttons to prevent unnecessary re-renders
   const TimeRangeButtons = useMemo(() => {
@@ -159,7 +129,7 @@ export default function WeatherCharts({
   }, [timeRange, onTimeRangeChange]);
 
   // Memoize reset zoom buttons
-  const ResetZoomButton = useCallback(({ chartRef }: { chartRef: React.RefObject<ChartRef> }) => (
+  const ResetZoomButton = useCallback(({ chartRef: _chartRef }: { chartRef: React.RefObject<ChartRef> }) => (
     <button
       onClick={() => resetZoom()}
       className="ml-2 p-1 rounded hover:bg-gray-100 transition-colors"
@@ -171,8 +141,14 @@ export default function WeatherCharts({
 
   // Memoize channels array with specific order
   const channels = useMemo(() => {
-    const channelOrder = ['ch8', 'ch5', 'ch2', 'ch1', 'ch6', 'ch3', 'ch7'];
-    return channelOrder.filter(ch => weatherData[0]?.channels && ch in weatherData[0].channels);
+    // Find first entry that has channels and derive keys
+    const withChannels = weatherData.find((d) => d.channels && Object.keys(d.channels).length > 0);
+    const keys = withChannels ? Object.keys(withChannels.channels) : [];
+    return keys.sort((a, b) => {
+      const an = parseInt(a.replace('ch', '')) || 0;
+      const bn = parseInt(b.replace('ch', '')) || 0;
+      return an - bn;
+    });
   }, [weatherData]);
 
   // Create channel datasets with temperature or humidity data

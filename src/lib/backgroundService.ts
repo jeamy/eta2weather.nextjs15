@@ -12,12 +12,13 @@ import { storeData as storeConfigData } from '../redux/configSlice';
 import { storeData as storeNames2IdData } from '../redux/names2IdSlice';
 import { getAllUris } from '../utils/etaUtils';
 import { MenuNode } from '@/types/menu';
-import { EtaPos, EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
+import { EtaPos, EtaButtons, EtaData } from '@/reader/functions/types-constants/EtaConstants';
 import { logData } from '@/utils/logging';
 import { getWifiAf83Data } from '@/utils/cache';
 import * as fs from 'fs';
 import path from 'path';
 import { calculateNewSliderPosition, calculateTemperatureDiff, updateSliderPosition } from '@/utils/Functions';
+import { parseXML } from '@/reader/functions/EtaData';
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), process.env.CONFIG_PATH || 'src/config/f_etacfg.json');
 
@@ -52,6 +53,7 @@ export class BackgroundService {
       manualOverrideTime: null
     };
   private lastSliderUpdate: string | null = null;
+  private lastEtaUpdate: number | null = null;
 
   private constructor() { }
 
@@ -163,7 +165,18 @@ export class BackgroundService {
         console.log(`${this.getTimestamp()} Logging CONFIG data...`);
         await logData('config', newConfig);
         console.log(`${this.getTimestamp()} Logging CONFIG data DONE!`);
+        // Reinitialize EtaApi if endpoint changed
+        const oldEtaEndpoint = this.config[ConfigKeys.S_ETA];
+        const newEtaEndpoint = newConfig[ConfigKeys.S_ETA];
         this.config = newConfig;
+        if (oldEtaEndpoint !== newEtaEndpoint) {
+          try {
+            this.etaApi = new EtaApi(newEtaEndpoint);
+            console.log(`${this.getTimestamp()} EtaApi reinitialized due to endpoint change`);
+          } catch (e) {
+            console.error(`${this.getTimestamp()} Failed to reinitialize EtaApi:`, e);
+          }
+        }
 
         /*
         this.loadAndStoreData().catch(error => {
@@ -185,7 +198,7 @@ export class BackgroundService {
 
   private restartUpdateInterval() {
     if (this.updateInterval) {
-      clearInterval(this.updateInterval);
+      clearTimeout(this.updateInterval);
     }
 
     const updateTimer = Math.max(
@@ -193,11 +206,19 @@ export class BackgroundService {
       MIN_API_INTERVAL
     );
 
-    this.updateInterval = setInterval(() => {
-      this.loadAndStoreData().catch(error => {
+    const run = async () => {
+      try {
+        await this.loadAndStoreData();
+      } catch (error) {
         console.error(`${this.getTimestamp()} Error in background update:`, error);
-      });
-    }, updateTimer);
+      } finally {
+        if (this.isRunning) {
+          this.updateInterval = setTimeout(run, updateTimer);
+        }
+      }
+    };
+
+    this.updateInterval = setTimeout(run, updateTimer);
 
     console.log(`${this.getTimestamp()} Update interval restarted with timer: ${updateTimer}ms`);
   }
@@ -285,27 +306,55 @@ export class BackgroundService {
       const uris = getAllUris(menuNodes);
       console.log(`${this.getTimestamp()} Found ${uris.length} URIs to fetch`);
 
-      // Fetch data in batches using EtaApi
+      // Fetch data in batches using EtaApi with timeout/retry
       console.log(`${this.getTimestamp()} Fetching ETA data...`);
-      const menuData: Record<string, string> = {};
+      const menuData: EtaData = {};
       const batchSize = 5; // Process 5 URIs at a time
+
+      const fetchWithRetry = async (id: string, retries = 2, timeoutMs = 5000): Promise<string> => {
+        let attempt = 0;
+        while (attempt <= retries) {
+          try {
+            const timeoutPromise = new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('timeout')), timeoutMs)
+            );
+            const res = await Promise.race([this.etaApi!.getUserVar(id), timeoutPromise]) as { result: string | null; error: string | null };
+            if (res?.result) return res.result;
+            throw new Error(res?.error || 'no result');
+          } catch (e) {
+            if (attempt < retries) {
+              const backoff = 200 * Math.pow(2, attempt) + Math.floor(Math.random() * 100);
+              await new Promise(r => setTimeout(r, backoff));
+              attempt++;
+            } else {
+              throw e;
+            }
+          }
+        }
+        throw new Error('unreachable');
+      };
 
       for (let i = 0; i < uris.length; i += batchSize) {
         const batch = uris.slice(i, i + batchSize);
-        const promises = batch.map(async (uri) => {
-          try {
-            // Remove leading slash if present
-            const id = uri.replace(/^\//, '');
-            const response = await this.etaApi!.getUserVar(id);
-            if (response.result) {
-              menuData[uri] = response.result;
-            }
-          } catch (error) {
-            console.warn(`${this.getTimestamp()} Failed to fetch data for URI ${uri}:`, error);
+        const results = await Promise.allSettled(batch.map(async (uri) => {
+          const id = uri.replace(/^\//, '');
+          const result = await fetchWithRetry(id);
+          return { uri, result };
+        }));
+
+        results.forEach(r => {
+          if (r.status === 'fulfilled') {
+            const { uri, result } = r.value;
+            // Try to find the shortkey for this URI from defaultNames2Id; fallback to empty string
+            const shortkey = Object.keys(defaultNames2Id).find(k => defaultNames2Id[k]?.id === uri) || '';
+            // Parse the XML into ParsedXmlData so it matches EtaData shape
+            menuData[uri] = parseXML(result, shortkey, defaultNames2Id);
+          } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const reason: any = r.reason;
+            console.warn(`${this.getTimestamp()} Failed to fetch data for batch URI`, reason?.message || reason);
           }
         });
-
-        await Promise.all(promises);
 
         // Add a small delay between batches to prevent overwhelming the server
         if (i + batchSize < uris.length) {
@@ -320,15 +369,26 @@ export class BackgroundService {
       await logData('eta', menuData);
       console.log(`${this.getTimestamp()} Logging ETA data DONE!`);
 
+      // Quick win: store ETA data in Redux
+      try {
+        store.dispatch(storeEtaData(menuData));
+      } catch (e) {
+        console.warn(`${this.getTimestamp()} Failed to dispatch ETA data to store:`, e);
+      }
+      // Mark ETA update time for cleanup checks
+      this.lastEtaUpdate = Date.now();
+
       // Load WiFi AF83 data
       const wifiApi = new WifiAf83Api();
       const allData = await getWifiAf83Data(() => wifiApi.getAllRealtime());
 
       // Extract and validate temperature values
-      const outdoorTemp = allData.outdoor?.temperature?.value;
-      const indoorTemp = allData.indoor?.temperature?.value;
+      const outdoorTempRaw = allData.outdoor?.temperature?.value;
+      const indoorTempRaw = allData.indoor?.temperature?.value;
+      const outdoorTemp = parseFloat(outdoorTempRaw ?? '');
+      const indoorTemp = parseFloat(indoorTempRaw ?? '');
 
-      if (!outdoorTemp || !indoorTemp) {
+      if (Number.isNaN(outdoorTemp) || Number.isNaN(indoorTemp)) {
         throw new Error('Invalid temperature values');
       }
 
@@ -344,8 +404,8 @@ export class BackgroundService {
           month: 'long',
           year: 'numeric',
         }),
-        temperature: parseFloat(outdoorTemp),
-        indoorTemperature: parseFloat(indoorTemp),
+        temperature: outdoorTemp,
+        indoorTemperature: indoorTemp,
         allData: allData
       };
 
@@ -407,16 +467,10 @@ export class BackgroundService {
         needsRefresh = true;
       }
 
-      // Check ETA data
-      const etaData = state.eta.data;
-      if (etaData) {
-        const hasOldData = Object.values(etaData).some((value: any) =>
-          value?.timestamp && value.timestamp < cutoffTime
-        );
-        if (hasOldData) {
-          console.log(`${this.getTimestamp()} ETA data is outdated`);
-          needsRefresh = true;
-        }
+      // Check ETA data via lastEtaUpdate timestamp tracked by background service
+      if (this.lastEtaUpdate && this.lastEtaUpdate < cutoffTime) {
+        console.log(`${this.getTimestamp()} ETA data is outdated (last update ${new Date(this.lastEtaUpdate).toISOString()})`);
+        needsRefresh = true;
       }
 
       // If any data is outdated, refresh all data
@@ -635,8 +689,11 @@ export class BackgroundService {
           }
 
           try {
-            // Initialize EtaApi
-            const etaApi = new EtaApi(this.config.s_eta);
+            // Ensure EtaApi instance is available
+            if (!this.etaApi) {
+              this.etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
+            }
+            const etaApi = this.etaApi;
 
             // First turn off all buttons except AA
             console.log(`${this.getTimestamp()} Turning off all buttons (except AA) before activating ${targetButtonName}`);
@@ -748,9 +805,9 @@ export class BackgroundService {
       console.log(`${this.getTimestamp()} Memory monitoring stopped`);
     }
 
-    // Clear update interval
+    // Clear update timeout
     if (this.updateInterval) {
-      clearInterval(this.updateInterval);
+      clearTimeout(this.updateInterval);
       this.updateInterval = null;
     }
 

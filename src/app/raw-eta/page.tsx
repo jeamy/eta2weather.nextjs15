@@ -1,11 +1,12 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { MenuNode } from '@/types/menu'
 import React from 'react'
+import useSWR from 'swr'
 
 interface RawData {
   menuItems: MenuNode[]
-  rawData: Record<string, any>
+  rawData: Record<string, string>
 }
 
 interface ParsedValue {
@@ -24,95 +25,65 @@ interface CachedData {
 const CACHE_DURATION = 60 * 1000
 
 export default function RawEtaPage() {
-  const [data, setData] = useState<RawData | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [searchTerm, setSearchTerm] = useState('')
-  const [menuMap, setMenuMap] = useState<Record<string, string>>({})
   const [lastFetch, setLastFetch] = useState<number>(0)
+  const [fallbackData, setFallbackData] = useState<RawData | undefined>(undefined)
+  // Simple cache for parsed XML to avoid re-parsing on toggle
+  const parseCacheRef = useRef<Map<string, ParsedValue>>(new Map())
 
-  const fetchData = useCallback(async (force: boolean = false) => {
-    const now = Date.now()
-    
-    // Check cache first
+  // SWR fetcher and setup
+  const fetcher = useCallback(async (url: string): Promise<RawData> => {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+    const result = await response.json()
+    if (!result?.success) throw new Error(result?.error || 'Failed to fetch data')
+    return result.data as RawData
+  }, [])
+
+  // Load fallback snapshot from localStorage on mount
+  useEffect(() => {
     const cachedStr = localStorage.getItem('rawEtaData')
-    if (!force && cachedStr) {
+    if (cachedStr) {
       try {
         const cached: CachedData = JSON.parse(cachedStr)
-        if (now - cached.timestamp < CACHE_DURATION) {
-          setData(cached.data)
-          // Create menu map from cached data
-          const map: Record<string, string> = {}
-          const processMenuNode = (node: MenuNode) => {
-            if (node.uri) {
-              map[node.uri] = node.name
-            }
-            if (node.children) {
-              node.children.forEach(processMenuNode)
-            }
-          }
-          cached.data.menuItems.forEach(processMenuNode)
-          setMenuMap(map)
-          setLoading(false)
-          setLastFetch(cached.timestamp)
-          return
-        }
+        setFallbackData(cached.data)
+        setLastFetch(cached.timestamp)
       } catch (error) {
         console.warn('Error reading cache:', error)
       }
     }
-
-    try {
-      setLoading(true)
-      const response = await fetch('/api/eta/raw')
-      const result = await response.json()
-      
-      if (result.success) {
-        // Create menu map
-        const map: Record<string, string> = {}
-        const processMenuNode = (node: MenuNode) => {
-          if (node.uri) {
-            map[node.uri] = node.name
-          }
-          if (node.children) {
-            node.children.forEach(processMenuNode)
-          }
-        }
-        result.data.menuItems.forEach(processMenuNode)
-        
-        // Update state and cache
-        setData(result.data)
-        setMenuMap(map)
-        setLastFetch(now)
-        
-        // Cache the data
-        const cacheData: CachedData = {
-          data: result.data,
-          timestamp: now
-        }
-        localStorage.setItem('rawEtaData', JSON.stringify(cacheData))
-      } else {
-        throw new Error(result.error || 'Failed to fetch data')
-      }
-    } catch (error) {
-      console.error('Error:', error)
-      setError(error instanceof Error ? error.message : 'An error occurred')
-    } finally {
-      setLoading(false)
-    }
   }, [])
 
-  useEffect(() => {
-    fetchData()
-    
-    // Set up refresh interval
-    const interval = setInterval(() => {
-      fetchData(true)
-    }, CACHE_DURATION)
+  const { data, error, isLoading, mutate, isValidating } = useSWR<RawData>(
+    '/api/eta/raw',
+    fetcher,
+    {
+      refreshInterval: CACHE_DURATION,
+      revalidateOnFocus: true,
+      dedupingInterval: 30000,
+      fallbackData,
+    }
+  )
 
-    return () => clearInterval(interval)
-  }, [fetchData])
+  // Reset parse cache when dataset changes
+  useEffect(() => {
+    parseCacheRef.current.clear()
+  }, [data])
+
+  // Persist fresh data to localStorage with timestamp
+  useEffect(() => {
+    if (data) {
+      const now = Date.now()
+      setLastFetch(now)
+      const cacheData: CachedData = { data, timestamp: now }
+      try {
+        localStorage.setItem('rawEtaData', JSON.stringify(cacheData))
+      } catch (error) {
+        console.warn('Error writing cache:', error)
+      }
+    }
+  }, [data])
 
   const toggleNode = (uri: string) => {
     setExpandedNodes(prev => {
@@ -154,9 +125,19 @@ export default function RawEtaPage() {
     }
   }
 
-  const renderValue = (uri: string, xmlValue: string) => {
-    const parsedValue = parseXmlValue(xmlValue)
+  const renderPrepared = (uri: string, xmlValue: string) => {
     const isExpanded = expandedNodes.has(uri)
+
+    // Only parse XML when expanded; use a small cache keyed by the XML string
+    let parsedValue: ParsedValue | null = null
+    if (isExpanded) {
+      const cache = parseCacheRef.current
+      parsedValue = cache.get(xmlValue) || null
+      if (!parsedValue) {
+        parsedValue = parseXmlValue(xmlValue)
+        cache.set(xmlValue, parsedValue)
+      }
+    }
 
     return (
       <div key={uri} className="border-b border-gray-700 py-2">
@@ -172,7 +153,7 @@ export default function RawEtaPage() {
             )}
           </div>
         </div>
-        {isExpanded && (
+        {isExpanded && parsedValue && (
           <div className="ml-6 mt-2 space-y-1 text-sm">
             <div className="grid grid-cols-2 gap-2">
               <div className="text-gray-400">Value:</div>
@@ -203,7 +184,37 @@ export default function RawEtaPage() {
     )
   }
 
-  if (loading) {
+  // Build menu map from tree
+  const addNodeToMap = useCallback((node: MenuNode, map: Record<string, string>) => {
+    if (node.uri) {
+      map[node.uri] = node.name
+    }
+    if (node.children) {
+      node.children.forEach(child => addNodeToMap(child, map))
+    }
+  }, [])
+
+  const menuMap = useMemo(() => {
+    if (!data?.menuItems) return {}
+    const map: Record<string, string> = {}
+    data.menuItems.forEach(node => addNodeToMap(node, map))
+    return map
+  }, [data?.menuItems, addNodeToMap])
+
+  // Prepare filtered items before any early returns to keep hook order stable
+  const filteredItems = useMemo(() => {
+    if (!data) return [] as { uri: string; xml: string }[]
+    const searchLower = searchTerm.toLowerCase()
+    return Object.entries(data.rawData)
+      .filter(([uri]) => {
+        const uriMatch = uri.toLowerCase().includes(searchLower)
+        const nameMatch = (menuMap[uri] || '').toLowerCase().includes(searchLower)
+        return uriMatch || nameMatch
+      })
+      .map(([uri, xml]) => ({ uri, xml }))
+  }, [data, searchTerm, menuMap])
+
+  if (isLoading && !data) {
     return (
       <div className="container mx-auto p-4">
         <div className="text-center">Loading...</div>
@@ -214,17 +225,10 @@ export default function RawEtaPage() {
   if (error) {
     return (
       <div className="container mx-auto p-4">
-        <div className="text-red-500">Error: {error}</div>
+        <div className="text-red-500">Error: {error.message}</div>
       </div>
     )
   }
-
-  const filteredData = data ? Object.entries(data.rawData).filter(([uri]) => {
-    const searchLower = searchTerm.toLowerCase()
-    const uriMatch = uri.toLowerCase().includes(searchLower)
-    const nameMatch = menuMap[uri]?.toLowerCase().includes(searchLower)
-    return uriMatch || nameMatch
-  }) : []
 
   return (
     <div className="container mx-auto p-4">
@@ -240,12 +244,15 @@ export default function RawEtaPage() {
               className="px-3 py-1 rounded bg-white/10 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
             />
             <button
-              onClick={() => fetchData(true)}
+              onClick={() => mutate()}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
               title="Refresh data"
             >
-              ⟳
+              {isValidating ? '…' : '⟳'}
             </button>
+          </div>
+          <div className="text-xs text-gray-400">
+            {lastFetch ? new Date(lastFetch).toLocaleString('de-DE') : ''}
           </div>
           <button
             onClick={() => setExpandedNodes(new Set(Object.keys(data?.rawData || {})))}
@@ -268,7 +275,7 @@ export default function RawEtaPage() {
         <div className="bg-white/10 p-4 rounded-lg order-1">
           <h2 className="text-xl font-semibold mb-4">Raw Values</h2>
           <div className="space-y-1">
-            {filteredData.map(([uri, value]) => renderValue(uri, value))}
+            {filteredItems.map((item) => renderPrepared(item.uri, item.xml))}
           </div>
         </div>
         {/* Menu Structure Section - Below on mobile/tablet, right side on desktop */}
