@@ -95,26 +95,31 @@ export async function updateSliderPosition(
     const scaledPosition = (newPosition * 10).toString();
     console.log(`Setting slider position to: ${scaledPosition}`);
     try {
-        // Set the new position using the API route
-        const response = await fetch(API.ETA_UPDATE, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                id,
-                value: scaledPosition,
-                begin: "0",
-                end: "0"
-            })
-        });
+        const isServer = typeof window === 'undefined';
+        if (isServer) {
+            // Server/background: use direct EtaApi call (no relative URL issues)
+            await etaApi.setUserVar(id, scaledPosition, "0", "0");
+        } else {
+            // Browser: call our Next.js API to avoid CORS against ETA device
+            const response = await fetch(API.ETA_UPDATE, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id,
+                    value: scaledPosition,
+                    begin: "0",
+                    end: "0"
+                })
+            });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to update slider position');
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to update slider position');
+            }
+            await response.json();
         }
-
-        const data = await response.json();
         return {
             success: true,
             position: newPosition
@@ -185,95 +190,50 @@ export async function updateHeating(
     `);
 
     try {
-        // Set the new heating using the API route
-        const rht = await fetch(API.ETA_UPDATE, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                id: idht,
-                value: ht == 1 ? EtaPos.EIN : EtaPos.AUS,
-                begin: "0",
-                end: "0"
-            })
-        });
+        const isServer = typeof window === 'undefined';
+        if (isServer) {
+            // Server/background: use direct EtaApi calls
+            await etaApi.setUserVar(idht, ht == 1 ? EtaPos.EIN : EtaPos.AUS, "0", "0");
+            await etaApi.setUserVar(idkom, kom == 1 ? EtaPos.EIN : EtaPos.AUS, "0", "0");
+            await etaApi.setUserVar(idauto, auto == 1 ? EtaPos.EIN : EtaPos.AUS, "0", "0");
+            await etaApi.setUserVar(idge, ge == 1 ? EtaPos.EIN : EtaPos.AUS, "0", "0");
+            await etaApi.setUserVar(idab, ab == 1 ? EtaPos.EIN : EtaPos.AUS, "0", "0");
+        } else {
+            // Browser: use API routes to avoid CORS
+            const rht = await fetch(API.ETA_UPDATE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: idht, value: ht == 1 ? EtaPos.EIN : EtaPos.AUS, begin: "0", end: "0" })
+            });
+            if (!rht.ok) { const error = await rht.json(); throw new Error(error.error || 'Failed to update heating position'); }
 
-        if (!rht.ok) {
-            const error = await rht.json();
-            throw new Error(error.error || 'Failed to update heating position');
-        }
+            const rkom = await fetch(API.ETA_UPDATE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: idkom, value: kom == 1 ? EtaPos.EIN : EtaPos.AUS, begin: "0", end: "0" })
+            });
+            if (!rkom.ok) { const error = await rkom.json(); throw new Error(error.error || 'Failed to update kommen position'); }
 
-        const rkom = await fetch(API.ETA_UPDATE, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                id: idkom,
-                value: kom == 1 ? EtaPos.EIN : EtaPos.AUS,
-                begin: "0",
-                end: "0"
-            })
-        });
+            const rauto = await fetch(API.ETA_UPDATE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: idauto, value: auto == 1 ? EtaPos.EIN : EtaPos.AUS, begin: "0", end: "0" })
+            });
+            if (!rauto.ok) { const error = await rauto.json(); throw new Error(error.error || 'Failed to update auto position'); }
 
-        if (!rkom.ok) {
-            const error = await rkom.json();
-            throw new Error(error.error || 'Failed to update kommen position');
-        }
+            const rge = await fetch(API.ETA_UPDATE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: idge, value: ge == 1 ? EtaPos.EIN : EtaPos.AUS, begin: "0", end: "0" })
+            });
+            if (!rge.ok) { const error = await rge.json(); throw new Error(error.error || 'Failed to update gehen position'); }
 
-        const rauto = await fetch(API.ETA_UPDATE, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                id: idauto,
-                value: auto == 1 ? EtaPos.EIN : EtaPos.AUS,
-                begin: "0",
-                end: "0"
-            })
-        });
-
-        if (!rauto.ok) {
-            const error = await rauto.json();
-            throw new Error(error.error || 'Failed to update auto position');
-        }
-
-        const rge = await fetch(API.ETA_UPDATE, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                id: idge,
-                value: ge == 1 ? EtaPos.EIN : EtaPos.AUS,
-                begin: "0",
-                end: "0"
-            })
-        });
-
-        if (!rge.ok) {
-            const error = await rge.json();
-            throw new Error(error.error || 'Failed to update gehen position');
-        }
-
-        const rab = await fetch(API.ETA_UPDATE, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                id: idab,
-                value: ab == 1 ? EtaPos.EIN : EtaPos.AUS,
-                begin: "0",
-                end: "0"
-            })
-        });
-
-        if (!rab.ok) {
-            const error = await rab.json();
-            throw new Error(error.error || 'Failed to update ab position');
+            const rab = await fetch(API.ETA_UPDATE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: idab, value: ab == 1 ? EtaPos.EIN : EtaPos.AUS, begin: "0", end: "0" })
+            });
+            if (!rab.ok) { const error = await rab.json(); throw new Error(error.error || 'Failed to update ab position'); }
         }
 
         return {

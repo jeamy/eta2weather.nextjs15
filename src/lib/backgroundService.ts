@@ -352,7 +352,7 @@ export class BackgroundService {
           } else {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const reason: any = r.reason;
-            console.warn(`${this.getTimestamp()} Failed to fetch data for batch URI`, reason?.message || reason);
+            console.warn(`${this.getTimestamp()} Failed to fetch data for ${r.reason?.uri || 'unknown URI'}`, reason?.message || reason);
           }
         });
 

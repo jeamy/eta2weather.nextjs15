@@ -49,10 +49,10 @@ export default function WeatherPage(props: WeatherPageProps) {
   []);
 
   const refreshInterval =
-    timeRange === '24h' ? 60000 :
-    timeRange === '7d' ? 300000 :
-    timeRange === '30d' ? 900000 :
-    3600000;
+    timeRange === '24h' ? 60_000 :
+    timeRange === '7d' ? 300_000 :
+    (timeRange === '30d' || timeRange === '1m') ? 900_000 :
+    3_600_000;
 
   const { data: weatherData, error: weatherError, isLoading: isLoadingWeather, mutate: refetchWeather } =
     useSWR<WeatherData[]>(`${API.WEATHER}?range=${timeRange}`, fetcher, {

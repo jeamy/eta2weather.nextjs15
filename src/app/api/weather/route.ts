@@ -3,10 +3,31 @@ import fs from 'fs';
 import path from 'path';
 import { DOMParser } from 'xmldom';
 
+// Simple in-memory cache per range to speed up repeated requests.
+// TTLs are conservative and per-range.
+const cache = new Map<string, { t: number; data: any[] }>();
+const CACHE_TTLS: Record<string, number> = {
+  '24h': 60_000,   // 1 minute
+  '7d': 5 * 60_000, // 5 minutes
+  '30d': 15 * 60_000, // 15 minutes
+  default: 60 * 60_000, // 1 hour
+};
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const range = searchParams.get('range') || '24h';
+    const ttl = CACHE_TTLS[range] ?? CACHE_TTLS.default;
+    const cacheKey = `weather:${range}`;
+    const nowMs = Date.now();
+    const cached = cache.get(cacheKey);
+    if (cached && nowMs - cached.t < ttl) {
+      return NextResponse.json(cached.data, {
+        headers: {
+          'Cache-Control': `public, max-age=${Math.floor(ttl / 1000)}`,
+        },
+      });
+    }
     
     const baseDir = path.join(process.cwd(), 'public/log/ecowitt');
     const currentYear = new Date().getFullYear().toString();
@@ -14,9 +35,14 @@ export async function GET(request: Request) {
     
     // Get XML files based on the requested time range
     const files = await getXmlFiles(yearDir, range);
-    const weatherData = await processXmlFiles(files);
+    const weatherData = await processXmlFiles(files, range);
+    cache.set(cacheKey, { t: nowMs, data: weatherData });
 
-    return NextResponse.json(weatherData);
+    return NextResponse.json(weatherData, {
+      headers: {
+        'Cache-Control': `public, max-age=${Math.floor(ttl / 1000)}`,
+      },
+    });
   } catch (error) {
     console.error('Error processing weather data:', error);
     return NextResponse.json({ error: 'Failed to process weather data' }, { status: 500 });
@@ -35,42 +61,51 @@ async function getXmlFiles(yearDir: string, range: string): Promise<string[]> {
     case '30d':
       startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       break;
+    case '1m':
+      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      break;
     default: // '24h'
       startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   }
 
+  // Iterate only over the required day folders instead of scanning the whole year directory.
   const files: string[] = [];
-  const months = fs.readdirSync(yearDir);
-
-  for (const month of months) {
-    const monthDir = path.join(yearDir, month);
-    const days = fs.readdirSync(monthDir);
-    
-    for (const day of days) {
-      const dayDir = path.join(monthDir, day);
-      if (!fs.statSync(dayDir).isDirectory()) continue;
-
-      // Parse the date from the directory structure
-      const fileDate = new Date(currentYear, parseInt(month) - 1, parseInt(day));
-      
-      if (fileDate >= startDate && fileDate <= now) {
-        const xmlFiles = fs.readdirSync(dayDir)
-          .filter(file => file.endsWith('.xml'))
-          .map(file => path.join(dayDir, file));
-        
-        files.push(...xmlFiles);
-      }
+  for (
+    let d = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    d <= now;
+    d.setDate(d.getDate() + 1)
+  ) {
+    // Limit to current year to keep behavior consistent with existing folder structure
+    if (d.getFullYear() !== currentYear) continue;
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const dayDir = path.join(yearDir, month, day);
+    try {
+      if (!fs.existsSync(dayDir) || !fs.statSync(dayDir).isDirectory()) continue;
+      const xmlFiles = fs.readdirSync(dayDir)
+        .filter((file) => file.endsWith('.xml'))
+        .map((file) => path.join(dayDir, file));
+      files.push(...xmlFiles);
+    } catch {
+      // ignore missing paths
     }
   }
 
   return files;
 }
 
-async function processXmlFiles(files: string[]): Promise<any[]> {
+async function processXmlFiles(files: string[], range: string): Promise<any[]> {
+  // Reduce IO by sampling files up-front for longer ranges.
+  let filesToProcess = files;
+  if (range === '7d' || range === '30d' || range === '1m') {
+    const target = range === '7d' ? 1200 : 1500; // aim for ~O(1k) files max
+    const step = Math.max(1, Math.ceil(files.length / target));
+    filesToProcess = files.filter((_, i) => i % step === 0);
+  }
   const weatherData = [];
   const parser = new DOMParser();
 
-  for (const file of files) {
+  for (const file of filesToProcess) {
     try {
       const xmlContent = fs.readFileSync(file, 'utf-8');
       if (!xmlContent || xmlContent.trim() === '') {

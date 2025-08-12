@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState, useEffect } from 'react';
 import type {
   ChartOptions,
   Chart as ChartJS,
@@ -14,6 +14,7 @@ import {
   Title,
   Tooltip,
   Legend,
+  Decimation,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import zoomPlugin from 'chartjs-plugin-zoom';
@@ -33,7 +34,8 @@ Chart.register(
   Legend,
   TimeScale,
   TimeSeriesScale,
-  zoomPlugin
+  zoomPlugin,
+  Decimation
 );
 
 // Set default locale for Chart.js
@@ -151,16 +153,70 @@ export default function WeatherCharts({
     });
   }, [weatherData]);
 
+  // Visible channel selection to reduce clutter
+  const [visibleChannels, setVisibleChannels] = useState<string[]>([]);
+  useEffect(() => {
+    if (channels.length && visibleChannels.length === 0) {
+      setVisibleChannels(channels.slice(0, Math.min(4, channels.length)));
+    }
+  }, [channels, visibleChannels.length]);
+
+  const handleToggleChannel = useCallback((ch: string) => {
+    setVisibleChannels((prev) =>
+      prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]
+    );
+  }, []);
+
+  const handleSelectAllChannels = useCallback(() => {
+    setVisibleChannels(channels);
+  }, [channels]);
+
+  const handleSelectNoneChannels = useCallback(() => {
+    setVisibleChannels([]);
+  }, []);
+
+  const ChannelSelector = useMemo(() => (
+    <div className="mb-3">
+      <div className="flex items-center gap-2 flex-wrap mb-2">
+        <span className="text-sm text-gray-600 mr-2">Kanäle:</span>
+        <button onClick={handleSelectAllChannels} className="text-xs px-2 py-1 bg-gray-200 rounded hover:bg-gray-300">Alle</button>
+        <button onClick={handleSelectNoneChannels} className="text-xs px-2 py-1 bg-gray-200 rounded hover:bg-gray-300">Keine</button>
+      </div>
+      <div className="flex items-center gap-3 flex-wrap">
+        {channels.map((ch) => {
+          const upperChannel = 'CH' + ch.substring(2).toUpperCase();
+          const displayName = channelNames[upperChannel] || upperChannel;
+          const checked = visibleChannels.includes(ch);
+          return (
+            <label key={ch} className="inline-flex items-center gap-1 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => handleToggleChannel(ch)}
+                className="rounded"
+              />
+              <span className={checked ? 'text-gray-900' : 'text-gray-500'}>{displayName}</span>
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  ), [channels, channelNames, visibleChannels, handleToggleChannel, handleSelectAllChannels, handleSelectNoneChannels]);
+
   // Create channel datasets with temperature or humidity data
   const createChannelDatasets = useCallback((channels: string[], type: 'temperature' | 'humidity') => {
-    const datasets = channels.map((channel, index) => {
+    const selected = channels.filter((c) => visibleChannels.includes(c));
+    const isLongRange = timeRange !== '24h';
+    const pointRadius = isLongRange ? 0 : 1;
+    const pointHoverRadius = isLongRange ? 2 : 3;
+    const datasets = selected.map((channel, index) => {
       const color = getChannelColor(index);
       const upperChannel = 'CH' + channel.substring(2).toUpperCase();
       const displayName = channelNames[upperChannel] || upperChannel;
       const channelData = weatherData.map((data) => data.channels[channel]).filter(Boolean);
       const latestData = channelData[channelData.length - 1];
       const dataValue = latestData ? `${latestData[type]}${type === 'temperature' ? '°C' : '%'}` : 'N/A';
-      return {
+      const base = {
         label: `${displayName} (${dataValue})`,
         data: weatherData.map((data) => {
           const channelData = data.channels[channel];
@@ -169,19 +225,26 @@ export default function WeatherCharts({
         borderColor: color.border,
         backgroundColor: color.background,
         borderWidth: 1,
-        pointRadius: 1,
-        pointHoverRadius: 3,
-      };
+        pointRadius,
+        pointHoverRadius,
+        cubicInterpolationMode: 'monotone' as const,
+        spanGaps: true,
+      } as const;
+      const maybeAnim = isLongRange ? { animation: false as const } : {};
+      return { ...base, ...maybeAnim };
     });
 
     return {
       labels: weatherData.map((data) => data.timestamp),
       datasets,
     };
-  }, [weatherData, channelNames]);
+  }, [weatherData, channelNames, visibleChannels, timeRange]);
 
   // Memoize main chart data with indoor data and pressure
   const mainChartDataUpdated = useMemo(() => {
+    const isLongRange = timeRange !== '24h';
+    const pointRadius = isLongRange ? 0 : 1;
+    const pointHoverRadius = isLongRange ? 2 : 3;
     return {
       labels: weatherData.map((data) => data.timestamp),
       datasets: [
@@ -192,8 +255,11 @@ export default function WeatherCharts({
           backgroundColor: 'rgba(255, 99, 132, 0.5)',
           yAxisID: 'y-temperature',
           borderWidth: 1,
-          pointRadius: 1,
-          pointHoverRadius: 3,
+          pointRadius,
+          pointHoverRadius,
+          cubicInterpolationMode: 'monotone' as const,
+          spanGaps: true,
+          ...(isLongRange ? { animation: false as const } : {}),
         },
         {
           label: 'Innentemperatur (°C)',
@@ -202,8 +268,11 @@ export default function WeatherCharts({
           backgroundColor: 'rgba(75, 192, 192, 0.5)',
           yAxisID: 'y-temperature',
           borderWidth: 1,
-          pointRadius: 1,
-          pointHoverRadius: 3,
+          pointRadius,
+          pointHoverRadius,
+          cubicInterpolationMode: 'monotone' as const,
+          spanGaps: true,
+          ...(isLongRange ? { animation: false as const } : {}),
         },
         {
           label: 'Außenluftfeuchtigkeit (%)',
@@ -212,8 +281,11 @@ export default function WeatherCharts({
           backgroundColor: 'rgba(53, 162, 235, 0.5)',
           yAxisID: 'y-humidity',
           borderWidth: 1,
-          pointRadius: 1,
-          pointHoverRadius: 3,
+          pointRadius,
+          pointHoverRadius,
+          cubicInterpolationMode: 'monotone' as const,
+          spanGaps: true,
+          ...(isLongRange ? { animation: false as const } : {}),
         },
         {
           label: 'Innenluftfeuchtigkeit (%)',
@@ -222,8 +294,11 @@ export default function WeatherCharts({
           backgroundColor: 'rgba(255, 159, 64, 0.5)',
           yAxisID: 'y-humidity',
           borderWidth: 1,
-          pointRadius: 1,
-          pointHoverRadius: 3,
+          pointRadius,
+          pointHoverRadius,
+          cubicInterpolationMode: 'monotone' as const,
+          spanGaps: true,
+          ...(isLongRange ? { animation: false as const } : {}),
         },
         {
           label: 'Luftdruck (hPa)',
@@ -232,17 +307,22 @@ export default function WeatherCharts({
           backgroundColor: 'rgba(128, 128, 128, 0.5)',
           yAxisID: 'y-pressure',
           borderWidth: 1,
-          pointRadius: 1,
-          pointHoverRadius: 3,
+          pointRadius,
+          pointHoverRadius,
+          cubicInterpolationMode: 'monotone' as const,
+          spanGaps: true,
+          ...(isLongRange ? { animation: false as const } : {}),
         },
       ],
     };
-  }, [weatherData]);
+  }, [weatherData, timeRange]);
 
   // Memoize chart options
   const mainChartOptionsUpdated: ChartOptions<'line'> = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
+    normalized: true,
+    animation: timeRange === '24h' ? {} : false,
     interaction: {
       mode: 'index' as const,
       intersect: false,
@@ -256,7 +336,7 @@ export default function WeatherCharts({
           },
         },
         time: {
-          unit: timeRange === '24h' ? 'hour' : timeRange === '7d' ? 'day' : timeRange === '30d' ? 'day' : 'month',
+          unit: timeRange === '24h' ? 'hour' : (timeRange === '7d' || timeRange === '30d' || timeRange === '1m') ? 'day' : 'month',
           displayFormats: {
             hour: 'HH:mm',
             day: 'dd.MM.',
@@ -268,7 +348,7 @@ export default function WeatherCharts({
           maxRotation: 0,
           source: 'auto',
           autoSkip: true,
-          maxTicksLimit: timeRange === '24h' ? 12 : timeRange === '7d' ? 7 : timeRange === '30d' ? 15 : 31,
+          maxTicksLimit: timeRange === '24h' ? 12 : (timeRange === '7d' ? 7 : (timeRange === '30d' || timeRange === '1m') ? 15 : 31),
         },
       },
       'y-temperature': {
@@ -321,6 +401,11 @@ export default function WeatherCharts({
       },
     },
     plugins: {
+      decimation: timeRange === '24h' ? { enabled: false } : {
+        enabled: true,
+        algorithm: 'lttb',
+        samples: timeRange === '7d' ? 600 : timeRange === '30d' ? 900 : 1000,
+      },
       zoom: {
         zoom: {
           wheel: {
@@ -365,6 +450,7 @@ export default function WeatherCharts({
         return 'hour';
       case '7d':
       case '30d':
+      case '1m':
         return 'day';
       default:
         return 'month';
@@ -375,6 +461,8 @@ export default function WeatherCharts({
     return {
       responsive: true,
       maintainAspectRatio: false,
+      normalized: true,
+      animation: timeRange === '24h' ? {} : false,
       interaction: {
         mode: 'index',
         intersect: false,
@@ -425,6 +513,11 @@ export default function WeatherCharts({
         title: {
           display: true,
           text: title
+        },
+        decimation: timeRange === '24h' ? { enabled: false } : {
+          enabled: true,
+          algorithm: 'lttb',
+          samples: timeRange === '7d' ? 600 : timeRange === '30d' ? 900 : 1000,
         },
         zoom: {
           pan: {
@@ -498,6 +591,7 @@ export default function WeatherCharts({
           <h2 className="text-xl font-semibold flex-grow">Temperatur</h2>
           <ResetZoomButton chartRef={channelTempChartRef} />
         </div>
+        {ChannelSelector}
         <div className="relative aspect-[21/9]">
           <Line ref={channelTempChartRef} options={channelTempChartOptionsUpdated} data={createChannelDatasets(channels, 'temperature')} />
         </div>
@@ -508,6 +602,7 @@ export default function WeatherCharts({
           <h2 className="text-xl font-semibold flex-grow">Luftfeuchtigkeit</h2>
           <ResetZoomButton chartRef={channelHumidityChartRef} />
         </div>
+        {ChannelSelector}
         <div className="relative aspect-[21/9]">
           <Line ref={channelHumidityChartRef} options={channelHumidityChartOptionsUpdated} data={createChannelDatasets(channels, 'humidity')} />
         </div>
