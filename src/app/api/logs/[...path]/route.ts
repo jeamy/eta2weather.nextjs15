@@ -33,12 +33,25 @@ export async function GET(
       headers.set('Content-Type', 'application/xml; charset=utf-8');
       // Sanitize XML: remove UTF-8 BOM and any leading non-XML characters
       let text = fileBuffer.toString('utf-8');
-      if (text.charCodeAt(0) === 0xfeff) {
+      if (text.length > 0 && text.charCodeAt(0) === 0xfeff) {
         text = text.slice(1);
       }
       const firstLt = text.indexOf('<');
       if (firstLt > 0) {
         text = text.slice(firstLt);
+      }
+      // Ensure only the first XML declaration is kept
+      if (text.startsWith('<?xml')) {
+        const declEnd = text.indexOf('?>');
+        if (declEnd !== -1) {
+          const head = text.slice(0, declEnd + 2);
+          let body = text.slice(declEnd + 2);
+          body = body.replace(/<\?xml[^>]*>\s*/gi, '');
+          text = head + body;
+        }
+      } else {
+        // If no declaration at top, strip any stray declarations
+        text = text.replace(/<\?xml[^>]*>\s*/gi, '');
       }
       return new NextResponse(text, {
         status: 200,
