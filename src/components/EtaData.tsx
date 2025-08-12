@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux';
 import { ConfigState } from '@/redux/configSlice';
@@ -42,8 +42,23 @@ const EtaData: React.FC = () => {
   const intervalId = useRef<NodeJS.Timeout | null>(null);
   const lastApiCall = useRef<number>(0);
   const etaApiRef = useRef<EtaApi | null>(null);
+  // Prevent overlapping update operations
+  const updateBusyRef = useRef<boolean>(false);
 
   const [displayData, setDisplayData] = useState<DisplayDataType | null>(null);
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
+
+  // Memoized map of button short codes to their URIs
+  const buttonIds = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    if (!etaState.data) return map;
+    Object.entries(etaState.data).forEach(([uri, data]) => {
+      if (Object.values(EtaButtons).includes(data.short as EtaButtons)) {
+        map[data.short ?? ''] = uri;
+      }
+    });
+    return map;
+  }, [etaState.data]);
 
   useEffect(() => {
     if (config?.s_eta) {
@@ -51,7 +66,7 @@ const EtaData: React.FC = () => {
     }
   }, [config]);
 
-  const loadAndStoreEta = useCallback(async (force: boolean = false) => {
+  const loadAndStoreEta = useCallback(async (force: boolean = false, background: boolean = false) => {
     const now = Date.now();
     if (!force && now - lastApiCall.current < MIN_API_INTERVAL) {
       console.log('Skipping API call - too frequent');
@@ -59,7 +74,9 @@ const EtaData: React.FC = () => {
     }
 
     try {
-      setLoadingState({ isLoading: true, error: '' });
+      if (!background) {
+        setLoadingState({ isLoading: true, error: '' });
+      }
       lastApiCall.current = now;
 
       const response = await fetch(API.ETA_READ, {
@@ -102,9 +119,13 @@ const EtaData: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching ETA data:', error);
-      setLoadingState({ isLoading: false, error: (error as Error).message });
+      if (!background) {
+        setLoadingState({ isLoading: false, error: (error as Error).message });
+      }
     } finally {
-      setLoadingState({ isLoading: false, error: '' });
+      if (!background) {
+        setLoadingState(prev => ({ ...prev, isLoading: false }));
+      }
     }
   }, [dispatch]);
 
@@ -118,21 +139,33 @@ const EtaData: React.FC = () => {
 
   const updateButtonStates = useCallback(async (activeButton: EtaButtons, isManual: boolean = false) => {
     try {
-      // Find button IDs from state data
-      const buttonIds: Record<string, string> = {};
+      // Debounce concurrent operations
+      if (updateBusyRef.current) return;
+      updateBusyRef.current = true;
+      setIsUpdating(true);
 
-      Object.entries(etaState.data).forEach(([uri, data]) => {
-        if (Object.values(EtaButtons).includes(data.short as EtaButtons)) {
-          buttonIds[data.short ?? ''] = uri;
+      // No-op if already active
+      const currentActive = (() => {
+        for (const [, data] of Object.entries(etaState.data)) {
+          if (Object.values(EtaButtons).includes(data.short as EtaButtons) && data.value === EtaPos.EIN) {
+            return data.short as EtaButtons;
+          }
         }
-      });
+        return null;
+      })();
+      if (currentActive === activeButton) {
+        return;
+      }
+      // Use memoized buttonIds
 
       const activeId = buttonIds[activeButton];
       const aaId = buttonIds[EtaButtons.AA];
 
-      // If a manual button is requested but missing, this is an error.
+      // If a manual button is requested but missing, show user-friendly error and abort.
       if (activeButton !== EtaButtons.AA && !activeId) {
-        throw new Error(`Button ID not found for ${activeButton}`);
+        console.warn(`Button ID not found for ${activeButton}`);
+        setLoadingState(prev => ({ ...prev, error: `Button ID not found for ${activeButton}` }));
+        return;
       }
 
       // Turn off all buttons first
@@ -219,12 +252,15 @@ const EtaData: React.FC = () => {
       }
 
       // Trigger a refresh of the data to get the updated state
-      await loadAndStoreEta(true);
+      await loadAndStoreEta(true, true);
     } catch (error) {
       console.error('Error updating button states:', error);
       setLoadingState(prev => ({ ...prev, error: (error as Error).message }));
+    } finally {
+      updateBusyRef.current = false;
+      setIsUpdating(false);
     }
-  }, [etaState.data, loadAndStoreEta]);
+  }, [etaState.data, loadAndStoreEta, buttonIds]);
 
   // Get the currently active button from etaState
   const getActiveButton = useCallback(() => {
@@ -236,41 +272,7 @@ const EtaData: React.FC = () => {
     return null;
   }, [etaState.data]);
 
-  // Effect for temperature control
-  useEffect(() => {
-    const checkTemperature = async () => {
-      if (lastTempState.current.manualOverride) {
-        return;
-      }
-
-      const indoorTemp = wifiState.data?.indoorTemperature;
-      const minTemp = Number(config.t_min);
-
-      if (isNaN(indoorTemp) || isNaN(minTemp)) {
-        return;
-      }
-
-      const isBelow = indoorTemp < minTemp;
-
-      // Only act if temperature state has changed
-      if (lastTempState.current.wasBelow !== isBelow) {
-        const targetButton = isBelow ? EtaButtons.KT : EtaButtons.AA;
-        const currentButton = getActiveButton();
-
-        // Only update if the target button is different from the current button
-        if (currentButton !== targetButton) {
-          await updateButtonStates(targetButton, false);
-        }
-
-        lastTempState.current.wasBelow = isBelow;
-      }
-    };
-
-    // Run temperature check
-    if (wifiState.data?.indoorTemperature && config.t_min) {
-      checkTemperature();
-    }
-  }, [wifiState.data?.indoorTemperature, config.t_min, updateButtonStates, getActiveButton]);
+  // (Removed duplicate temperature control effect; consolidated below)
 
   // Update display data when etaState changes
   useEffect(() => {
@@ -347,8 +349,12 @@ const EtaData: React.FC = () => {
       const isBelow = indoorTemp < minTemp;
       const now = Date.now();
 
-      // Prevent rapid updates by enforcing a minimum time between updates
-      if (now - lastTempState.current.lastUpdate < 5000) return;
+      // Prevent rapid updates by enforcing a minimum time between updates (configurable)
+      const minGapMs = (() => {
+        const v = Number((config as any)?.t_temp_check_min_ms);
+        return Number.isFinite(v) && v > 0 ? v : 5000;
+      })();
+      if (now - lastTempState.current.lastUpdate < minGapMs) return;
 
       // Prevent concurrent updates
       if (lastTempState.current.isUpdating) return;
@@ -409,7 +415,7 @@ const EtaData: React.FC = () => {
       }
 
       // Set new interval with safe timer value
-      intervalId.current = setInterval(loadAndStoreEta, safeTimer);
+      intervalId.current = setInterval(() => loadAndStoreEta(false, true), safeTimer);
     }
     // Cleanup function
     return () => {
@@ -573,14 +579,15 @@ const EtaData: React.FC = () => {
                       </span>
                       <button
                         onClick={() => {
-                          if (isHeatingKey(key)) {
+                          if (!isUpdating && isHeatingKey(key)) {
                             handleButtonClick(key);
                           }
                         }}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${value.strValue === EtaText.EIN ? 'bg-green-600' : 'bg-red-600'
-                          }`}
+                        disabled={isUpdating}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${value.strValue === EtaText.EIN ? 'bg-green-600' : 'bg-red-600'} ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
                         role="switch"
                         aria-checked={value.strValue === EtaText.EIN}
+                        aria-busy={isUpdating}
                       >
                         <span className="sr-only">Toggle {value.long}</span>
                         <span
