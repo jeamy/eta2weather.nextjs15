@@ -6,6 +6,7 @@ import WifiAf83Data from "@/components/WifiAf83Data";
 import EtaTab from '@/components/EtaTab';
 import WifiTab from '@/components/WifiTab';
 import { HeizkreisTab } from '@/components/HeizkreisTab';
+import ZeitfensterTab from '@/components/ZeitfensterTab';
 import { useEffect, useState, useRef } from "react";
 import { API } from '@/constants/apiPaths';
 import { MenuNode } from "@/types/menu";
@@ -100,6 +101,9 @@ export default function Home() {
           <div className="flex flex-col gap-4">
             <div className="bg-white rounded-lg shadow-sm p-4">
               <WifiTab data={wifiData} />
+            </div>
+            <div className="bg-white rounded-lg shadow-sm p-4">
+              <ZeitfensterTab menuItems={menuItems} />
             </div>
             {/*
             <div className="bg-white rounded-lg shadow-sm p-4 flex-grow">

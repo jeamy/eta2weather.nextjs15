@@ -4,6 +4,7 @@ import { formatValue } from '@/utils/formatters';
 import { getAllUris } from '@/utils/etaUtils';
 import { useEtaData } from '@/hooks/useEtaData';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
+// Read-only view: no update imports
 
 interface HeizkreisTabProps {
   data: MenuNode[];
@@ -12,6 +13,7 @@ interface HeizkreisTabProps {
 export const HeizkreisTab: React.FC<HeizkreisTabProps> = ({ data }) => {
   const { values, loading, error, fetchValues, cleanupAllAbortControllers } = useEtaData();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // Read-only: no editing/saving state
 
   // Find the Heizkreis root node only once per data change
   const heizkreisNode = useMemo(() => {

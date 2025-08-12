@@ -1,18 +1,15 @@
 # ETA to Ecowitt Weather Station Connector
 
+
 A Next.js 15 application for connecting ETA and Ecowitt Weather Station to provide real-time temperature information for both indoor and outdoor temperatures, ETA system data, and control the ETA heating system.
 
 Connects the temperature sensors of an Ecowitt weather station with an ETA heating system and takes over the temperature control of the heating system. Thus replaces an ETA room thermostat.
 
 This project was developed using Windsurf, an advanced AI-powered development environment. The entire codebase was programmed through pair programming with Claude 3.5 Sonnet, making it a showcase of modern AI-assisted development.
 
-Visit Windsurf at https://codeium.com/windsurf
+> Optimized with GPT‑5, August 2025
 
-Connect with Codeium:
-- Twitter: https://twitter.com/codeiumdev
-- Discord: https://discord.gg/3XFf78nAx5
-- LinkedIn: https://www.linkedin.com/company/codeium
-- GitHub: https://github.com/Exafunction/codeium
+Visit Windsurf at https://codeium.com/windsurf
 
 ## Features
 
@@ -47,6 +44,16 @@ Connect with Codeium:
 - **User Interface**
   - Modern, responsive design with Tailwind CSS
   - Tab-based navigation system
+  - Editable Heating Time Windows (Zeitfenster)
+    - 0–24h Timeline mit Tick-Linien alle 2h, markierten Hauptticks (0/6/12/18/24)
+    - Draggable Segmente mit 15-Minuten-Snapping
+    - Überlappungen verhindert durch Clamping an Nachbarfenstern
+    - Tooltip-Bubble mit exakter Zeitspanne (Hover, Fokus, Tap‑Toggle)
+    - Touch-Unterstützung (Pointer Events) inkl. `touch-action: none`
+    - Sichtbare Griffe an Segment-Enden für besseres Zielen
+    - Visuelle Kollision: roter Ring + kurzes Shake beim Limit
+    - Gesteuerte Eingaben (controlled inputs) synchron zur Timeline
+    - API-Integration über `API.ETA_UPDATE`
   - Interactive header with menu navigation
   - Detailed logging interface
   
@@ -390,6 +397,17 @@ All endpoints implement proper error handling with appropriate HTTP status codes
 - 500: Internal server error
 
 ## Recent Updates
+
+### Editable Heating Time Windows (August 2025)
+
+- 0–24h Timeline pro Wochentag mit klaren Tick-Linien (alle 2h) und beschrifteten Hauptticks
+- Drag & Resize der Zeitfenster mit 15‑Minuten‑Raster, bidirektional synchron mit Zeit‑Eingabefeldern
+- Anti‑Overlap: Clamping verhindert Überschneidungen zwischen Zeitfenstern desselben Tages
+- Verbesserte Tooltips: stilisierte Bubble oberhalb des Segments; auf Touch per Tap explizit toggelbar
+- Mobile optimiert: Pointer Events, Scroll‑Unterdrückung während des Drags
+- Sichtbare End‑Griffe zur besseren Entdeckbarkeit
+- Visuelles Feedback bei Kollision (roter Ring + kurzes Shake)
+- Beibehaltener API‑Flow über `API.ETA_UPDATE` mit 15‑Minuten‑Indizes (0–96)
 
 ### Enhanced Temperature Control System
 
