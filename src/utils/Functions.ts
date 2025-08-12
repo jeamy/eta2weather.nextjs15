@@ -4,6 +4,7 @@ import { WifiAF83State } from "@/redux/wifiAf83Slice";
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { EtaConstants, Names2Id } from "@/reader/functions/types-constants/Names2IDconstants";
 import { EtaPos } from "@/reader/functions/types-constants/EtaConstants";
+import { API } from '@/constants/apiPaths';
 
 type EtaValues = {
     einaus: string;
@@ -95,7 +96,7 @@ export async function updateSliderPosition(
     console.log(`Setting slider position to: ${scaledPosition}`);
     try {
         // Set the new position using the API route
-        const response = await fetch('/api/eta/update', {
+        const response = await fetch(API.ETA_UPDATE, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -185,7 +186,7 @@ export async function updateHeating(
 
     try {
         // Set the new heating using the API route
-        const rht = await fetch('/api/eta/update', {
+        const rht = await fetch(API.ETA_UPDATE, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -203,7 +204,7 @@ export async function updateHeating(
             throw new Error(error.error || 'Failed to update heating position');
         }
 
-        const rkom = await fetch('/api/eta/update', {
+        const rkom = await fetch(API.ETA_UPDATE, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -221,7 +222,7 @@ export async function updateHeating(
             throw new Error(error.error || 'Failed to update kommen position');
         }
 
-        const rauto = await fetch('/api/eta/update', {
+        const rauto = await fetch(API.ETA_UPDATE, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -239,7 +240,7 @@ export async function updateHeating(
             throw new Error(error.error || 'Failed to update auto position');
         }
 
-        const rge = await fetch('/api/eta/update', {
+        const rge = await fetch(API.ETA_UPDATE, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -257,7 +258,7 @@ export async function updateHeating(
             throw new Error(error.error || 'Failed to update gehen position');
         }
 
-        const rab = await fetch('/api/eta/update', {
+        const rab = await fetch(API.ETA_UPDATE, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

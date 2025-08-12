@@ -12,6 +12,7 @@ import { EtaData as EtaDataType, EtaPos, EtaText, EtaButtons } from '@/reader/fu
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
 import { EtaApi } from '@/reader/functions/EtaApi';
+import { API } from '@/constants/apiPaths';
 
 // Constants
 
@@ -61,7 +62,7 @@ const EtaData: React.FC = () => {
       setLoadingState({ isLoading: true, error: '' });
       lastApiCall.current = now;
 
-      const response = await fetch('/api/eta/read', {
+      const response = await fetch(API.ETA_READ, {
         method: 'GET'
       });
 
@@ -126,7 +127,11 @@ const EtaData: React.FC = () => {
         }
       });
 
-      if (!buttonIds[activeButton]) {
+      const activeId = buttonIds[activeButton];
+      const aaId = buttonIds[EtaButtons.AA];
+
+      // If a manual button is requested but missing, this is an error.
+      if (activeButton !== EtaButtons.AA && !activeId) {
         throw new Error(`Button ID not found for ${activeButton}`);
       }
 
@@ -135,7 +140,7 @@ const EtaData: React.FC = () => {
       for (const [name, uri] of allButtons) {
         if (name !== EtaButtons.AA && etaState.data[uri]?.value === EtaPos.EIN) {
           // console.log(`Turning OFF button: ${name}`);
-          const response = await fetch('/api/eta/update', {
+          const response = await fetch(API.ETA_UPDATE, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -154,43 +159,63 @@ const EtaData: React.FC = () => {
         }
       }
 
-      // Turn on the active button
-      // console.log(`Turning ON button: ${activeButton}`);
-      const response = await fetch('/api/eta/update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: buttonIds[activeButton],
-          value: EtaPos.EIN,
-          begin: "0",
-          end: "0"
-        })
-      });
-
-      if (activeButton !== EtaButtons.AA) {
-        // console.log(`Turning OFF button: ${EtaButtons.AA}`);
-        const response = await fetch('/api/eta/update', {
+      // Turn on the active button (or handle AA gracefully if missing)
+      if (activeButton === EtaButtons.AA) {
+        if (aaId) {
+          const resp = await fetch(API.ETA_UPDATE, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              id: aaId,
+              value: EtaPos.EIN,
+              begin: "0",
+              end: "0"
+            })
+          });
+          if (!resp.ok) {
+            throw new Error(`Failed to turn on button ${EtaButtons.AA}: ${resp.statusText}`);
+          }
+        } else {
+          console.warn('AA button ID not found; turned off manual buttons only.');
+        }
+      } else {
+        // Manual button case
+        const respOn = await fetch(API.ETA_UPDATE, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            id: buttonIds[EtaButtons.AA],
-            value: EtaPos.AUS,
+            id: activeId,
+            value: EtaPos.EIN,
             begin: "0",
             end: "0"
           })
         });
-
-        if (!response.ok) {
-          throw new Error(`Failed to turn off button ${EtaButtons.AA}: ${response.statusText}`);
+        if (!respOn.ok) {
+          throw new Error(`Failed to turn on button ${activeButton}: ${respOn.statusText}`);
         }
-      }
 
-      if (!response.ok) {
-        throw new Error(`Failed to turn on button ${activeButton}: ${response.statusText}`);
+        // Ensure AA is off if we turned on a manual button and AA exists
+        if (aaId) {
+          const respOffAA = await fetch(API.ETA_UPDATE, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              id: aaId,
+              value: EtaPos.AUS,
+              begin: "0",
+              end: "0"
+            })
+          });
+          if (!respOffAA.ok) {
+            throw new Error(`Failed to turn off button ${EtaButtons.AA}: ${respOffAA.statusText}`);
+          }
+        }
       }
 
       // Trigger a refresh of the data to get the updated state

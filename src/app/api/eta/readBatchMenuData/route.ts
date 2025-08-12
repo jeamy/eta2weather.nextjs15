@@ -3,12 +3,29 @@ import { readMenuData } from '@/reader/functions/readMenuData';
 
 export async function POST(request: NextRequest) {
   try {
-    const { uris } = await request.json();
+    // Parse JSON body safely to avoid throwing on empty/aborted requests
+    let body: any = null;
+    try {
+      body = await request.json();
+    } catch (_err) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid JSON body' }),
+        { status: 400 }
+      );
+    }
 
+    const uris = body?.uris;
     if (!Array.isArray(uris)) {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid request: uris must be an array' }),
         { status: 400 }
+      );
+    }
+
+    if (uris.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, data: {}, message: 'No URIs provided' }),
+        { status: 200 }
       );
     }
 

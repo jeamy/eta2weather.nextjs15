@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { API } from '@/constants/apiPaths';
 import Link from 'next/link';
 
 interface LogFile {
@@ -31,7 +32,7 @@ export default function LogsPage() {
         const fetchLogs = async () => {
             setIsLoading(true);
             try {
-                const response = await fetch('/api/logs');
+                const response = await fetch(API.LOGS);
                 const data = await response.json();
                 if (Array.isArray(data)) {
                     setLogs(data);
@@ -197,7 +198,7 @@ export default function LogsPage() {
                                                                             {log.time}
                                                                         </span>
                                                                         <Link 
-                                                                            href={`/api/logs/${log.path}`}
+                                                                            href={`${API.LOGS}/${log.path}`}
                                                                             className="text-blue-600 hover:text-blue-800"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"

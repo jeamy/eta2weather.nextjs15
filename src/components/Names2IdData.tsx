@@ -7,6 +7,7 @@ import { ConfigState } from '@/redux/configSlice';
 import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
 import { storeData, storeError } from '@/redux/names2IdSlice';
+import { API } from '@/constants/apiPaths';
 
 const Names2IdData: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
@@ -16,7 +17,7 @@ const Names2IdData: React.FC = () => {
   useEffect(() => {
     const loadAndStoreNames2Id = async () => {
       try {
-        const response = await fetch('/api/names2id/read');
+        const response = await fetch(API.NAMES2ID_READ);
         const data = await response.json();
         setNames2IdData(data);
         dispatch(storeData(data));

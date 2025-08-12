@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import type { Chart as ChartJS } from 'chart.js';
 import useSWR from 'swr';
+import { API } from '@/constants/apiPaths';
 
 // Create a dynamic component for the charts
 const WeatherCharts = dynamic(
@@ -54,14 +55,14 @@ export default function WeatherPage(props: WeatherPageProps) {
     3600000;
 
   const { data: weatherData, error: weatherError, isLoading: isLoadingWeather, mutate: refetchWeather } =
-    useSWR<WeatherData[]>(`/api/weather?range=${timeRange}`, fetcher, {
+    useSWR<WeatherData[]>(`${API.WEATHER}?range=${timeRange}`, fetcher, {
       refreshInterval,
       revalidateOnFocus: true,
       dedupingInterval: 30000,
     });
 
   const { data: channelNames, error: channelError, isLoading: isLoadingChannels } =
-    useSWR<Record<string, string>>('/api/channelnames', fetcher, {
+    useSWR<Record<string, string>>(API.CHANNEL_NAMES, fetcher, {
       revalidateOnFocus: false,
     });
 

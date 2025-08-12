@@ -6,7 +6,8 @@ import WifiAf83Data from "@/components/WifiAf83Data";
 import EtaTab from '@/components/EtaTab';
 import WifiTab from '@/components/WifiTab';
 import { HeizkreisTab } from '@/components/HeizkreisTab';
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { API } from '@/constants/apiPaths';
 import { MenuNode } from "@/types/menu";
 
 async function isServerReady(url: string, retries = 5, delay = 1000): Promise<boolean> {
@@ -27,11 +28,12 @@ async function isServerReady(url: string, retries = 5, delay = 1000): Promise<bo
 export default function Home() {
   const [menuItems, setMenuItems] = useState<MenuNode[]>([]);
   const [wifiData, setWifiData] = useState<any>(null);
+  const prevWifiJsonRef = useRef<string | null>(null);
 
   useEffect(() => {
     const fetchMenuItems = async () => {
       try {
-        const response = await fetch('/api/eta/menu');
+        const response = await fetch(API.ETA_MENU);
         const result = await response.json();
         if (result.success && Array.isArray(result.data)) {
           setMenuItems(result.data);
@@ -48,9 +50,21 @@ export default function Home() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('/api/wifiaf83/all');
+        const response = await fetch(API.WIFI_AF83_ALL);
         const {success, data} = await response.json();
-        //console.log('API response:', success,  data);
+        if (!success) return;
+
+        // Only update state if data actually changed (reduce re-renders)
+        try {
+          const json = JSON.stringify(data);
+          if (prevWifiJsonRef.current === json) {
+            return;
+          }
+          prevWifiJsonRef.current = json;
+        } catch {
+          // Fallback: if stringify fails, proceed to set state
+        }
+
         setWifiData(data);
       } catch (error) {
         console.error('Error fetching weather data:', error);
@@ -58,7 +72,7 @@ export default function Home() {
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 30000); // Update every 30 seconds
+    const interval = setInterval(fetchData, 60000); // Update every 60 seconds
     return () => clearInterval(interval);
   }, []);
 

@@ -13,6 +13,7 @@ import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 import Image from 'next/image';
 import { WifiAF83Data } from '@/reader/functions/types-constants/WifiAf83';
+import { API } from '@/constants/apiPaths';
 
 interface ApiResponse {
   data: WifiAF83Data & {
@@ -47,7 +48,7 @@ const WifiAf83Data: React.FC = () => {
 
   const saveConfigValue = useCallback(async (key: ConfigKeys, value: string | number) => {
     try {
-      const response = await fetch('/api/config/update', {
+      const response = await fetch(API.CONFIG_UPDATE, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -81,7 +82,7 @@ const WifiAf83Data: React.FC = () => {
       setIsLoading(true);
       lastApiCall.current = now;
 
-      const response = await fetch('/api/wifiaf83/read');
+      const response = await fetch(API.WIFI_AF83_READ);
       if (!response.ok) {
         throw new Error('Failed to fetch WifiAF83 data');
       }
@@ -206,7 +207,7 @@ const WifiAf83Data: React.FC = () => {
 
   const loadAndStoreEta = useCallback(async () => {
     try {
-      const response = await fetch('/api/eta/read');
+      const response = await fetch(API.ETA_READ);
       if (!response.ok) {
         throw new Error('Failed to fetch ETA data');
       }

@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo, ReactElement } from 'react';
 import { WifiData } from '@/reader/functions/types-constants/WifiConstants';
 import { deTranslations } from '@/translations/de';
+import { API } from '@/constants/apiPaths';
 import {
   HomeIcon,
   BuildingOfficeIcon,
@@ -16,7 +17,19 @@ interface WifiTabProps {
   data?: WifiData;
 }
 
-export default function WifiTab({ data }: WifiTabProps) {
+// Hoist static icon mapping to module scope to avoid recreating on each render
+const categoryIcons: Record<string, ReactElement> = {
+  [deTranslations.categories['Outdoor']]: <BuildingOfficeIcon className="w-5 h-5" />,
+  [deTranslations.categories['Indoor']]: <HomeIcon className="w-5 h-5" />,
+  [deTranslations.categories['Channels']]: <SignalIcon className="w-5 h-5" />,
+  [deTranslations.categories['Solar & UVI']]: <SunIcon className="w-5 h-5" />,
+  [deTranslations.categories['Rainfall']]: <CloudIcon className="w-5 h-5" />,
+  [deTranslations.categories['Wind']]: <ArrowPathIcon className="w-5 h-5" />,
+  [deTranslations.categories['Pressure']]: <BeakerIcon className="w-5 h-5" />,
+  [deTranslations.categories['Battery']]: <Battery50Icon className="w-5 h-5" />,
+};
+
+function WifiTab({ data }: WifiTabProps) {
   const [activeTab, setActiveTab] = useState(0);
   const [editingChannel, setEditingChannel] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -33,42 +46,67 @@ export default function WifiTab({ data }: WifiTabProps) {
     }
   }, []);
 
-  // Load channel names on component mount
+  // Extract all available channels from data - memoized to prevent unnecessary recalculation
+  const channelData = useMemo(() => 
+    Object.entries(data || {})
+      .filter(([key]) => key.startsWith('temp_and_humidity_ch') && parseInt(key.replace('temp_and_humidity_ch', '')) <= 8)
+      .reduce((acc, [key, value]) => {
+        const channelNum = key.replace('temp_and_humidity_ch', '');
+        const channelKey = `CH${channelNum}`;
+        acc[channelKey] = value;
+        return acc;
+      }, {} as Record<string, any>),
+    [data]
+  );
+
+  // Memoize categories to prevent unnecessary recalculation
+  const categories = useMemo(() => ({
+    [deTranslations.categories['Outdoor']]: data?.outdoor || {},
+    [deTranslations.categories['Indoor']]: data?.indoor || {},
+    [deTranslations.categories['Channels']]: channelData,
+    [deTranslations.categories['Solar & UVI']]: data?.solar_and_uvi || {},
+    [deTranslations.categories['Rainfall']]: data?.rainfall || {},
+    [deTranslations.categories['Wind']]: data?.wind || {},
+    [deTranslations.categories['Pressure']]: data?.pressure || {},
+    [deTranslations.categories['Battery']]: data?.battery || {},
+  }), [data, channelData]);
+
+  // Compute Channels tab index and fetch channel names only when needed
+  const categoryEntries = useMemo(() => Object.entries(categories), [categories]);
+  const channelsTabIndex = useMemo(
+    () => categoryEntries.findIndex(([category]) => category === deTranslations.categories['Channels']),
+    [categoryEntries]
+  );
+
   useEffect(() => {
+    // Only fetch when user is on Channels tab and names not yet loaded
+    if (channelsTabIndex === -1 || activeTab !== channelsTabIndex) return;
+    if (Object.keys(channelNames).length > 0) return;
+
     const loadChannelNames = async () => {
-      // Cleanup any existing request
       cleanupAbortController();
-      
-      // Create new AbortController for this request
+
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
-      
+
       setIsLoading(true);
       setError(null);
-      
+
       try {
-        const response = await fetch('/api/channelnames', {
-          signal: abortController.signal
-        });
-        
+        const response = await fetch(API.CHANNEL_NAMES, { signal: abortController.signal });
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
         const names = await response.json();
-        
-        // Only update state if the request wasn't aborted
         if (!abortController.signal.aborted) {
           setChannelNames(names || {});
         }
       } catch (error) {
-        // Only update error state if the request wasn't aborted
         if (error instanceof Error && error.name !== 'AbortError') {
           console.error('Error loading channel names:', error);
           setError(error.message);
         }
       } finally {
-        // Only update loading state if the request wasn't aborted
         if (!abortController.signal.aborted) {
           setIsLoading(false);
         }
@@ -76,12 +114,10 @@ export default function WifiTab({ data }: WifiTabProps) {
     };
 
     loadChannelNames();
-
-    // Cleanup function
     return () => {
       cleanupAbortController();
     };
-  }, [cleanupAbortController]); // Empty dependency array since we only want to load once on mount
+  }, [activeTab, channelsTabIndex, channelNames, cleanupAbortController]);
 
   const handleEditStart = useCallback((channelKey: string) => {
     setEditingChannel(channelKey);
@@ -96,7 +132,7 @@ export default function WifiTab({ data }: WifiTabProps) {
 
     try {
       const updatedNames = { ...channelNames, [editingChannel]: editValue };
-      const response = await fetch('/api/channelnames', {
+      const response = await fetch(API.CHANNEL_NAMES, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
@@ -125,43 +161,10 @@ export default function WifiTab({ data }: WifiTabProps) {
     setEditValue('');
   }, []);
 
-  // Extract all available channels from data - memoized to prevent unnecessary recalculation
-  const channelData = useMemo(() => 
-    Object.entries(data || {})
-      .filter(([key]) => key.startsWith('temp_and_humidity_ch') && parseInt(key.replace('temp_and_humidity_ch', '')) <= 8)
-      .reduce((acc, [key, value]) => {
-        const channelNum = key.replace('temp_and_humidity_ch', '');
-        const channelKey = `CH${channelNum}`;
-        acc[channelKey] = value;
-        return acc;
-      }, {} as Record<string, any>),
-    [data]
-  );
+  // categoryEntries already computed above
 
-  // Memoize categories to prevent unnecessary recalculation
-  const categories = useMemo(() => ({
-    [deTranslations.categories['Outdoor']]: data?.outdoor || {},
-    [deTranslations.categories['Indoor']]: data?.indoor || {},
-    [deTranslations.categories['Channels']]: channelData,
-    [deTranslations.categories['Solar & UVI']]: data?.solar_and_uvi || {},
-    [deTranslations.categories['Rainfall']]: data?.rainfall || {},
-    [deTranslations.categories['Wind']]: data?.wind || {},
-    [deTranslations.categories['Pressure']]: data?.pressure || {},
-    [deTranslations.categories['Battery']]: data?.battery || {},
-  }), [data, channelData]);
-
-  const categoryEntries = useMemo(() => Object.entries(categories), [categories]);
-
-  const categoryIcons = {
-    [deTranslations.categories['Outdoor']]: <BuildingOfficeIcon className="w-5 h-5" />,
-    [deTranslations.categories['Indoor']]: <HomeIcon className="w-5 h-5" />,
-    [deTranslations.categories['Channels']]: <SignalIcon className="w-5 h-5" />,
-    [deTranslations.categories['Solar & UVI']]: <SunIcon className="w-5 h-5" />,
-    [deTranslations.categories['Rainfall']]: <CloudIcon className="w-5 h-5" />,
-    [deTranslations.categories['Wind']]: <ArrowPathIcon className="w-5 h-5" />,
-    [deTranslations.categories['Pressure']]: <BeakerIcon className="w-5 h-5" />,
-    [deTranslations.categories['Battery']]: <Battery50Icon className="w-5 h-5" />,
-  };
+  // Only compute the active entry to avoid rendering hidden panels
+  const activeEntry = useMemo(() => categoryEntries[activeTab] as [string, any] | undefined, [categoryEntries, activeTab]);
 
   const renderChannelName = (channelKey: string) => {
     if (editingChannel === channelKey) {
@@ -260,52 +263,48 @@ export default function WifiTab({ data }: WifiTabProps) {
         </div>
 
         <div className="mt-2">
-          {categoryEntries.map(([category, data], idx) => (
-            <div
-              key={idx}
-              className={`
-                rounded-xl bg-white pt-3 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2
-                ${activeTab === idx ? 'block' : 'hidden'}
-              `}
-            >
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 border-gray-200">
-                {category === deTranslations.categories['Channels'] ? (
-                  // Special rendering for Channels
-                  Object.entries(data).map(([channelKey, channelValue]) => (
-                    <div key={channelKey} className="p-4 rounded-lg bg-gray-50 shadow-lg">
-                      <h3 className="text-sm font-medium text-gray-900 mb-2">
-                        {renderChannelName(channelKey)} &nbsp;
-                      </h3>
-                      <div className="space-y-">
-                        {renderValue(channelKey, channelValue)}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  // Regular rendering for other categories
-                  Object.entries(data).map(([key, value]: [string, any]) => {
-                    // Get translation for the category title
-                    const translationKey = key.toLowerCase();
-                    const titleTranslation = deTranslations.measurements[translationKey] || 
-                                          key.replace(/_/g, ' ');
-                    
-                    return (
-                      <div key={key} className="p-4 rounded-lg bg-gray-50 shadow-lg">
-                        <h3 className="text-sm font-medium text-gray-900">
-                          {titleTranslation} &nbsp;
+          {activeEntry && (() => {
+            const [category, catData] = activeEntry;
+            return (
+              <div
+                className="rounded-xl bg-white pt-3 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2"
+              >
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 border-gray-200">
+                  {category === deTranslations.categories['Channels'] ? (
+                    Object.entries(catData).map(([channelKey, channelValue]) => (
+                      <div key={channelKey} className="p-4 rounded-lg bg-gray-50 shadow-lg">
+                        <h3 className="text-sm font-medium text-gray-900 mb-2">
+                          {renderChannelName(channelKey)} &nbsp;
                         </h3>
-                        <div className="mt-2 text-sm text-gray-500">
-                          {renderValue(key, value)}
+                        <div className="space-y-1">
+                          {renderValue(channelKey, channelValue)}
                         </div>
                       </div>
-                    );
-                  })
-                )}
+                    ))
+                  ) : (
+                    Object.entries(catData).map(([key, value]: [string, any]) => {
+                      const translationKey = key.toLowerCase();
+                      const titleTranslation = deTranslations.measurements[translationKey] || key.replace(/_/g, ' ');
+                      return (
+                        <div key={key} className="p-4 rounded-lg bg-gray-50 shadow-lg">
+                          <h3 className="text-sm font-medium text-gray-900">
+                            {titleTranslation} &nbsp;
+                          </h3>
+                          <div className="mt-2 text-sm text-gray-500 space-y-1">
+                            {renderValue(key, value)}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })()}
         </div>
       </div>
     </div>
   );
 }
+
+export default memo(WifiTab);

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Header from './Header';
 import { MenuNode } from '../types/menu';
+import { API } from '@/constants/apiPaths';
 
 interface ApiResponse {
   success: boolean;
@@ -18,7 +19,7 @@ export default function HeaderWithMenu() {
 
   const fetchMenuData = useCallback(async () => {
     try {
-      const response = await fetch('/api/eta/menu');
+      const response = await fetch(API.ETA_MENU);
       const result: ApiResponse = await response.json();
 
 //      console.log('Menu data received:', result);

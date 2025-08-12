@@ -9,6 +9,7 @@ import { storeData as storeNames2IdData } from '@/redux/names2IdSlice';
 import { RootState } from '@/redux';
 import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
+import { API } from '@/constants/apiPaths';
 
 const BackgroundSync: React.FC = () => {
   const dispatch = useDispatch();
@@ -19,7 +20,7 @@ const BackgroundSync: React.FC = () => {
 
   const fetchBackgroundData = useCallback(async () => {
     try {
-      const response = await fetch('/api/background/status');
+      const response = await fetch(API.BACKGROUND_STATUS);
       const result = await response.json();
       
       if (result.success) {

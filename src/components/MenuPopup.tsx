@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { MenuNode } from '../types/menu';
 import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { formatValue } from '@/utils/formatters';
+import { API } from '@/constants/apiPaths';
 
 interface MenuPopupProps {
   isOpen: boolean;
@@ -23,7 +24,7 @@ export default function MenuPopup({ isOpen, onClose, title, menuItems }: MenuPop
         setLoading(prev => ({ ...prev, [item.uri]: true }));
         setError(prev => ({ ...prev, [item.uri]: '' }));
         
-        const response = await fetch(`/api/eta/readMenuData?uri=${encodeURIComponent(item.uri)}`);
+        const response = await fetch(`${API.ETA_READ_MENU_DATA}?uri=${encodeURIComponent(item.uri)}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

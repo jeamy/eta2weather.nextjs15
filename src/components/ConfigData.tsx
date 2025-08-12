@@ -13,6 +13,7 @@ import { EtaApi } from '@/reader/functions/EtaApi';
 import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 import { DEFAULT_UPDATE_TIMER } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
+import { API } from '@/constants/apiPaths';
 
 const ConfigData: React.FC = () => {
     const dispatch: AppDispatch = useAppDispatch();
@@ -30,7 +31,7 @@ const ConfigData: React.FC = () => {
         const loadConfigData = async () => {
             try {
 //                console.log('Fetching config data...');
-                const response = await fetch('/api/config/read');
+                const response = await fetch(API.CONFIG_READ);
                 const result = await response.json();
 //                console.log('API Response:', result);
 
@@ -213,7 +214,7 @@ const ConfigData: React.FC = () => {
             
             try {
                 const valueToSave = valueConverter ? valueConverter.toStorage(editValue) : editValue;
-                const response = await fetch('/api/config', {
+                const response = await fetch(API.CONFIG, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -322,7 +323,7 @@ const ConfigData: React.FC = () => {
             }
 
             try {
-                const response = await fetch('/api/config', {
+                const response = await fetch(API.CONFIG, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

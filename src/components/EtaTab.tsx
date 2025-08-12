@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { MenuNode } from '@/types/menu';
 import { formatValue } from '@/utils/formatters';
-import { getAllUris } from '@/utils/etaUtils';
+import { getUrisForNode } from '@/utils/etaUtils';
 import { useEtaData } from '@/hooks/useEtaData';
 import { 
   ClockIcon, 
@@ -22,6 +22,7 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
   const { values, loading, error, fetchValues, cleanupAllAbortControllers } = useEtaData();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
   const renderValue = useCallback((data: any) => {
     const { text, color } = formatValue(data);
@@ -46,29 +47,43 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
     return <ChartBarIcon className="w-5 h-5" />;
   };
 
-  const fetchAllValues = useCallback(async () => {
+  const fetchActiveValues = useCallback(async () => {
     if (!menuItems?.length) return;
-
-    // Get all URIs from menu items
-    const uris = getAllUris(menuItems);
-    await fetchValues(uris);
-  }, [menuItems, fetchValues]);
+    const activeNode = menuItems[selectedIndex];
+    const uris = getUrisForNode(activeNode);
+    if (!uris.length) return;
+    await fetchValues(uris, { chunkSize: 100, concurrency: 3 });
+    setLastUpdated(Date.now());
+  }, [menuItems, selectedIndex, fetchValues]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchAllValues();
+    await fetchActiveValues();
     setIsRefreshing(false);
   };
 
+  // Initial and on-tab-change load
   useEffect(() => {
-    fetchAllValues();
+    fetchActiveValues();
     return cleanupAllAbortControllers;
-  }, [menuItems, fetchValues, cleanupAllAbortControllers, fetchAllValues]);
+  }, [fetchActiveValues, cleanupAllAbortControllers]);
+
+  // Polling for active tab every 60s
+  useEffect(() => {
+    if (!menuItems?.length) return;
+    const interval = setInterval(() => {
+      fetchActiveValues();
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [menuItems, fetchActiveValues]);
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex justify-between items-center h-14 mb-4">
         <h2 className="text-lg font-semibold">ETA Data</h2>
+        {lastUpdated && (
+          <span className="text-xs text-gray-500">Zuletzt aktualisiert: {new Date(lastUpdated).toLocaleTimeString()}</span>
+        )}
         <button 
           onClick={handleRefresh}
           className="p-2 rounded-full hover:bg-gray-100 transition-colors"
