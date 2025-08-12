@@ -18,26 +18,78 @@ export const logData = async (type: LogType, data: any) => {
     // Create directory structure if it doesn't exist
     await fs.promises.mkdir(baseDir, { recursive: true });
 
+    const escapeXmlText = (s: string): string =>
+        s
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+
+    const escapeAttr = (s: string): string =>
+        s
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+    const looksLikeXml = (s: string): boolean => /^\s*<\?xml/i.test(s) || /<\w+[\s>]/.test(s);
+
+    const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+        v !== null && typeof v === 'object' && !Array.isArray(v);
+
     // Format data based on type
     let formattedData = '';
     if (type === 'config') {
         formattedData = JSON.stringify(data, null, 2);
     } else if (type === 'eta') {
-        // Special handling for ETA data
-        formattedData = `<?xml version="1.0" encoding="UTF-8"?>
-<${type}Data timestamp="${now.toISOString()}">
-${Object.entries(data).map(([key, value]) => {
-            // Convert path-like keys to valid XML element names
-            const safeKey = key.replace(/[\/\.]/g, '_').replace(/^_+|_+$/g, '');
-            return `  <variable path="${key}">${JSON.stringify(value)}</variable>`;
-        }).join('\n')}
-</${type}Data>`;
+        // Structured handling for ETA data
+        const lines: string[] = [];
+        lines.push(`<?xml version="1.0" encoding="UTF-8"?>`);
+        lines.push(`<${type}Data timestamp="${now.toISOString()}">`);
+        for (const [key, value] of Object.entries(data)) {
+            const pathAttr = escapeAttr(key);
+            if (isPlainObject(value)) {
+                const v = value as Record<string, unknown>;
+                const known: Array<keyof typeof v> = [
+                    'id', 'uri', 'value', 'strValue', 'unit', 'short', 'long', 'scaleFactor', 'decPlaces', 'advTextOffset'
+                ];
+                lines.push(`  <variable path="${pathAttr}">`);
+                for (const k of known) {
+                    if (v[k] !== undefined && v[k] !== null) {
+                        const content = escapeXmlText(String(v[k] as unknown));
+                        lines.push(`    <${String(k)}>${content}</${String(k)}>`);
+                    }
+                }
+                const extras = Object.keys(v).filter(k => !known.includes(k as any));
+                if (extras.length) {
+                    lines.push(`    <extra>`);
+                    for (const ek of extras) {
+                        const content = v[ek];
+                        const text = content === undefined || content === null ? '' : String(content);
+                        lines.push(`      <field name="${escapeAttr(ek)}">${escapeXmlText(text)}</field>`);
+                    }
+                    lines.push(`    </extra>`);
+                }
+                lines.push(`  </variable>`);
+            } else {
+                const text = value === undefined || value === null ? '' : String(value);
+                if (looksLikeXml(text)) {
+                    lines.push(`  <variable path="${pathAttr}"><![CDATA[${text}]]></variable>`);
+                } else {
+                    lines.push(`  <variable path="${pathAttr}">${escapeXmlText(text)}</variable>`);
+                }
+            }
+        }
+        lines.push(`</${type}Data>`);
+        formattedData = lines.join('\n');
     } else {
         // Handle other XML types (like ecowitt)
-        formattedData = `<?xml version="1.0" encoding="UTF-8"?>
-<${type}Data timestamp="${now.toISOString()}">
-${Object.entries(data).map(([key, value]) => `  <${key}>${JSON.stringify(value)}</${key}>`).join('\n')}
-</${type}Data>`;
+        formattedData = `<?xml version="1.0" encoding="UTF-8"?>\n<${type}Data timestamp="${now.toISOString()}">\n${Object.entries(data).map(([key, value]) => {
+            const tag = key; // assume simple keys
+            const text = value === undefined || value === null ? '' : JSON.stringify(value);
+            return `  <${tag}><![CDATA[${text}]]></${tag}>`;
+        }).join('\n')}\n</${type}Data>`;
     }
 
     // Write the file

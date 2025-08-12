@@ -53,6 +53,35 @@ export async function GET(
         // If no declaration at top, strip any stray declarations
         text = text.replace(/<\?xml[^>]*>\s*/gi, '');
       }
+
+      // Backward-compatibility: some older 'eta' logs contain JSON-stringified XML inside <variable> text.
+      // For paths under /eta/... try to decode inner JSON string and wrap as CDATA if it looks like XML.
+      const firstSegment = Array.isArray(pathSegments) && pathSegments.length > 0 ? pathSegments[0] : '';
+      if (firstSegment === 'eta') {
+        const looksLikeXml = (s: string) => /<\w+[\s>]/.test(s) || /^\s*<\?xml/i.test(s);
+        text = text.replace(/(<variable[^>]*>)(\"[\s\S]*?)(<\/variable>)/g, (match, open, inner, close) => {
+          try {
+            // inner starts with an escaped quote, convert escaped sequences back
+            // Replace XML-escaped backslash-escaped quotes and newlines by turning the whole thing back via JSON.parse
+            // Build a proper JSON string by surrounding inner (which includes starting \") with quotes removed
+            const jsonLike = inner;
+            // Undo XML entity escaping if present
+            const unescaped = jsonLike
+              .replace(/&quot;/g, '"')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .replace(/&amp;/g, '&');
+            // Now turn the escaped content into a real string using JSON.parse
+            const decoded = JSON.parse(unescaped);
+            if (typeof decoded === 'string' && looksLikeXml(decoded)) {
+              return `${open}<![CDATA[${decoded}]]>${close}`;
+            }
+          } catch {
+            // keep original on failure
+          }
+          return match;
+        });
+      }
       return new NextResponse(text, {
         status: 200,
         headers,
