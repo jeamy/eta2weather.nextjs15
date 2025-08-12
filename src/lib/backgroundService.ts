@@ -350,7 +350,6 @@ export class BackgroundService {
             // Parse the XML into ParsedXmlData so it matches EtaData shape
             menuData[uri] = parseXML(result, shortkey, defaultNames2Id);
           } else {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const reason: any = r.reason;
             console.warn(`${this.getTimestamp()} Failed to fetch data for ${r.reason?.uri || 'unknown URI'}`, reason?.message || reason);
           }

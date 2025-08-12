@@ -402,7 +402,7 @@ const EtaData: React.FC = () => {
 
     // Run temperature check
     checkTemperature();
-  }, [wifiState.data?.indoorTemperature, config.t_min, updateButtonStates]);
+  }, [wifiState.data?.indoorTemperature, config, config.t_min, updateButtonStates]);
 
   useEffect(() => {
     const overrideTimeoutMinutes = parseInt(config.t_override) || 60; // Default to 60 minutes if not set

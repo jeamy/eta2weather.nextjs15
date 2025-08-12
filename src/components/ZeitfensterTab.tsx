@@ -193,7 +193,7 @@ const DayTimeline: React.FC<{
       window.removeEventListener('pointerup', handleUp);
       window.removeEventListener('pointercancel', handleCancel);
     };
-  }, [drag, onChange]);
+  }, [drag, onChange, triggerBump]);
 
   const ticks = Array.from({ length: 13 }, (_, i) => i * 2);
   const labelTicks = [0, 6, 12, 18, 24];
