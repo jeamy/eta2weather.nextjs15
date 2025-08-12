@@ -672,14 +672,51 @@ export class BackgroundService {
           }
         }
 
+        // Build IDs mapping once for invariant enforcement and toggling
+        const buttonIds = {
+          [EtaButtons.HT]: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
+          [EtaButtons.KT]: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
+          [EtaButtons.AA]: defaultNames2Id[EtaConstants.AUTOTASTE].id,
+          [EtaButtons.GT]: defaultNames2Id[EtaConstants.GEHENTASTE].id,
+          [EtaButtons.DT]: defaultNames2Id[EtaConstants.ABSENKTASTE].id
+        };
+
+        // Evaluate current button states by short code
+        const flags: Record<string, boolean> = { [EtaButtons.AA]: false, [EtaButtons.HT]: false, [EtaButtons.KT]: false, [EtaButtons.GT]: false, [EtaButtons.DT]: false };
+        Object.entries(etaState.data).forEach(([_, item]) => {
+          if (Object.values(EtaButtons).includes(item.short as EtaButtons)) {
+            flags[item.short as EtaButtons] = item.value === EtaPos.EIN;
+          }
+        });
+
+        try {
+          // Ensure EtaApi instance is available
+          if (!this.etaApi) {
+            this.etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
+          }
+          const etaApi = this.etaApi;
+
+          // Invariant 1: If AA is ON, ensure all manual buttons are OFF
+          if (flags[EtaButtons.AA]) {
+            for (const manual of [EtaButtons.HT, EtaButtons.KT, EtaButtons.GT, EtaButtons.DT]) {
+              if (flags[manual] && buttonIds[manual]) {
+                await etaApi.setUserVar(buttonIds[manual], EtaPos.AUS, "0", "0");
+              }
+            }
+          }
+
+          // Invariant 2: If all buttons are OFF, turn AA ON (fallback)
+          const allOff = !flags[EtaButtons.AA] && !flags[EtaButtons.HT] && !flags[EtaButtons.KT] && !flags[EtaButtons.GT] && !flags[EtaButtons.DT];
+          if (allOff && buttonIds[EtaButtons.AA]) {
+            await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.EIN, "0", "0");
+            // Update local flag to reflect change
+            flags[EtaButtons.AA] = true;
+          }
+        } catch (e) {
+          console.warn(`${this.getTimestamp()} Invariant enforcement warning:`, e);
+        }
+
         if (!isManualOverride) {
-          const buttonIds = {
-            [EtaButtons.HT]: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
-            [EtaButtons.KT]: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
-            [EtaButtons.AA]: defaultNames2Id[EtaConstants.AUTOTASTE].id,
-            [EtaButtons.GT]: defaultNames2Id[EtaConstants.GEHENTASTE].id,
-            [EtaButtons.DT]: defaultNames2Id[EtaConstants.ABSENKTASTE].id
-          };
 
           const targetButtonName = isBelow ? EtaButtons.KT : EtaButtons.AA;
           const targetButton = buttonIds[targetButtonName];
