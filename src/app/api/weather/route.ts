@@ -157,45 +157,30 @@ async function processXmlFiles(files: string[], range: string): Promise<any[]> {
         continue;
       }
 
+      // Build channels map conditionally to avoid accessing undefined props
+      const channels: Record<string, { temperature: number; humidity: number }> = {};
+      const addChannel = (idx: number) => {
+        const ch = (data as any)[`temp_and_humidity_ch${idx}`];
+        const t = ch?.temperature?.value;
+        const h = ch?.humidity?.value;
+        const tf = t !== undefined && t !== null && t !== '' ? parseFloat(String(t)) : NaN;
+        const hf = h !== undefined && h !== null && h !== '' ? parseFloat(String(h)) : NaN;
+        if (Number.isFinite(tf) && Number.isFinite(hf)) {
+          channels[`ch${idx}`] = { temperature: tf, humidity: hf };
+        }
+      };
+      [1, 2, 3, 5, 6, 7, 8].forEach(addChannel);
+
       weatherData.push({
         timestamp,
-        temperature: parseFloat(data.outdoor.temperature.value),
-        pressure: parseFloat(data.pressure.relative.value),
-        humidity: parseFloat(data.outdoor.humidity.value),
+        temperature: parseFloat(String(data.outdoor.temperature.value)),
+        pressure: parseFloat(String(data.pressure.relative.value)),
+        humidity: parseFloat(String(data.outdoor.humidity.value)),
         indoor: {
-          temperature: parseFloat(data.indoor.temperature.value),
-          humidity: parseFloat(data.indoor.humidity.value)
+          temperature: parseFloat(String(data.indoor.temperature.value)),
+          humidity: parseFloat(String(data.indoor.humidity.value))
         },
-        channels: {
-          ch1: {
-            temperature: parseFloat(data.temp_and_humidity_ch1.temperature.value),
-            humidity: parseFloat(data.temp_and_humidity_ch1.humidity.value)
-          },
-          ch2: {
-            temperature: parseFloat(data.temp_and_humidity_ch2.temperature.value),
-            humidity: parseFloat(data.temp_and_humidity_ch2.humidity.value)
-          },
-          ch3: {
-            temperature: parseFloat(data.temp_and_humidity_ch3.temperature.value),
-            humidity: parseFloat(data.temp_and_humidity_ch3.humidity.value)
-          },
-          ch5: {
-            temperature: parseFloat(data.temp_and_humidity_ch5.temperature.value),
-            humidity: parseFloat(data.temp_and_humidity_ch5.humidity.value)
-          },
-          ch6: {
-            temperature: parseFloat(data.temp_and_humidity_ch6.temperature.value),
-            humidity: parseFloat(data.temp_and_humidity_ch6.humidity.value)
-          },
-          ch7: {
-            temperature: parseFloat(data.temp_and_humidity_ch7.temperature.value),
-            humidity: parseFloat(data.temp_and_humidity_ch7.humidity.value)
-          },
-          ch8: {
-            temperature: parseFloat(data.temp_and_humidity_ch8.temperature.value),
-            humidity: parseFloat(data.temp_and_humidity_ch8.humidity.value)
-          }
-        }
+        channels,
       });
     } catch (error) {
       console.error(`Error processing file ${file}:`, error);
