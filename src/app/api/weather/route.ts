@@ -139,9 +139,14 @@ async function processXmlFiles(files: string[], range: string): Promise<any[]> {
         continue;
       }
 
-      let data;
+      let data: any;
       try {
-        data = JSON.parse(allDataNode.textContent);
+        const raw = allDataNode.textContent || '';
+        data = JSON.parse(raw);
+        if (typeof data === 'string') {
+          // Handle double-encoded JSON
+          data = JSON.parse(data);
+        }
       } catch (parseError) {
         console.error(`Failed to parse JSON content from file: ${file}`, parseError);
         continue;
