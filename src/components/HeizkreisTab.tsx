@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { MenuNode } from '@/types/menu';
 import { formatValue } from '@/utils/formatters';
 import { getAllUris } from '@/utils/etaUtils';
@@ -13,7 +13,25 @@ export const HeizkreisTab: React.FC<HeizkreisTabProps> = ({ data }) => {
   const { values, loading, error, fetchValues, cleanupAllAbortControllers } = useEtaData();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const renderValue = (uri: string) => {
+  // Find the Heizkreis root node only once per data change
+  const heizkreisNode = useMemo(() => {
+    return data.find(node =>
+      node.uri === '/120/10101' ||
+      node.children?.some(child => child.uri === '/120/10101/0/0/19404')
+    );
+  }, [data]);
+
+  // Collect URIs for that subtree and keep stable
+  const heizkreisUris = useMemo(() => {
+    return heizkreisNode ? getAllUris([heizkreisNode]) : [];
+  }, [heizkreisNode]);
+
+  const isFetchingAny = useMemo(() => {
+    if (!heizkreisUris.length) return false;
+    return heizkreisUris.some(u => loading[u]);
+  }, [heizkreisUris, loading]);
+
+  const renderValue = useCallback((uri: string) => {
     if (loading[uri]) return <span className="text-gray-400">Loading...</span>;
     if (error[uri]) return <span className="text-red-500">{error[uri]}</span>;
     if (values[uri]) {
@@ -21,9 +39,9 @@ export const HeizkreisTab: React.FC<HeizkreisTabProps> = ({ data }) => {
       return <span className={formattedValue.color}>{formattedValue.text}</span>;
     }
     return null;
-  };
+  }, [loading, error, values]);
 
-  const renderMenuItem = (node: MenuNode, level: number = 0) => {
+  const renderMenuItem = useCallback((node: MenuNode, level: number = 0) => {
     return (
       <li key={node.uri} className={`font-medium text-gray-800 ${level > 0 ? 'mt-2' : ''}`}>
         <div className="flex items-center px-5 justify-between">
@@ -40,48 +58,21 @@ export const HeizkreisTab: React.FC<HeizkreisTabProps> = ({ data }) => {
         )}
       </li>
     );
-  };
+  }, [renderValue]);
 
   useEffect(() => {
-    const fetchAllValues = async () => {
-      const heizkreisNode = data.find(node => 
-        node.uri === '/120/10101' || 
-        node.children?.some(child => child.uri === '/120/10101/0/0/19404')
-      );
-
-      if (!heizkreisNode) return;
-
-      // Get all URIs from the menu tree and fetch them in a single batch
-      const uris = getAllUris([heizkreisNode]);
-      await fetchValues(uris);
-    };
-
-    fetchAllValues();
+    if (!heizkreisUris.length) return;
+    fetchValues(heizkreisUris);
     return cleanupAllAbortControllers;
-  }, [data, fetchValues, cleanupAllAbortControllers]);
+  }, [heizkreisUris, fetchValues, cleanupAllAbortControllers]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    const fetchAllValues = async () => {
-      const heizkreisNode = data.find(node => 
-        node.uri === '/120/10101' || 
-        node.children?.some(child => child.uri === '/120/10101/0/0/19404')
-      );
-
-      if (!heizkreisNode) return;
-
-      // Get all URIs from the menu tree and fetch them in a single batch
-      const uris = getAllUris([heizkreisNode]);
-      await fetchValues(uris);
-    };
-    await fetchAllValues();
+    if (heizkreisUris.length) {
+      await fetchValues(heizkreisUris);
+    }
     setIsRefreshing(false);
   };
-
-  const heizkreisNode = data.find(node => 
-    node.uri === '/120/10101' || 
-    node.children?.some(child => child.uri === '/120/10101/0/0/19404')
-  );
 
   if (!heizkreisNode) {
     return <div>No Heizkreis data found</div>;
@@ -103,6 +94,12 @@ export const HeizkreisTab: React.FC<HeizkreisTabProps> = ({ data }) => {
       </div>
       <div className="bg-white rounded-lg shadow-sm p-4 flex-grow">
         <div className="overflow-auto max-h-[600px]">
+          {isFetchingAny && (
+            <div className="flex items-center gap-2 text-sm text-gray-500 px-1 pb-2">
+              <span className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin inline-block"></span>
+              Aktualisiere Werte...
+            </div>
+          )}
           <ul className="space-y-2 text-sm">
             {renderMenuItem(heizkreisNode)}
           </ul>
