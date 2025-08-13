@@ -1,9 +1,8 @@
-FROM node:20-alpine
+FROM node:20-bookworm-slim
 
 WORKDIR /app
 
-# Install dependencies required for builds
-RUN apk add --no-cache libc6-compat
+# Debian-based image already has glibc; no extra runtime deps needed
 
 # Copy package files
 COPY package.json package-lock.json* ./
