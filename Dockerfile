@@ -1,16 +1,21 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+# Copy package files and install dependencies
+COPY package.json package-lock.json* ./
+RUN npm ci
 
+# Copy source code
 COPY . .
 
+# Build the application
 RUN npm run build
 
-EXPOSE 3000
-ENV PORT 3000
-ENV NODE_ENV production
+# Set environment variables
+EXPOSE 8080
+ENV PORT=8080
+ENV NODE_ENV=production
 
-CMD ["npx", "tsx", "server.ts"]
+# Start the server
+CMD ["npm", "run", "start"]
