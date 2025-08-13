@@ -88,7 +88,8 @@ export async function GET(
       });
     } else if (filePath.endsWith('.json')) {
       headers.set('Content-Type', 'application/json; charset=utf-8');
-      return new NextResponse(fileBuffer, {
+      const jsonText = fileBuffer.toString('utf-8');
+      return new NextResponse(jsonText, {
         status: 200,
         headers,
       });
@@ -96,7 +97,8 @@ export async function GET(
 
     // Default: serve as text for unknown extensions
     headers.set('Content-Type', 'text/plain; charset=utf-8');
-    return new NextResponse(fileBuffer, {
+    const text = fileBuffer.toString('utf-8');
+    return new NextResponse(text, {
       status: 200,
       headers,
     });
