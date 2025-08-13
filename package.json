@@ -31,6 +31,7 @@
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@types/xmldom": "^0.1.34",
+    "autoprefixer": "^10.4.16",
     "eslint": "^9.33.0",
     "eslint-config-next": "15.4.6",
     "postcss": "^8",
