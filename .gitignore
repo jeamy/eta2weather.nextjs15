@@ -38,4 +38,4 @@ next-env.d.ts
 eco.ts
 eco.tsx
 public/log/*
-docker-compose.yml
+#docker-compose.yml

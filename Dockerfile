@@ -17,9 +17,6 @@ COPY . .
 # Build the application with specific Next.js output
 RUN npm run build
 
-# Install production dependencies only
-RUN npm ci --only=production --legacy-peer-deps
-
 # Set environment variables
 EXPOSE 3000
 ENV PORT=3000
