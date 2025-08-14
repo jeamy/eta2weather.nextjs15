@@ -2,7 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { Config } from '../reader/functions/types-constants/ConfigConstants';
 import { EtaApi } from '../reader/functions/EtaApi';
-import { DOMParser } from 'xmldom';
+import { DOMParser } from '@xmldom/xmldom';
 
 interface MenuNode {
     id: string;

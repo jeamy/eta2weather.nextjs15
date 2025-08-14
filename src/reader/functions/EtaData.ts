@@ -1,4 +1,4 @@
-import { DOMParser } from 'xmldom';
+import { DOMParser } from '@xmldom/xmldom';
 import { EtaApi } from './EtaApi';
 import { EtaConstants, Names2Id } from './types-constants/Names2IDconstants';
 import { Config, ConfigKeys } from './types-constants/ConfigConstants';
@@ -55,13 +55,13 @@ export const parseXML = (content: string, shortkey: string, names2id: Names2Id |
     };
 
     // Add root element attributes
-    Array.from(xmlDoc.documentElement.attributes).forEach(attr => {
+    Array.from(xmlDoc.documentElement.attributes).forEach((attr: Attr) => {
         result[`eta_${attr.nodeName}`] = attr.nodeValue ?? 'N/A';
     });
 
     // Add value element attributes if not already added
     if (valueElement) {
-        Array.from(valueElement.attributes).forEach(attr => {
+        Array.from(valueElement.attributes).forEach((attr: Attr) => {
             if (!result[attr.nodeName]) {
                 result[attr.nodeName] = attr.nodeValue ?? 'N/A';
             }
