@@ -5,6 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: eta2weather
+    restart: always
     ports:
       - "3000:3000"
     environment:
