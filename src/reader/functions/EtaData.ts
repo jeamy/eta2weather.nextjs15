@@ -85,6 +85,8 @@ export const prepareAndFetchGetUserVar = async (shortkey: string, data: EtaData,
             .then(res => {
                 if (res.result) {
                     data[id] = parseXML(res.result, shortkey, names2id);
+                } else if (res.error) {
+                    console.error(`Fehler beim Abrufen der Daten für ${shortkey} (URI: ${res.uri || 'unknown'})`, res.error);
                 }
             })
             .catch(error => {

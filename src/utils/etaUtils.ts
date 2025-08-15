@@ -20,7 +20,11 @@ export const getAllUris = (nodes: MenuNode[]): string[] => {
 
   const addNodeUris = (node: MenuNode) => {
     if (node.uri) {
-      uris.add(node.uri);
+      // Only add URIs that are endpoints (have at least 5 parts or are leaf nodes)
+      const parts = node.uri.split('/').filter(Boolean);
+      if (parts.length >= 5 || !node.children || node.children.length === 0) {
+        uris.add(node.uri);
+      }
     }
     node.children?.forEach(addNodeUris);
   };

@@ -303,8 +303,22 @@ export class BackgroundService {
 
       // Get all URIs from the menu tree
       console.log(`${this.getTimestamp()} Getting URIs from menu tree...`);
+      
+      // Count all nodes before filtering
+      const countAllUris = (nodes: MenuNode[]): number => {
+        let count = 0;
+        const countNode = (node: MenuNode) => {
+          if (node.uri) count++;
+          node.children?.forEach(countNode);
+        };
+        nodes.forEach(countNode);
+        return count;
+      };
+      
+      const totalUris = countAllUris(menuNodes);
       const uris = getAllUris(menuNodes);
-      console.log(`${this.getTimestamp()} Found ${uris.length} URIs to fetch`);
+      
+      console.log(`${this.getTimestamp()} Found ${uris.length} endpoint URIs to fetch (filtered out ${totalUris - uris.length} category URIs)`);
 
       // Fetch data in batches using EtaApi with timeout/retry
       console.log(`${this.getTimestamp()} Fetching ETA data...`);
@@ -316,22 +330,29 @@ export class BackgroundService {
         while (attempt <= retries) {
           try {
             const timeoutPromise = new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('timeout')), timeoutMs)
+              setTimeout(() => reject(Object.assign(new Error('timeout'), { uri: id })), timeoutMs)
             );
-            const res = await Promise.race([this.etaApi!.getUserVar(id), timeoutPromise]) as { result: string | null; error: string | null };
+            const res = await Promise.race([this.etaApi!.getUserVar(id), timeoutPromise]) as { result: string | null; error: string | null; uri?: string };
             if (res?.result) return res.result;
-            throw new Error(res?.error || 'no result');
+            // Create error with URI information
+            const error = new Error(res?.error || 'no result');
+            (error as any).uri = id;
+            throw error;
           } catch (e) {
             if (attempt < retries) {
               const backoff = 200 * Math.pow(2, attempt) + Math.floor(Math.random() * 100);
               await new Promise(r => setTimeout(r, backoff));
               attempt++;
             } else {
+              // Ensure URI is attached to the error
+              if (!(e as any).uri) {
+                (e as any).uri = id;
+              }
               throw e;
             }
           }
         }
-        throw new Error('unreachable');
+        throw Object.assign(new Error('unreachable'), { uri: id });
       };
 
       for (let i = 0; i < uris.length; i += batchSize) {
@@ -351,7 +372,8 @@ export class BackgroundService {
             menuData[uri] = parseXML(result, shortkey, defaultNames2Id);
           } else {
             const reason: any = r.reason;
-            console.warn(`${this.getTimestamp()} Failed to fetch data for ${r.reason?.uri || 'unknown URI'}`, reason?.message || reason);
+            const errorUri = reason?.uri || 'unknown URI';
+            console.warn(`${this.getTimestamp()} Failed to fetch data for URI: ${errorUri}`, reason?.message || reason);
           }
         });
 

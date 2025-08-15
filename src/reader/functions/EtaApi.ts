@@ -6,6 +6,7 @@ const DEFAULT_SERVER = `${env.DEFAULT_SERVER || '192.168.8.100:8080'}`;
 type ApiResponse = {
     result: string | null;
     error: string | null;
+    uri?: string;
 };
 
 export class EtaApi {
@@ -49,7 +50,8 @@ export class EtaApi {
                 if (!response.ok) {
                     return { 
                         result: null, 
-                        error: `HTTP error! Status: ${response.status}` 
+                        error: `HTTP error! Status: ${response.status}`,
+                        uri: url
                     };
                 }
                 
@@ -59,15 +61,20 @@ export class EtaApi {
                 // Handle network errors silently
                 return { 
                     result: null, 
-                    error: 'Network error - request will be retried automatically' 
+                    error: 'Network error - request will be retried automatically',
+                    uri: url
                 };
             }
         } catch (error) {
             // Log but don't throw
             console.warn(`API Error for ${endpoint}:`, error);
+            const serverAddress = this.server.replace(/^https?:\/\//, '');
+            const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+            const url = `http://${serverAddress}${formattedEndpoint}`;
             return { 
                 result: null, 
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : String(error),
+                uri: url
             };
         }
     }
