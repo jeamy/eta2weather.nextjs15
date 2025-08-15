@@ -15,14 +15,23 @@ export interface EtaFetchHookResult extends EtaDataState {
   cleanupAllAbortControllers: () => void;
 }
 
+/**
+ * Checks if a URI is a valid endpoint URI for ETA API requests.
+ * Valid URIs have at least 5 parts (e.g., /120/10101/0/0/12111).
+ * Category URIs (e.g., /120/10101) are not valid for direct data retrieval.
+ */
+export const isValidEndpointUri = (uri: string): boolean => {
+  const parts = uri.split('/').filter(Boolean);
+  return parts.length >= 5; // Endpoint URIs have at least 5 parts
+};
+
 export const getAllUris = (nodes: MenuNode[]): string[] => {
   const uris = new Set<string>();
 
   const addNodeUris = (node: MenuNode) => {
     if (node.uri) {
       // Only add URIs that are endpoints (have at least 5 parts or are leaf nodes)
-      const parts = node.uri.split('/').filter(Boolean);
-      if (parts.length >= 5 || !node.children || node.children.length === 0) {
+      if (isValidEndpointUri(node.uri) || !node.children || node.children.length === 0) {
         uris.add(node.uri);
       }
     }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { getConfig } from '@/utils/cache';
 import { MenuNode } from '@/types/menu';
+import { isValidEndpointUri } from '@/utils/etaUtils';
 
 async function getMenuItems(): Promise<MenuNode[]> {
   const response = await fetch('http://localhost:3000/api/eta/menu');
@@ -25,18 +26,28 @@ export async function GET() {
       if (category.children) {
         for (const item of category.children) {
           if (item.uri) {
-            const response = await etaApi.getUserVar(item.uri);
-            if (response.result) {
-              rawData[item.uri] = response.result;
+            // Only fetch data for valid endpoint URIs
+            if (isValidEndpointUri(item.uri)) {
+              const response = await etaApi.getUserVar(item.uri);
+              if (response.result) {
+                rawData[item.uri] = response.result;
+              }
+            } else {
+              console.log(`Skipping category URI: ${item.uri}`);
             }
           }
           
           if (item.children) {
             for (const subItem of item.children) {
               if (subItem.uri) {
-                const response = await etaApi.getUserVar(subItem.uri);
-                if (response.result) {
-                  rawData[subItem.uri] = response.result;
+                // Only fetch data for valid endpoint URIs
+                if (isValidEndpointUri(subItem.uri)) {
+                  const response = await etaApi.getUserVar(subItem.uri);
+                  if (response.result) {
+                    rawData[subItem.uri] = response.result;
+                  }
+                } else {
+                  console.log(`Skipping category URI: ${subItem.uri}`);
                 }
               }
             }

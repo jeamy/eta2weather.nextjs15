@@ -28,14 +28,27 @@ export async function POST(request: NextRequest) {
         { status: 200 }
       );
     }
+    
+    // Filter out category URIs that would cause 400 errors
+    const isValidEndpointUri = (uri: string): boolean => {
+      const parts = uri.split('/').filter(Boolean);
+      return parts.length >= 5; // Endpoint URIs have at least 5 parts
+    };
+    
+    const validUris = uris.filter(isValidEndpointUri);
+    const filteredCount = uris.length - validUris.length;
+    
+    if (filteredCount > 0) {
+      console.log(`Filtered out ${filteredCount} category URIs from batch request`);
+    }
 
     const results: Record<string, any> = {};
     let hasSuccessfulResults = false;
     
-    // Process all URIs in parallel with a concurrency limit
+    // Process all valid URIs in parallel with a concurrency limit
     const batchSize = 5; // Process 5 URIs at a time
-    for (let i = 0; i < uris.length; i += batchSize) {
-      const batch = uris.slice(i, i + batchSize);
+    for (let i = 0; i < validUris.length; i += batchSize) {
+      const batch = validUris.slice(i, i + batchSize);
       const promises = batch.map(async (uri) => {
         try {
           const data = await readMenuData(uri);

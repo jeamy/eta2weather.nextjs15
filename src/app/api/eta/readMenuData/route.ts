@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { parseXML } from '@/reader/functions/EtaData';
 import { getConfig } from '@/utils/cache';
+import { isValidEndpointUri } from '@/utils/etaUtils';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -15,6 +16,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Check if the URI is a valid endpoint URI
+    if (!isValidEndpointUri(uri)) {
+      console.log(`Skipping category URI in readMenuData: ${uri}`);
+      return NextResponse.json(
+        { success: false, error: `Invalid URI format: ${uri} is a category URI, not an endpoint URI` },
+        { status: 400 }
+      );
+    }
+    
     const config = await getConfig();
 
     // Create EtaApi instance
