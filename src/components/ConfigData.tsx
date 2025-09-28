@@ -203,7 +203,7 @@ const ConfigData: React.FC = () => {
                     <span className="font-medium">{label}:</span>
                     {isEditingThis ? (
                         <div className="flex space-x-2">
-                            <div className="flex items-center space-x-1">
+                            <div className="input__wrap">
                                 <input
                                     type="number"
                                     value={editValue}
@@ -214,14 +214,14 @@ const ConfigData: React.FC = () => {
                                             handleSaveValue();
                                         }
                                     }}
-                                    className="w-24 px-2 py-1 border rounded border-gray-300"
+                                    className="input w-24 pr-8"
                                 />
-                                <span className="text-gray-500 text-sm">{unit}</span>
+                                <span className="input__suffix">{unit}</span>
                             </div>
                             <button
                                 type="button"
                                 onClick={handleSaveValue}
-                                className="text-green-600 hover:text-green-800 px-1"
+                                className="btn btn--primary"
                                 title="Save"
                             >
                                 ✓
@@ -229,7 +229,7 @@ const ConfigData: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={handleCancel}
-                                className="text-red-600 hover:text-red-800 px-1"
+                                className="btn btn--danger"
                                 title="Cancel"
                             >
                                 ✗
@@ -248,8 +248,7 @@ const ConfigData: React.FC = () => {
                                 }
                             }}
                         >
-                            <span>{value}</span>
-                            <span className="text-gray-500 text-sm">{unit}</span>
+                            <span className="badge badge--neutral">{value}{unit ? <span>&nbsp;{unit}</span> : null}</span>
                         </div>
                     )}
                 </div>
@@ -322,15 +321,13 @@ const ConfigData: React.FC = () => {
                                         handleSaveValue();
                                     }
                                 }}
-                                className={`w-full px-2 py-1 border rounded ${
-                                    validator && !validator(editValue) ? 'border-red-500' : 'border-gray-300'
-                                }`}
+                                className={`input w-full ${validator && !validator(editValue) ? 'input--invalid' : ''}`}
                                 placeholder="xxx.xxx.xxx.xxx:port"
                             />
                             <button
                                 type="button"
                                 onClick={handleSaveValue}
-                                className="text-green-600 hover:text-green-800 px-1"
+                                className="btn btn--primary"
                                 title="Save"
                             >
                                 ✓
@@ -338,7 +335,7 @@ const ConfigData: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={handleCancel}
-                                className="text-red-600 hover:text-red-800 px-1"
+                                className="btn btn--danger"
                                 title="Cancel"
                             >
                                 ✗
@@ -417,7 +414,7 @@ const ConfigData: React.FC = () => {
                     <span className="font-medium">Manual override:</span>
                     {isEditingThis ? (
                         <div className="flex space-x-2">
-                            <div className="flex items-center space-x-1">
+                            <div className="input__wrap">
                                 <input
                                     type="number"
                                     value={editValue}
@@ -428,14 +425,14 @@ const ConfigData: React.FC = () => {
                                             handleSaveValue();
                                         }
                                     }}
-                                    className="w-24 px-2 py-1 border rounded border-gray-300"
+                                    className="input w-24 pr-8"
                                 />
-                                <span className="text-gray-500 text-sm">min</span>
+                                <span className="input__suffix">min</span>
                             </div>
                             <button
                                 type="button"
                                 onClick={handleSaveValue}
-                                className="text-green-600 hover:text-green-800 px-1"
+                                className="btn btn--primary"
                                 title="Save"
                             >
                                 ✓
@@ -443,7 +440,7 @@ const ConfigData: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={handleCancel}
-                                className="text-red-600 hover:text-red-800 px-1"
+                                className="btn btn--danger"
                                 title="Cancel"
                             >
                                 ✗
@@ -462,8 +459,7 @@ const ConfigData: React.FC = () => {
                                 }
                             }}
                         >
-                            <span>{value}</span>
-                            <span className="text-gray-500 text-sm ml-1">min</span>
+                            <span className="badge badge--neutral">{value} <span>min</span></span>
                         </div>
                     )}
                 </div>
@@ -472,8 +468,8 @@ const ConfigData: React.FC = () => {
     };
 
     return (
-        <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-            <div className="flex flex-col items-center mb-4">
+        <div className="card">
+            <div className="flex flex-col items-center mb-4 card__header">
                 <div className="h-[150px] w-full relative flex items-center justify-center">
                     <Image
                         src="/config-logo.jpg"
@@ -505,7 +501,7 @@ const ConfigData: React.FC = () => {
                 {renderManualOverride()}
                 <div className="flex justify-between items-center">
                     <span className="font-medium">Next Update:</span>
-                    <span className="font-mono">{nextUpdate} s</span>
+                    <span className="badge badge--neutral">{nextUpdate} s</span>
                 </div>
                 <div className="flex flex-col space-y-1">
                     <div className="flex justify-between items-center">
@@ -544,17 +540,23 @@ const ConfigData: React.FC = () => {
                                     // Ignore and use fallback
                                 }
 
+                                const clamped = Math.max(0, Math.min(100, recommendedPos));
                                 return (
-                                    <span className={`${
-                                        recommendedPos > 0 
-                                            ? 'text-green-600' 
-                                            : recommendedPos < 0 
-                                                ? 'text-blue-600' 
-                                                : ''
-                                    }`}>
-                                        {recommendedPos}
-                                        <span className="text-gray-600 ml-1">%</span>
-                                    </span>
+                                    <div className="flex flex-col items-end gap-1 w-40">
+                                        <div className="progress">
+                                            <div className="progress__bar" style={{ width: `${clamped}%` }} />
+                                        </div>
+                                        <span className={`${
+                                            clamped > 0 
+                                                ? 'text-green-600' 
+                                                : clamped < 0 
+                                                    ? 'text-blue-600' 
+                                                    : ''
+                                        }`}>
+                                            {clamped}
+                                            <span className="text-gray-600 ml-1">%</span>
+                                        </span>
+                                    </div>
                                 );
                             })()}
                         </span>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import { MenuNode } from '../types/menu';
 import Link from 'next/link';
 
@@ -10,6 +11,7 @@ interface HeaderProps {
 
 export default function Header({ menuData = [] }: HeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
   const [showEtaMenu, setShowEtaMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -67,24 +69,14 @@ export default function Header({ menuData = [] }: HeaderProps) {
 
   return (
     <>
-      <nav className="bg-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Link 
-                  href="/" 
-                  className="text-white hover:text-gray-300 font-medium"
-                  style={{ fontFamily: 'var(--font-geist-sans)' }}
-                >
-                  ETA Control
-                </Link>
-                <span className="text-white text-xl" style={{ fontFamily: 'var(--font-geist-sans)' }}>
-                </span>
-              </div>
-              
+      <nav className="header">
+        <div className="container">
+          <div className="header__inner">
+            <div className="flex items-center gap-3">
+              <Link href="/" className="header__brand">ETA Control</Link>
+
               {showEtaMenu && menuData && menuData.length > 0 && (
-                <div 
+                <div
                   className="absolute left-0 mt-1 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50"
                   onMouseEnter={handleMenuEnter}
                   onMouseLeave={handleMenuLeave}
@@ -114,37 +106,19 @@ export default function Header({ menuData = [] }: HeaderProps) {
               )}
             </div>
 
-            <div className="flex items-center space-x-6">
-              <Link 
-                href="/raw-eta" 
-                className="text-white hover:text-gray-300 font-medium"
-                style={{ fontFamily: 'var(--font-geist-sans)' }}
-              >
-                Raw Eta Data
-              </Link>
-              <Link 
-                href="/logs" 
-                className="text-white hover:text-gray-300 font-medium"
-                style={{ fontFamily: 'var(--font-geist-sans)' }}
-              >
-                System Logs
-              </Link>
-              <Link 
-                href="/weather" 
-                className="text-white hover:text-gray-300 font-medium"
-                style={{ fontFamily: 'var(--font-geist-sans)' }}
-              >
-                Weather
-              </Link>
+            <div className="header__links">
+              <Link href="/" className="btn btn--ghost" aria-current={pathname === '/' ? 'page' : undefined}>Home</Link>
+              <Link href="/raw-eta" className="btn btn--ghost" aria-current={pathname === '/raw-eta' ? 'page' : undefined}>Raw Eta Data</Link>
+              <Link href="/logs" className="btn btn--ghost" aria-current={pathname === '/logs' ? 'page' : undefined}>System Logs</Link>
+              <Link href="/weather" className="btn btn--ghost" aria-current={pathname === '/weather' ? 'page' : undefined}>Weather</Link>
             </div>
 
-            {/* Mobile menu button */}
-            <div className="md:hidden">
+            <div className="header__mobileToggle md:hidden">
               <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white"
+                className="btn btn--ghost"
+                title="Open main menu"
               >
-                <span className="sr-only">Open main menu</span>
                 {!isOpen ? (
                   <svg className="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
@@ -157,24 +131,37 @@ export default function Header({ menuData = [] }: HeaderProps) {
               </button>
             </div>
           </div>
-        </div>
 
-        {/* Mobile menu */}
-        {isOpen && (
-          <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-              {menuData.map((item) => (
-                <button
-                  key={item.uri}
-                  onClick={() => handleMenuItemClick(item)}
-                  className="w-full text-left text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-3 rounded-md text-base font-sans"
-                >
-                  {item.name}
-                </button>
-              ))}
+          {isOpen && (
+            <div className="header__drawer md:hidden">
+              <div className="space-y-2">
+                <Link href="/" className="btn btn--ghost w-full text-left" aria-current={pathname === '/' ? 'page' : undefined} onClick={() => setIsOpen(false)}>
+                  Home
+                </Link>
+                <Link href="/raw-eta" className="btn btn--ghost w-full text-left" aria-current={pathname === '/raw-eta' ? 'page' : undefined} onClick={() => setIsOpen(false)}>
+                  Raw Eta Data
+                </Link>
+                <Link href="/logs" className="btn btn--ghost w-full text-left" aria-current={pathname === '/logs' ? 'page' : undefined} onClick={() => setIsOpen(false)}>
+                  System Logs
+                </Link>
+                <Link href="/weather" className="btn btn--ghost w-full text-left" aria-current={pathname === '/weather' ? 'page' : undefined} onClick={() => setIsOpen(false)}>
+                  Weather
+                </Link>
+                <div className="mt-2 border-t border-[rgba(255,255,255,.06)] pt-2">
+                  {menuData.map((item) => (
+                    <button
+                      key={item.uri}
+                      onClick={() => { handleMenuItemClick(item); setIsOpen(false); }}
+                      className="btn btn--ghost w-full text-left"
+                    >
+                      {item.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </nav>
     </>
   );

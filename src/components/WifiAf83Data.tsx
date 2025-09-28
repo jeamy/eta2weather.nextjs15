@@ -23,7 +23,7 @@ interface ApiResponse {
 }
 
 const formatDateTime = (timestamp: number): string => {
-  return new Date(timestamp).toLocaleString('en-US', {
+  return new Date(timestamp).toLocaleString('de-DE', {
     hour: 'numeric',
     minute: 'numeric',
     second: 'numeric',
@@ -31,7 +31,7 @@ const formatDateTime = (timestamp: number): string => {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-    timeZone: 'UTC'
+    timeZone: 'Europe/Vienna'
   });
 };
 
@@ -226,30 +226,18 @@ const WifiAf83Data: React.FC = () => {
 
   if (isLoading || !wifiData) {
     return (
-      <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-        <div className="flex flex-col items-center mb-4">
-          <div className="h-[150px] w-full relative flex items-center justify-center">
-            <Image
-              src="/weather-logo.jpg"
-              alt="Weather"
-              width={150}
-              height={150}
-              style={{ objectFit: 'contain' }}
-              priority
-            />
-          </div>
-          <h2 className="text-lg sm:text-xl font-semibold">WiFi Data</h2>
-        </div>
-        <div className="flex justify-center items-center min-h-[200px]">
-          <p>Loading...</p>
-        </div>
+      <div className="card">
+        <div className="skeleton skeleton--title" />
+        <div className="skeleton skeleton--line" />
+        <div className="skeleton skeleton--line" />
+        <div className="skeleton skeleton--line" />
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-      <div className="flex flex-col items-center mb-4">
+    <div className="card">
+      <div className="flex flex-col items-center mb-4 card__header">
         <div className="h-[150px] w-full relative flex items-center justify-center">
           <Image
             src="/weather-logo.jpg"
@@ -267,50 +255,40 @@ const WifiAf83Data: React.FC = () => {
           <div className="flex flex-col space-y-2">
             <div className="flex justify-between items-center">
               <span className="font-medium">Außentemperatur:</span>
-              <span className={`font-mono ${wifiData.temperature < 0 ? 'text-blue-500' : wifiData.temperature > 0 ? 'text-green-500' : 'text-black'}`}>
+              <span className={`badge ${wifiData.temperature > 0 ? 'badge--ok' : wifiData.temperature < 0 ? 'badge--warn' : 'badge--neutral'}`}>
                 {wifiData.temperature}°C
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="font-medium">Innentemperatur:</span>
-              <span className="font-mono text-black">{wifiData.indoorTemperature}°C</span>
+              <span className="badge badge--neutral">{wifiData.indoorTemperature}°C</span>
             </div>
             {config.data[ConfigKeys.DIFF] && (
               <div className="flex justify-between items-center">
                 <span className="font-medium">Diff Indoor/Soll:</span>
-                <span className={`font-mono ${
-                  Number(config.data[ConfigKeys.DIFF]) > 0 
-                    ? 'text-green-600' 
-                    : Number(config.data[ConfigKeys.DIFF]) < 0 
-                      ? 'text-blue-600' 
-                      : 'text-black'
-                }`}>
-                  {Number(config.data[ConfigKeys.DIFF]).toFixed(1)}°C
-                </span>
+                {(() => {
+                  const d = Number(config.data[ConfigKeys.DIFF]);
+                  const cls = d > 0 ? 'badge--ok' : d < 0 ? 'badge--warn' : 'badge--neutral';
+                  return <span className={`badge ${cls}`}>{d.toFixed(1)}°C</span>;
+                })()}
               </div>
             )}
             {config.data[ConfigKeys.T_MIN] && (
             <div className="flex justify-between items-center">
               <span className="font-medium">Diff Min/Indoor:</span>
-              <span className={`font-mono ${
-                calculateMinTempDiff(wifiData.indoorTemperature, config.data[ConfigKeys.T_MIN]) > 0 
-                  ? 'text-green-600' 
-                  : calculateMinTempDiff(wifiData.indoorTemperature, config.data[ConfigKeys.T_MIN]) < 0 
-                    ? 'text-blue-600' 
-                    : 'text-black'
-              }`}>
-                {calculateMinTempDiff(wifiData.indoorTemperature, config.data[ConfigKeys.T_MIN])}°C
-              </span>
+              {(() => {
+                const d = calculateMinTempDiff(wifiData.indoorTemperature, config.data[ConfigKeys.T_MIN]);
+                const cls = d > 0 ? 'badge--ok' : d < 0 ? 'badge--warn' : 'badge--neutral';
+                return <span className={`badge ${cls}`}>{d}°C</span>;
+              })()}
             </div>
             )}
           </div>
         </div>
         <div className="mt-4 pt-4 border-t">
-          <div className="flex flex-col">
+          <div className="flex items-center justify-between">
             <span className="font-medium">Last Update:</span>
-            <span className="text-xs sm:text-sm text-gray-600">
-              {formatDateTime(wifiData.time)}
-            </span>
+            <span className="badge badge--neutral">{formatDateTime(wifiData.time)}</span>
           </div>
         </div>
       </div>

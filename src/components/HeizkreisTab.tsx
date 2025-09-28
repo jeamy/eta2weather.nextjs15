@@ -77,30 +77,30 @@ export const HeizkreisTab: React.FC<HeizkreisTabProps> = ({ data }) => {
   };
 
   if (!heizkreisNode) {
-    return <div>No Heizkreis data found</div>;
+    return (
+      <div className="card">
+        <div className="alert alert--warning">No Heizkreis data found</div>
+      </div>
+    );
   }
 
   return (
-    <div className="relative">
-      <div className="flex justify-between items-center h-14 mb-4">
+    <div className="card">
+      <div className="flex justify-between items-center h-14 mb-2 card__header">
         <h2 className="text-lg font-semibold">Heizkreis Data</h2>
-        <button 
+        <button
           onClick={handleRefresh}
-          className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+          className="btn btn--ghost"
           disabled={isRefreshing}
+          title="Refresh"
         >
-          <ArrowPathIcon 
-            className={`w-5 h-5 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} 
-          />
+          <ArrowPathIcon className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
         </button>
       </div>
-      <div className="bg-white rounded-lg shadow-sm p-4 flex-grow">
+      <div className="flex-grow">
         <div className="overflow-auto max-h-[600px]">
           {isFetchingAny && (
-            <div className="flex items-center gap-2 text-sm text-gray-500 px-1 pb-2">
-              <span className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin inline-block"></span>
-              Aktualisiere Werte...
-            </div>
+            <div className="alert alert--warning mb-2">Aktualisiere Werte...</div>
           )}
           <ul className="space-y-2 text-sm">
             {renderMenuItem(heizkreisNode)}

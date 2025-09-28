@@ -493,55 +493,45 @@ const EtaData: React.FC = () => {
 
   if (loadingState.isLoading) {
     return (
-      <div className="flex items-center justify-center p-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
-        <span className="ml-2 text-gray-600">Loading ETA data...</span>
+      <div className="card">
+        <div className="skeleton skeleton--title" />
+        <div className="skeleton skeleton--line" />
+        <div className="skeleton skeleton--line" />
+        <div className="skeleton skeleton--line" />
       </div>
     );
   }
 
   if (loadingState.error) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-        <p className="text-red-600">Error loading data: {loadingState.error}</p>
+      <div className="alert alert--error">
+        <p>Error loading data: {loadingState.error}</p>
       </div>
     );
   }
 
   if (!etaState.data || Object.keys(etaState.data).length === 0) {
     return (
-      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-        <p className="text-yellow-700">No data available</p>
+      <div className="alert alert--warning">
+        <p>No data available</p>
       </div>
     );
   }
 
   if (!displayData) {
     return (
-      <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-        <div className="flex flex-col items-center mb-4">
-          <div className="h-[150px] w-full relative flex items-center justify-center">
-            <Image
-              src="/eta-logo.png"
-              alt="ETA"
-              width={150}
-              height={150}
-              style={{ width: 'auto', height: '150px', objectFit: 'contain' }}
-              priority
-            />
-          </div>
-          <h2 className="text-lg sm:text-xl font-semibold">ETA Data</h2>
-        </div>
-        <div className="flex justify-center items-center min-h-[200px]">
-          <p>Loading...</p>
-        </div>
+      <div className="card">
+        <div className="skeleton skeleton--title" />
+        <div className="skeleton skeleton--line" />
+        <div className="skeleton skeleton--line" />
+        <div className="skeleton skeleton--line" />
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-      <div className="flex flex-col items-center mb-4">
+    <div className="card">
+      <div className="flex flex-col items-center mb-4 card__header">
         <div className="h-[150px] w-full relative flex items-center justify-center">
           <Image
             src="/eta-logo.png"
@@ -555,8 +545,8 @@ const EtaData: React.FC = () => {
         <h2 className="text-lg sm:text-xl font-semibold">ETA Data</h2>
       </div>
       {overrideActive && (
-        <div className="mb-3 p-2 rounded-md bg-yellow-50 border border-yellow-200 flex items-center justify-between">
-          <span className="text-yellow-800">
+        <div className="alert alert--warning mb-3 flex items-center justify-between">
+          <span>
             Manual override aktiv – Restzeit {(() => {
               const total = Math.max(0, overrideRemainingMs);
               const mm = Math.floor(total / 60000);
@@ -567,7 +557,8 @@ const EtaData: React.FC = () => {
           <button
             onClick={cancelOverride}
             disabled={isUpdating}
-            className={`ml-3 px-3 py-1 rounded border text-sm ${isUpdating ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-100'} border-yellow-500 text-yellow-700`}
+            className={`btn btn--ghost ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title="Override beenden"
           >
             Override beenden
           </button>
@@ -603,22 +594,8 @@ const EtaData: React.FC = () => {
                       <span className="font-medium">{value.long}:</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`font-mono ${value.short === 'SP'
-                        ? Number(value.strValue) > 0
-                          ? 'text-black'
-                          : Number(value.strValue) < 0
-                            ? 'text-blue-600'
-                            : 'text-black'
-                        : value.short === 'AT' || value.unit === '°C'
-                          ? Number(value.strValue) > 0
-                            ? 'text-black'
-                            : Number(value.strValue) < 0
-                              ? 'text-blue-600'
-                              : 'text-black'
-                          : 'text-black'
-                        }`}>
-                        {value.strValue}
-                        {value.unit && <span className="text-gray-500">{value.unit}</span>}
+                      <span className="badge badge--neutral">
+                        {value.strValue}{value.unit && <span>&nbsp;{value.unit}</span>}
                       </span>
                     </div>
                   </div>
@@ -641,9 +618,9 @@ const EtaData: React.FC = () => {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`font-mono ${value.strValue === EtaText.EIN ? 'text-green-500' :
-                        value.strValue === EtaText.AUS ? 'text-red-500' :
-                          'text-black'
+                      <span className={`badge ${value.strValue === EtaText.EIN ? 'badge--ok' :
+                        value.strValue === EtaText.AUS ? 'badge--error' :
+                          'badge--neutral'
                         }`}>
                         {value.strValue}
                       </span>
@@ -654,16 +631,14 @@ const EtaData: React.FC = () => {
                           }
                         }}
                         disabled={isUpdating}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${value.strValue === EtaText.EIN ? 'bg-green-600' : 'bg-red-600'} ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`switch ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
                         role="switch"
                         aria-checked={value.strValue === EtaText.EIN}
                         aria-busy={isUpdating}
+                        title={`Toggle ${value.long}`}
                       >
                         <span className="sr-only">Toggle {value.long}</span>
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${value.strValue === EtaText.EIN ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                        />
+                        <span className="switch__thumb" />
                       </button>
                     </div>
                   </div>

@@ -1,4 +1,17 @@
 @import "tailwindcss";
+/* Design Tokens and Theme */
+@import "../styles/tokens.css";
+@import "../styles/theme.css";
+/* Component Styles */
+@import "../styles/components/button.css";
+@import "../styles/components/card.css";
+@import "../styles/components/switch.css";
+@import "../styles/components/input.css";
+@import "../styles/components/badge.css";
+@import "../styles/components/progress.css";
+@import "../styles/components/skeleton.css";
+@import "../styles/components/header.css";
+@import "../styles/components/typography.css";
 
 :root {
   --background: #ffffff;

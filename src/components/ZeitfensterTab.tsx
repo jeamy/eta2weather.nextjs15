@@ -322,15 +322,15 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
 
   if (!heizzeiten) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-4">
+      <div className="card">
         <SectionHeader title="Zeitfenster" />
-        <div className="text-sm text-gray-500">Keine Heizzeiten gefunden.</div>
+        <div className="alert alert--warning">Keine Heizzeiten gefunden.</div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4">
+    <div className="card">
       <SectionHeader title="Zeitfenster" />
       <div className="space-y-4">
         {tagFenster.map(({ day, windows }) => (
@@ -371,7 +371,7 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                           const val = e.target.value;
                           setEdited(prev => ({ ...prev, [uri]: { start: val, end: prev[uri]?.end ?? initial.end } }));
                         }}
-                        className="border rounded px-3 py-2 min-h-[44px] text-base sm:text-sm w-full sm:w-28"
+                        className="input min-h-[44px] text-base sm:text-sm w-full sm:w-28"
                       />
                       <span className="text-gray-500 hidden sm:inline">-</span>
                       <input
@@ -382,10 +382,10 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                           const val = e.target.value;
                           setEdited(prev => ({ ...prev, [uri]: { start: prev[uri]?.start ?? initial.start, end: val } }));
                         }}
-                        className="border rounded px-3 py-2 min-h-[44px] text-base sm:text-sm w-full sm:w-28"
+                        className="input min-h-[44px] text-base sm:text-sm w-full sm:w-28"
                       />
                       <button
-                        className={`${isDirty ? 'text-green-600 hover:text-green-800' : 'text-gray-400 cursor-not-allowed'} px-3 sm:px-1 min-w-[44px] min-h-[44px] text-lg sm:text-base disabled:opacity-50`}
+                        className={`btn btn--primary min-w-[44px] min-h-[44px] disabled:opacity-50`}
                         aria-label="Speichern"
                         title="Speichern"
                         disabled={!isDirty || !!saving[uri]}
