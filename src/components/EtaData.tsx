@@ -47,6 +47,8 @@ const EtaData: React.FC = () => {
 
   const [displayData, setDisplayData] = useState<DisplayDataType | null>(null);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const [overrideActive, setOverrideActive] = useState<boolean>(false);
+  const [overrideRemainingMs, setOverrideRemainingMs] = useState<number>(0);
 
   // Memoized map of button short codes to their URIs
   const buttonIds = useMemo<Record<string, string>>(() => {
@@ -341,6 +343,9 @@ const EtaData: React.FC = () => {
       const overrideMs = parseInt(config.t_override) || 60 * 60 * 1000;
       const overrideMinutes = Math.round(overrideMs / 60000);
       console.log(`Manual override activated for ${overrideMinutes} minutes`);
+      // Immediate UI feedback
+      setOverrideActive(true);
+      setOverrideRemainingMs(overrideMs);
     }
 
     try {
@@ -349,6 +354,35 @@ const EtaData: React.FC = () => {
       console.error('Error handling button click:', error);
     }
   }, [updateButtonStates, config.t_override]);
+
+  // Countdown for manual override; updates every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const timeoutMs = parseInt(config.t_override) || 60 * 60 * 1000;
+      if (lastTempState.current.manualOverride && lastTempState.current.manualOverrideTime) {
+        const elapsed = Date.now() - lastTempState.current.manualOverrideTime;
+        const remaining = Math.max(0, timeoutMs - elapsed);
+        setOverrideActive(remaining > 0);
+        setOverrideRemainingMs(remaining);
+      } else {
+        setOverrideActive(false);
+        setOverrideRemainingMs(0);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [config.t_override]);
+
+  const cancelOverride = useCallback(async () => {
+    try {
+      lastTempState.current.manualOverride = false;
+      lastTempState.current.manualOverrideTime = null;
+      setOverrideActive(false);
+      setOverrideRemainingMs(0);
+      await updateButtonStates(EtaButtons.AA, true);
+    } catch (e) {
+      console.error('Error cancelling manual override:', e);
+    }
+  }, [updateButtonStates]);
 
   useEffect(() => {
     const checkTemperature = async () => {
@@ -520,6 +554,25 @@ const EtaData: React.FC = () => {
         </div>
         <h2 className="text-lg sm:text-xl font-semibold">ETA Data</h2>
       </div>
+      {overrideActive && (
+        <div className="mb-3 p-2 rounded-md bg-yellow-50 border border-yellow-200 flex items-center justify-between">
+          <span className="text-yellow-800">
+            Manual override aktiv – Restzeit {(() => {
+              const total = Math.max(0, overrideRemainingMs);
+              const mm = Math.floor(total / 60000);
+              const ss = Math.floor((total % 60000) / 1000).toString().padStart(2, '0');
+              return `${mm}:${ss} min`;
+            })()}
+          </span>
+          <button
+            onClick={cancelOverride}
+            disabled={isUpdating}
+            className={`ml-3 px-3 py-1 rounded border text-sm ${isUpdating ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-100'} border-yellow-500 text-yellow-700`}
+          >
+            Override beenden
+          </button>
+        </div>
+      )}
       {etaState.data ? (
         <div className="space-y-3 text-sm sm:text-base">
           <div className="grid grid-cols-1 gap-2">
