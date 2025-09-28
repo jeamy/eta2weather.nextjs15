@@ -162,9 +162,7 @@ function WifiTab({ data }: WifiTabProps) {
   }, []);
 
   // categoryEntries already computed above
-
-  // Only compute the active entry to avoid rendering hidden panels
-  const activeEntry = useMemo(() => categoryEntries[activeTab] as [string, any] | undefined, [categoryEntries, activeTab]);
+  // Render panels with hidden attribute for accessibility; avoid computing a separate active entry
 
   const renderChannelName = (channelKey: string) => {
     if (editingChannel === channelKey) {
@@ -240,67 +238,71 @@ function WifiTab({ data }: WifiTabProps) {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex justify-between items-center h-14 mb-4">
+    <div className="tabs">
+      <div className="card__header">
         <h2 className="text-lg font-semibold">WiFi Data</h2>
       </div>
-      <div className="w-full px-2 sm:px-0">
-        <div className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 h-24">
+      <div>
+        <div className="tabs__list" role="tablist" aria-label="WiFi categories">
           {categoryEntries.map(([category], index) => (
             <button
-              key={category}
+              key={`tab-wifi-${index}-${category}`}
               onClick={() => setActiveTab(index)}
-              className={`w-full rounded-lg py-2 text-sm font-medium leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 transition-colors flex flex-col items-center justify-center
-                ${activeTab === index 
-                  ? 'bg-white text-blue-700 shadow' 
-                  : 'text-black hover:bg-white/[0.12] hover:text-blue-700'}`}
+              className={`tabs__button ${activeTab === index ? 'tabs__button--active' : ''}`}
+              role="tab"
+              id={`tab-wifi-${index}`}
+              aria-selected={activeTab === index}
+              aria-controls={`panel-wifi-${index}`}
+              tabIndex={activeTab === index ? 0 : -1}
               title={category}
             >
-              {categoryIcons[category]}
-              <span className="hidden lg:inline-block mt-1 text-xs">{category}</span>
+              <span className="tabs__icon">{categoryIcons[category]}</span>
+              <span className="tabs__label">{category}</span>
             </button>
           ))}
         </div>
 
-        <div className="mt-2">
-          {activeEntry && (() => {
-            const [category, catData] = activeEntry;
-            return (
-              <div
-                className="rounded-xl bg-white pt-3 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2"
-              >
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 border-gray-200">
-                  {category === deTranslations.categories['Channels'] ? (
-                    Object.entries(catData).map(([channelKey, channelValue]) => (
-                      <div key={channelKey} className="p-4 rounded-lg bg-gray-50 shadow-lg">
-                        <h3 className="text-sm font-medium text-gray-900 mb-2">
-                          {renderChannelName(channelKey)} &nbsp;
+        <div>
+          {categoryEntries.map(([category, catData], index) => (
+            <div
+              key={`panel-wifi-${index}-${category}`}
+              className="tabs__panel"
+              id={`panel-wifi-${index}`}
+              role="tabpanel"
+              aria-labelledby={`tab-wifi-${index}`}
+              hidden={activeTab !== index}
+            >
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
+                {category === deTranslations.categories['Channels'] ? (
+                  Object.entries(catData).map(([channelKey, channelValue]) => (
+                    <div key={channelKey} className="p-4 rounded-lg bg-white shadow-sm">
+                      <h3 className="text-sm font-medium text-gray-900 mb-2">
+                        {renderChannelName(channelKey)} &nbsp;
+                      </h3>
+                      <div className="space-y-1">
+                        {renderValue(channelKey, channelValue)}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  Object.entries(catData).map(([key, value]: [string, any]) => {
+                    const translationKey = key.toLowerCase();
+                    const titleTranslation = deTranslations.measurements[translationKey] || key.replace(/_/g, ' ');
+                    return (
+                      <div key={key} className="p-4 rounded-lg bg-white shadow-sm">
+                        <h3 className="text-sm font-medium text-gray-900">
+                          {titleTranslation} &nbsp;
                         </h3>
-                        <div className="space-y-1">
-                          {renderValue(channelKey, channelValue)}
+                        <div className="mt-2 text-sm text-gray-500 space-y-1">
+                          {renderValue(key, value)}
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    Object.entries(catData).map(([key, value]: [string, any]) => {
-                      const translationKey = key.toLowerCase();
-                      const titleTranslation = deTranslations.measurements[translationKey] || key.replace(/_/g, ' ');
-                      return (
-                        <div key={key} className="p-4 rounded-lg bg-gray-50 shadow-lg">
-                          <h3 className="text-sm font-medium text-gray-900">
-                            {titleTranslation} &nbsp;
-                          </h3>
-                          <div className="mt-2 text-sm text-gray-500 space-y-1">
-                            {renderValue(key, value)}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
+                    );
+                  })
+                )}
               </div>
-            );
-          })()}
+            </div>
+          ))}
         </div>
       </div>
     </div>

@@ -1,5 +1,4 @@
 .card { background: var(--color-surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: var(--space-3); }
-.card + .card { margin-top: var(--space-3); }
 .card__header { display:flex; align-items:center; justify-content:space-between; margin-bottom: var(--space-2); }
 .card__title { font-weight: 600; }
 .card__body { display:block; }
