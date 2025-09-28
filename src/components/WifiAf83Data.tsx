@@ -48,7 +48,7 @@ const WifiAf83Data: React.FC = () => {
 
   const saveConfigValue = useCallback(async (key: ConfigKeys, value: string | number) => {
     try {
-      const response = await fetch(API.CONFIG_UPDATE, {
+      const response = await fetch(API.CONFIG, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

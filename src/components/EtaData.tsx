@@ -338,7 +338,8 @@ const EtaData: React.FC = () => {
     if (clickedButton !== EtaButtons.AA) {
       lastTempState.current.manualOverride = true;
       lastTempState.current.manualOverrideTime = Date.now();
-      const overrideMinutes = parseInt(config.t_override) || 60;
+      const overrideMs = parseInt(config.t_override) || 60 * 60 * 1000;
+      const overrideMinutes = Math.round(overrideMs / 60000);
       console.log(`Manual override activated for ${overrideMinutes} minutes`);
     }
 
@@ -405,8 +406,9 @@ const EtaData: React.FC = () => {
   }, [wifiState.data?.indoorTemperature, config, config.t_min, updateButtonStates]);
 
   useEffect(() => {
-    const overrideTimeoutMinutes = parseInt(config.t_override) || 60; // Default to 60 minutes if not set
-    const overrideTimeoutMs = overrideTimeoutMinutes * 60 * 1000; // Convert minutes to milliseconds
+    // t_override is stored in milliseconds (ms); default to 60 minutes if not set
+    const overrideTimeoutMs = parseInt(config.t_override) || 60 * 60 * 1000;
+    const overrideTimeoutMinutes = Math.round(overrideTimeoutMs / 60000);
 
     if (lastTempState.current.manualOverride && lastTempState.current.manualOverrideTime) {
       const now = Date.now();

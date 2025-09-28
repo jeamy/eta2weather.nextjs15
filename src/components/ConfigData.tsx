@@ -4,13 +4,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../redux';
 import { useAppDispatch } from '../redux/hooks';
-import { storeData as storeEtaData } from '../redux/etaSlice';
 import { AppDispatch } from '@/redux/index';
 import { storeData, storeError, setIsLoading as setIsConfigLoading } from '@/redux/configSlice';
+import type { ConfigState } from '@/redux/configSlice';
 import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
-import { updateSliderPosition } from '@/utils/Functions';
-import { EtaApi } from '@/reader/functions/EtaApi';
+import { calculateTemperatureDiff, calculateNewSliderPosition } from '@/utils/Functions';
 import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
+import type { Config } from '@/reader/functions/types-constants/ConfigConstants';
 import { DEFAULT_UPDATE_TIMER } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
 import { API } from '@/constants/apiPaths';
@@ -19,11 +19,11 @@ const ConfigData: React.FC = () => {
     const dispatch: AppDispatch = useAppDispatch();
     const config = useSelector((state: RootState) => state.config);
     const etaState = useSelector((state: RootState) => state.eta);
+    const wifiState = useSelector((state: RootState) => state.wifiAf83);
     const [isEditing, setIsEditing] = useState<ConfigKeys | null>(null);
     const [editValue, setEditValue] = useState('');
     const sliderValue = config.data[ConfigKeys.T_SLIDER];
-    const etaApiRef = useRef<EtaApi | null>(null);
-    const lastSliderUpdate = useRef<string | null>(null);
+    // Removed client-side slider updates; handled by server-side BackgroundService
     const [nextUpdate, setNextUpdate] = useState<number>(0);
     const lastUpdateTime = useRef<number>(Date.now());
 
@@ -54,59 +54,13 @@ const ConfigData: React.FC = () => {
 //        console.log('Current config state:', config);
     }, [config]);
 
-    useEffect(() => {
-        if (config.data[ConfigKeys.S_ETA]) {
-            etaApiRef.current = new EtaApi(config.data[ConfigKeys.S_ETA]);
-        }
-    }, [config.data]);
+    // EtaApi instance no longer needed on client for slider updates
 
     useEffect(() => {
         lastUpdateTime.current = Date.now();
     }, [etaState.data]);
 
-    const etaSliderPosition = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue;
-
-    useEffect(() => {
-        const recommendedPos = Math.round(parseFloat(sliderValue || '0'));
-        const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
-        const currentPos = etaSP ? parseFloat(etaSP.strValue || '0') : recommendedPos;
-
-        // Only update if the positions are different, values are valid, and it's not the same update
-        if (etaSP && 
-            recommendedPos !== currentPos && 
-            !isNaN(recommendedPos) && 
-            !isNaN(currentPos) &&
-            lastSliderUpdate.current !== sliderValue) {
-            
-            lastSliderUpdate.current = sliderValue;
-            
-            if (!etaApiRef.current) {
-                console.error('EtaApi not initialized');
-                return;
-            }
-            updateSliderPosition(
-                recommendedPos,
-                currentPos,
-                defaultNames2Id,
-                etaApiRef.current,
-            ).then(result => {
-                if (result.success) {
-                    // Update the SP value in the Redux store immediately
-                    const updatedEtaData = { ...etaState.data };
-                    const spId = defaultNames2Id[EtaConstants.SCHIEBERPOS].id;
-                    if (updatedEtaData[spId]) {
-                        updatedEtaData[spId] = {
-                            ...updatedEtaData[spId],
-                            strValue: (result.position).toString()
-                        };
-                        dispatch(storeEtaData(updatedEtaData));
-                    }
-                }
-            }).catch(error => {
-                console.error('Error updating slider position:', error);
-            });
-        }
-    }, [sliderValue, etaState.data, dispatch]);
+    // Client-side slider auto-update effect removed (server is source of truth)
 
     useEffect(() => {
         const updateTimer = parseInt(config.data[ConfigKeys.T_UPDATE_TIMER]) || 60000;
@@ -428,7 +382,7 @@ const ConfigData: React.FC = () => {
             try {
                 const minutes = parseInt(editValue);
                 const valueToSave = String(minutes * 60000);
-                const response = await fetch('/api/config', {
+                const response = await fetch(API.CONFIG, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -558,10 +512,38 @@ const ConfigData: React.FC = () => {
                         <span className="font-medium">Empfohlene Schieber Position:</span>
                         <span>
                             {(() => {
-                                const recommendedPos = Math.round(parseFloat(sliderValue || '0'));
-                                const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
-                                const currentPos = etaSP ? parseFloat(etaSP.strValue || '0') : recommendedPos;
-                                
+                                // Fallback to server-provided T_SLIDER
+                                let recommendedPos = Math.round(parseFloat(sliderValue || '0'));
+                                try {
+                                    // Build a working config that reflects in-progress edits for t_soll/t_delta
+                                    const workingData: Config = { ...config.data };
+                                    if (isEditing === ConfigKeys.T_SOLL) {
+                                        const v = parseFloat(editValue);
+                                        if (!Number.isNaN(v)) workingData[ConfigKeys.T_SOLL] = String(v);
+                                    }
+                                    if (isEditing === ConfigKeys.T_DELTA) {
+                                        const v = parseFloat(editValue);
+                                        if (!Number.isNaN(v)) workingData[ConfigKeys.T_DELTA] = String(v);
+                                    }
+                                    const workingConfig: ConfigState = { ...config, data: workingData };
+
+                                    const { diff } = calculateTemperatureDiff(workingConfig, wifiState);
+                                    if (diff !== null) {
+                                        const etaValues = {
+                                            einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
+                                            schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
+                                            heizentaste: etaState.data[defaultNames2Id[EtaConstants.HEIZENTASTE].id]?.strValue || '0',
+                                            kommentaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
+                                            tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
+                                            tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
+                                        };
+                                        const newSliderPosition = calculateNewSliderPosition(etaValues, diff);
+                                        recommendedPos = Math.round(parseFloat(newSliderPosition));
+                                    }
+                                } catch {
+                                    // Ignore and use fallback
+                                }
+
                                 return (
                                     <span className={`${
                                         recommendedPos > 0 

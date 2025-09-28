@@ -17,7 +17,6 @@ export const API = {
   // Config
   CONFIG_READ: '/api/config/read',
   CONFIG: '/api/config',
-  CONFIG_UPDATE: '/api/config/update',
 
   // Misc
   LOGS: '/api/logs',
@@ -43,7 +42,6 @@ export const {
   WIFI_AF83_READ,
   CONFIG_READ,
   CONFIG,
-  CONFIG_UPDATE,
   LOGS,
   NAMES2ID_READ,
   BACKGROUND_STATUS,

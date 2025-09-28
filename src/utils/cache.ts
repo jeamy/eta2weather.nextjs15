@@ -183,7 +183,7 @@ async function readWifiAf83File(): Promise<any> {
     }
 }
 
-export async function getWifiAf83Data(fetchFn: () => Promise<any>) {
+export async function getWifiAf83Data(fetchFn: (signal?: AbortSignal) => Promise<any>, signal?: AbortSignal) {
     // Try to get data from cache first
     const cachedData = wifiaf83Cache.get(WIFIAF83_CACHE_KEY);
     
@@ -191,7 +191,7 @@ export async function getWifiAf83Data(fetchFn: () => Promise<any>) {
         // If not in cache or expired, fetch new data
         if (!cachedData) {
             try {
-                const response = await fetchFn();
+                const response = await fetchFn(signal);
 
                 // Check if the response has the expected structure
                 if (!response || response.code !== 0) {
@@ -214,7 +214,7 @@ export async function getWifiAf83Data(fetchFn: () => Promise<any>) {
         }
         
         // If we have cached data, try to fetch new data in the background
-        fetchFn().then(response => {
+        fetchFn(signal).then(response => {
             if (response && response.code === 0) {
                 wifiaf83Cache.set(WIFIAF83_CACHE_KEY, response.data);
                 updateWifiAf83File(response.data).catch(() => {
