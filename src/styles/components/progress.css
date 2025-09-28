@@ -1,0 +1,2 @@
+.progress { background: rgba(255,255,255,.08); border-radius: 8px; overflow: hidden; height: 10px; }
+.progress__bar { height: 100%; background: var(--color-primary); width: 0%; transition: width .3s; }

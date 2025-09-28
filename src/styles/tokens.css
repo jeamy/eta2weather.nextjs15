@@ -1,0 +1,29 @@
+:root {
+  --color-bg: #0b1020;
+  --color-surface: #11162a;
+  --color-text: #e6e8ef;
+  --color-primary: #4c8bf5;
+  --color-success: #30c48d;
+  --color-warning: #f5b54c;
+  --color-danger: #ef5350;
+
+  --radius: 10px;
+  --shadow: 0 8px 30px rgba(0,0,0,0.25);
+
+  --space-1: 6px; /* xs */
+  --space-2: 10px; /* sm */
+  --space-3: 16px; /* md */
+  --space-4: 24px; /* lg */
+  --space-5: 32px; /* xl */
+
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-bg: #f7f9fc;
+    --color-surface: #ffffff;
+    --color-text: #1c2430;
+  }
+}

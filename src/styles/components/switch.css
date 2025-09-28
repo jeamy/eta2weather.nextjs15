@@ -1,0 +1,11 @@
+.switch {
+  inline-size: 44px; block-size: 24px;
+  background: #e2e8f0; border-radius: 999px; position:relative; transition:.2s;
+  border: 1px solid rgba(0,0,0,.08);
+}
+.switch__thumb {
+  inline-size: 18px; block-size: 18px; background:#fff; border-radius: 50%; position:absolute; top:3px; left:3px; transition:.2s;
+}
+.switch[aria-checked="true"] { background: var(--color-success); }
+.switch[aria-checked="true"] .switch__thumb { transform: translateX(20px); }
+.switch:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }

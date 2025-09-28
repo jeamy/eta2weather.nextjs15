@@ -1,0 +1,6 @@
+.input { padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(0,0,0,.15); background: var(--color-surface); color: var(--color-text); }
+.input:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.input__wrap { position: relative; display:flex; align-items:center; }
+.input__suffix { position: absolute; right: 10px; color: rgba(255,255,255,.75); font-size: 0.85em; }
+.input--invalid { border-color: var(--color-danger); }
+.input__hint { color: var(--color-warning); font-size: .85em; margin-top: 4px; }

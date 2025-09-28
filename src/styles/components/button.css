@@ -1,0 +1,20 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background .2s, color .2s, border-color .2s, opacity .2s;
+}
+.btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.btn[disabled] { opacity: .6; cursor: not-allowed; }
+
+.btn--primary { background: var(--color-primary); color: #fff; }
+.btn--danger { background: var(--color-danger); color: #fff; }
+.btn--success { background: var(--color-success); color: #fff; }
+.btn--ghost { background: transparent; color: var(--color-text); border-color: rgba(255,255,255,.15); }
+.btn--ghost:hover { background: rgba(255,255,255,.06); }
+.btn--ghost[aria-current="page"] { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.25); }

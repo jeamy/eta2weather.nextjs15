@@ -1,0 +1,20 @@
+/* Map existing globals.css variables to tokens to keep compatibility */
+:root {
+  --background: var(--color-bg);
+  --foreground: var(--color-text);
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+/************************
+ * Utility helpers
+ ************************/ 
+.container {
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: var(--space-3);
+}
