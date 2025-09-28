@@ -9,12 +9,22 @@ import { useAppDispatch } from '@/redux/hooks';
 import { storeData as storeEtaData } from '@/redux/etaSlice';
 import { storeData as storeConfigData } from '@/redux/configSlice';
 import { EtaData as EtaDataType, EtaPos, EtaText, EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
+import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { API } from '@/constants/apiPaths';
+import { useToast } from '@/components/ToastProvider';
 
 // Constants
+
+// Robust parser: extracts first decimal number, handles comma decimals and units like "22,5 °C"
+const parseNum = (raw: any): number | null => {
+  if (raw == null) return null;
+  const s = String(raw).replace(',', '.');
+  const m = s.match(/-?\d+(?:\.\d+)?/);
+  return m ? parseFloat(m[0]) : null;
+};
 
 interface DisplayEtaValue {
   short: string;
@@ -49,6 +59,7 @@ const EtaData: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [overrideActive, setOverrideActive] = useState<boolean>(false);
   const [overrideRemainingMs, setOverrideRemainingMs] = useState<number>(0);
+  const { showToast } = useToast();
 
   // Memoized map of button short codes to their URIs
   const buttonIds = useMemo<Record<string, string>>(() => {
@@ -289,6 +300,9 @@ const EtaData: React.FC = () => {
     return null;
   }, [etaState.data]);
 
+  // Current active button (for segmented control state)
+  const activeKey = getActiveButton();
+
   // (Removed duplicate temperature control effect; consolidated below)
 
   // Update display data when etaState changes
@@ -350,8 +364,20 @@ const EtaData: React.FC = () => {
 
     try {
       await updateButtonStates(clickedButton, true);
+      const label = (() => {
+        switch (clickedButton) {
+          case EtaButtons.AA: return 'Auto aktiviert';
+          case EtaButtons.HT: return 'Heizen aktiviert';
+          case EtaButtons.KT: return 'Kommen aktiviert';
+          case EtaButtons.DT: return 'Absenken aktiviert';
+          case EtaButtons.GT: return 'Gehen aktiviert';
+          default: return 'Aktualisiert';
+        }
+      })();
+      showToast(label, 'success');
     } catch (error) {
       console.error('Error handling button click:', error);
+      showToast(error instanceof Error ? error.message : 'Aktion fehlgeschlagen', 'error');
     }
   }, [updateButtonStates, config.t_override]);
 
@@ -379,8 +405,10 @@ const EtaData: React.FC = () => {
       setOverrideActive(false);
       setOverrideRemainingMs(0);
       await updateButtonStates(EtaButtons.AA, true);
+      showToast('Override beendet · Auto aktiviert', 'success');
     } catch (e) {
       console.error('Error cancelling manual override:', e);
+      showToast(e instanceof Error ? e.message : 'Override beenden fehlgeschlagen', 'error');
     }
   }, [updateButtonStates]);
 
@@ -564,12 +592,60 @@ const EtaData: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* Quick actions: segmented on ≥sm, dropdown on mobile */}
+      <div className="mb-3">
+        <div className="hidden sm:block">
+          <div className="segmented" role="radiogroup" aria-label="Schnellaktionen">
+            {[
+              { key: EtaButtons.AA, label: 'Auto' },
+              { key: EtaButtons.HT, label: 'Heizen' },
+              { key: EtaButtons.KT, label: 'Kommen' },
+              { key: EtaButtons.DT, label: 'Absenken' },
+              { key: EtaButtons.GT, label: 'Gehen' },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                className={`segmented__option ${activeKey === key ? 'segmented__option--active' : ''} ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                aria-checked={activeKey === key}
+                role="radio"
+                onClick={() => { if (!isUpdating) handleButtonClick(key); }}
+                disabled={isUpdating}
+                title={label}
+              >
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="segmented__dropdown sm:hidden">
+          <div className="segmented__dropdown-label">Schnellaktionen</div>
+          <label htmlFor="quick-actions" className="sr-only">Schnellaktionen</label>
+          <select
+            id="quick-actions"
+            value={activeKey || EtaButtons.AA}
+            onChange={(e) => handleButtonClick(e.target.value as EtaButtons)}
+            disabled={isUpdating}
+          >
+            {[
+              { key: EtaButtons.AA, label: 'Auto' },
+              { key: EtaButtons.HT, label: 'Heizen' },
+              { key: EtaButtons.KT, label: 'Kommen' },
+              { key: EtaButtons.DT, label: 'Absenken' },
+              { key: EtaButtons.GT, label: 'Gehen' },
+            ].map(({ key, label }) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
       {etaState.data ? (
         <div className="space-y-3 text-sm sm:text-base">
           <div className="grid grid-cols-1 gap-2">
             {Object.entries(etaState.data)
-              .filter(([key, value]) => {
-                // Filter out HT, AA, DT entries and empty values
+              .filter(([_, value]) => {
+                // Filter out button entries and empty values
                 if (Object.values(EtaButtons).includes(value.short as EtaButtons)) {
                   return false;
                 }

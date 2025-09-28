@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, memo, ReactElement }
 import { WifiData } from '@/reader/functions/types-constants/WifiConstants';
 import { deTranslations } from '@/translations/de';
 import { API } from '@/constants/apiPaths';
+import { useToast } from '@/components/ToastProvider';
 import {
   HomeIcon,
   BuildingOfficeIcon,
@@ -30,6 +31,7 @@ const categoryIcons: Record<string, ReactElement> = {
 };
 
 function WifiTab({ data }: WifiTabProps) {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState(0);
   const [editingChannel, setEditingChannel] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -105,6 +107,7 @@ function WifiTab({ data }: WifiTabProps) {
         if (error instanceof Error && error.name !== 'AbortError') {
           console.error('Error loading channel names:', error);
           setError(error.message);
+          showToast('Kanalnamen laden fehlgeschlagen', 'error');
         }
       } finally {
         if (!abortController.signal.aborted) {
@@ -148,9 +151,11 @@ function WifiTab({ data }: WifiTabProps) {
       setChannelNames(updatedNames);
       setEditingChannel(null);
       setEditValue('');
+      showToast('Kanalname gespeichert', 'success');
     } catch (error) {
       console.error('Error updating channel name:', error);
       setError(error instanceof Error ? error.message : 'Failed to update channel name');
+      showToast(error instanceof Error ? error.message : 'Speichern fehlgeschlagen', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -243,7 +248,7 @@ function WifiTab({ data }: WifiTabProps) {
         <h2 className="text-lg font-semibold">WiFi Data</h2>
       </div>
       <div>
-        <div className="tabs__list" role="tablist" aria-label="WiFi categories">
+        <div className="tabs__list tabs__list--sticky" role="tablist" aria-label="WiFi categories">
           {categoryEntries.map(([category], index) => (
             <button
               key={`tab-wifi-${index}-${category}`}
@@ -272,7 +277,7 @@ function WifiTab({ data }: WifiTabProps) {
               aria-labelledby={`tab-wifi-${index}`}
               hidden={activeTab !== index}
             >
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {category === deTranslations.categories['Channels'] ? (
                   Object.entries(catData).map(([channelKey, channelValue]) => (
                     <div key={channelKey} className="p-4 rounded-lg bg-white shadow-sm">

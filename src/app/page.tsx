@@ -10,6 +10,7 @@ import ZeitfensterTab from '@/components/ZeitfensterTab';
 import { useEffect, useState, useRef } from "react";
 import { API } from '@/constants/apiPaths';
 import { MenuNode } from "@/types/menu";
+import HomeHero from "@/components/HomeHero";
 
 async function isServerReady(url: string, retries = 5, delay = 1000): Promise<boolean> {
   for (let i = 0; i < retries; i++) {
@@ -80,6 +81,7 @@ export default function Home() {
     <div className="home">
       <div className="container">
         <main className="home__main">
+          <HomeHero />
           {/* First row: Config, Eta, and Wifi data */}
           <div className="home__row home__row--three">
             <ConfigData />
@@ -96,7 +98,9 @@ export default function Home() {
               <div className="card">
                 <WifiTab data={wifiData} />
               </div>
-              <ZeitfensterTab menuItems={menuItems} />
+              <div className="card">
+                <ZeitfensterTab menuItems={menuItems} />
+              </div>
             </div>
           </div>
        

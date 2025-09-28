@@ -14,6 +14,7 @@ import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constant
 import Image from 'next/image';
 import { WifiAF83Data } from '@/reader/functions/types-constants/WifiAf83';
 import { API } from '@/constants/apiPaths';
+import { useToast } from '@/components/ToastProvider';
 
 interface ApiResponse {
   data: WifiAF83Data & {
@@ -21,6 +22,14 @@ interface ApiResponse {
   };
   config?: ConfigState['data'];
 }
+
+// Robust parser for values like "14,5 °C" or "14.5°C"
+const parseNum = (raw: any): number | null => {
+  if (raw == null) return null;
+  const s = String(raw).replace(',', '.');
+  const m = s.match(/-?\d+(?:\.\d+)?/);
+  return m ? parseFloat(m[0]) : null;
+};
 
 const formatDateTime = (timestamp: number): string => {
   return new Date(timestamp).toLocaleString('de-DE', {
@@ -39,6 +48,7 @@ const WifiAf83Data: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
   const config = useSelector((state: RootState) => state.config);
   const etaState = useSelector((state: RootState) => state.eta);
+  const { showToast } = useToast();
   const [wifiData, setWifiData] = useState<WifiAF83Data | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const isFirstLoad = useRef(true);
@@ -66,8 +76,10 @@ const WifiAf83Data: React.FC = () => {
 
       const result = await response.json();
 //      console.log('Saved config value:', result);
+      showToast(`Konfiguration gespeichert: ${key}`, 'success');
     } catch (error) {
       console.error('Error saving config value:', error);
+      showToast(error instanceof Error ? error.message : 'Konfiguration speichern fehlgeschlagen', 'error');
       throw error; // Re-throw to let the caller handle the error
     }
   }, []);
@@ -102,6 +114,7 @@ const WifiAf83Data: React.FC = () => {
     } catch (error) {
       console.error('Error fetching WifiAF83 data:', error);
       dispatch({ type: 'wifiAf83/storeError', payload: (error as Error).message });
+      showToast('WiFi Daten laden fehlgeschlagen', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -122,25 +135,35 @@ const WifiAf83Data: React.FC = () => {
     
     if (numericDiff !== null) {
       const newDiffValue = numericDiff.toString();
-      // Only update if the diff value has changed
-      if (newDiffValue !== config.data[ConfigKeys.DIFF]) {
-        const etaValues = {
-          einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
-          schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
-          heizentaste: etaState.data[defaultNames2Id[EtaConstants.HEIZENTASTE].id]?.strValue || '0',
-          kommentaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
-          tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
-          tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
-        };
+      // Always compute slider from latest ETA values
+      const etaValues = {
+        einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
+        schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
+        heizentaste: etaState.data[defaultNames2Id[EtaConstants.HEIZENTASTE].id]?.strValue || '0',
+        kommentaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
+        tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
+        tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
+      };
 
-        const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
-        
-        if (newSliderPosition !== config.data[ConfigKeys.T_SLIDER] || newDiffValue !== config.data[ConfigKeys.DIFF]) {
-          dispatch(storeData({
-            ...config.data,
-            [ConfigKeys.DIFF]: newDiffValue,
-            [ConfigKeys.T_SLIDER]: newSliderPosition
-          }));
+      const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
+
+      const diffChanged = newDiffValue !== config.data[ConfigKeys.DIFF];
+      const sliderChanged = newSliderPosition !== config.data[ConfigKeys.T_SLIDER];
+
+      if (diffChanged || sliderChanged) {
+        // Update Redux for immediate UI feedback
+        dispatch(storeData({
+          ...config.data,
+          [ConfigKeys.DIFF]: newDiffValue,
+          [ConfigKeys.T_SLIDER]: newSliderPosition
+        }));
+
+        // Persist to backend
+        try {
+          if (diffChanged) await saveConfigValue(ConfigKeys.DIFF, newDiffValue);
+          if (sliderChanged) await saveConfigValue(ConfigKeys.T_SLIDER, newSliderPosition);
+        } catch {
+          // errors already toasted in saveConfigValue
         }
       }
     }
@@ -253,7 +276,7 @@ const WifiAf83Data: React.FC = () => {
       <div className="space-y-3 text-sm sm:text-base">
         <div className="grid grid-cols-1 gap-2">
           <div className="flex flex-col space-y-2">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center gap-2">
               <span className="font-medium">Außentemperatur:</span>
               <span className={`badge ${wifiData.temperature > 0 ? 'badge--ok' : wifiData.temperature < 0 ? 'badge--warn' : 'badge--neutral'}`}>
                 {wifiData.temperature}°C
@@ -261,14 +284,21 @@ const WifiAf83Data: React.FC = () => {
             </div>
             <div className="flex justify-between items-center">
               <span className="font-medium">Innentemperatur:</span>
-              <span className="badge badge--neutral">{wifiData.indoorTemperature}°C</span>
+              {(() => {
+                const min = Number(config.data[ConfigKeys.T_MIN]);
+                const ind = Number(wifiData.indoorTemperature);
+                const hasMin = Number.isFinite(min);
+                const cls = hasMin ? (ind >= min ? 'badge--ok' : 'badge--warn') : 'badge--neutral';
+                return <span className={`badge ${cls}`}>{ind}°C</span>;
+              })()}
             </div>
             {config.data[ConfigKeys.DIFF] && (
               <div className="flex justify-between items-center">
                 <span className="font-medium">Diff Indoor/Soll:</span>
                 {(() => {
                   const d = Number(config.data[ConfigKeys.DIFF]);
-                  const cls = d > 0 ? 'badge--ok' : d < 0 ? 'badge--warn' : 'badge--neutral';
+                  // Positive diff => kälter als Soll (blau), Negative => wärmer als Soll (grün)
+                  const cls = d > 0 ? 'badge--primary' : d < 0 ? 'badge--ok' : 'badge--neutral';
                   return <span className={`badge ${cls}`}>{d.toFixed(1)}°C</span>;
                 })()}
               </div>

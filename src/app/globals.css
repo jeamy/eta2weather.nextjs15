@@ -14,6 +14,9 @@
 @import "../styles/components/typography.css";
 @import "../styles/pages/home.css";
 @import "../styles/components/tabs.css";
+@import "../styles/components/stat.css";
+@import "../styles/components/segmented.css";
+@import "../styles/components/toast.css";
 
 :root {
   --background: #ffffff;

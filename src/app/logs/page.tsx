@@ -96,29 +96,6 @@ export default function LogsPage() {
 
     return (
         <div className="container mx-auto px-4 py-8">
-            <div className="mb-4">
-                <Link
-                    href="/"
-                    className="inline-flex items-center text-blue-600 hover:text-blue-800"
-                    style={{ fontFamily: 'var(--font-geist-sans)' }}
-                >
-                    <svg 
-                        className="w-5 h-5 mr-2" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                    >
-                        <path 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round" 
-                            strokeWidth={2} 
-                            d="M10 19l-7-7m0 0l7-7m-7 7h18" 
-                        />
-                    </svg>
-                    Back to Dashboard
-                </Link>
-            </div>
-
             {isLoading ? (
                 <div className="flex items-center justify-center min-h-[200px]">
                     <div className="flex flex-col items-center gap-3">

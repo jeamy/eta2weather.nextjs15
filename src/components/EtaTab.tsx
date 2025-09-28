@@ -94,7 +94,7 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
         </button>
       </div>
       <div>
-        <div className="tabs__list" role="tablist" aria-label="ETA categories">
+        <div className="tabs__list tabs__list--sticky" role="tablist" aria-label="ETA categories">
           {menuItems.map((category, categoryIndex) => (
             <button
               key={`tab-${categoryIndex}-${category.name}`}

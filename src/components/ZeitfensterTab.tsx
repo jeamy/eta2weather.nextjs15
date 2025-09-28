@@ -4,6 +4,7 @@ import { useEtaData } from '@/hooks/useEtaData';
 // No formatted value display here
 import { API } from '@/constants/apiPaths';
 import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
+import { useToast } from '@/components/ToastProvider';
 
 interface ZeitfensterTabProps {
   menuItems: MenuNode[];
@@ -287,6 +288,7 @@ const SectionHeader: React.FC<{ title: string, action?: React.ReactNode }>= ({ t
 );
 
 export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => {
+  const { showToast } = useToast();
   const heizzeiten = useMemo(() => findHeizzeitenNode(menuItems), [menuItems]);
 
   const tagFenster = useMemo(() => {
@@ -313,8 +315,9 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
     try {
       await saveZeitfenster(uri, current, start, end);
       await fetchValues([uri]);
+      showToast('Zeitfenster gespeichert', 'success');
     } catch (e) {
-      alert(e instanceof Error ? e.message : String(e));
+      showToast(e instanceof Error ? e.message : 'Speichern fehlgeschlagen', 'error');
     } finally {
       setSaving(prev => ({ ...prev, [uri]: false }));
     }
