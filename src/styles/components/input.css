@@ -4,3 +4,69 @@
 .input__suffix { position: absolute; right: 10px; color: rgba(255,255,255,.75); font-size: 0.85em; }
 .input--invalid { border-color: var(--color-danger); }
 .input__hint { color: var(--color-warning); font-size: .85em; margin-top: 4px; }
+
+/* Better number input with larger, more clickable spinners */
+.input__wrap--number {
+  position: relative;
+}
+
+.input__wrap--number input[type="number"] {
+  padding-right: 32px;
+  /* Hide native spinners */
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+}
+
+.input__wrap--number input[type="number"]::-webkit-outer-spin-button,
+.input__wrap--number input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.input__spinners {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.input__spinner {
+  width: 20px;
+  height: 16px;
+  background: var(--color-surface);
+  border: 1px solid rgba(0,0,0,.15);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: bold;
+  color: var(--color-text);
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.input__spinner:hover {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.input__spinner:active {
+  transform: scale(0.95);
+}
+
+.input__spinner--up::after {
+  content: '▲';
+  font-size: 8px;
+}
+
+.input__spinner--down::after {
+  content: '▼';
+  font-size: 8px;
+}

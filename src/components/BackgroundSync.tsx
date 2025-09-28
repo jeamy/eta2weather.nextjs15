@@ -37,10 +37,16 @@ const BackgroundSync: React.FC = () => {
           lastConfigRef.current = result.data.config;
         }
         
-        // Always update other data
-        dispatch(storeEtaData(result.data.eta));
-        dispatch(storeWifiAf83Data(result.data.wifiAf83));
-        dispatch(storeNames2IdData(result.data.names2Id));
+        // Always update other data - but only if we actually have data
+        if (result.data.eta && Object.keys(result.data.eta).length > 0) {
+          dispatch(storeEtaData(result.data.eta));
+        }
+        if (result.data.wifiAf83) {
+          dispatch(storeWifiAf83Data(result.data.wifiAf83));
+        }
+        if (result.data.names2Id) {
+          dispatch(storeNames2IdData(result.data.names2Id));
+        }
       }
     } catch (error) {
       // Ignore aborted fetches
@@ -96,8 +102,30 @@ const BackgroundSync: React.FC = () => {
         abortRef.current = null;
       }
       intervalRef.current = setInterval(fetchBackgroundData, updateTimer);
+      // Trigger an immediate fetch after resetting to avoid waiting a full interval
+      fetchBackgroundData();
     }
   }, [fetchBackgroundData, dispatch, config.data]);
+
+  // Refresh immediately when tab becomes visible, window gains focus, or connection returns
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        fetchBackgroundData();
+      }
+    };
+    const onFocus = () => fetchBackgroundData();
+    const onOnline = () => fetchBackgroundData();
+
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [fetchBackgroundData]);
 
   return null; // This component doesn't render anything
 };

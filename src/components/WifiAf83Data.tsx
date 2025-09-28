@@ -121,53 +121,11 @@ const WifiAf83Data: React.FC = () => {
   }, [dispatch, setIsLoading]);
 
   const updateTemperatureDiff = useCallback(async () => {
-    if (!config.isInitialized || !wifiData || !etaState.data) {
-      return;
-    }
-
-    const { diff: numericDiff } = calculateTemperatureDiff(config, { 
-      data: wifiData,
-      loadingState: {
-        isLoading: false,
-        error: null
-      }
-    });
-    
-    if (numericDiff !== null) {
-      const newDiffValue = numericDiff.toString();
-      // Always compute slider from latest ETA values
-      const etaValues = {
-        einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
-        schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
-        heizentaste: etaState.data[defaultNames2Id[EtaConstants.HEIZENTASTE].id]?.strValue || '0',
-        kommentaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
-        tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
-        tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
-      };
-
-      const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
-
-      const diffChanged = newDiffValue !== config.data[ConfigKeys.DIFF];
-      const sliderChanged = newSliderPosition !== config.data[ConfigKeys.T_SLIDER];
-
-      if (diffChanged || sliderChanged) {
-        // Update Redux for immediate UI feedback
-        dispatch(storeData({
-          ...config.data,
-          [ConfigKeys.DIFF]: newDiffValue,
-          [ConfigKeys.T_SLIDER]: newSliderPosition
-        }));
-
-        // Persist to backend
-        try {
-          if (diffChanged) await saveConfigValue(ConfigKeys.DIFF, newDiffValue);
-          if (sliderChanged) await saveConfigValue(ConfigKeys.T_SLIDER, newSliderPosition);
-        } catch {
-          // errors already toasted in saveConfigValue
-        }
-      }
-    }
-  }, [config, wifiData, etaState.data, dispatch]);
+    // BackgroundService ist die Quelle der Wahrheit.
+    // Client berechnet nichts und persistiert nicht mehr.
+    // Anzeige verwendet nur die vom Server gelieferten Config-Werte.
+    return;
+  }, []);
 
   // Monitor t_soll and t_delta changes
   useEffect(() => {
@@ -221,12 +179,7 @@ const WifiAf83Data: React.FC = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [loadAndStoreWifi]);
 
-  // Update temperature diff only when temperatures change
-  useEffect(() => {
-    if (config.isInitialized && wifiData && etaState.data) {
-      updateTemperatureDiff();
-    }
-  }, [config.isInitialized, wifiData, etaState.data, updateTemperatureDiff]);
+  // Client-side Diff/Slider-Update deaktiviert (Server steuert Sync)
 
   const loadAndStoreEta = useCallback(async () => {
     try {

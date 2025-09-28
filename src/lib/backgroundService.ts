@@ -14,6 +14,7 @@ import { getAllUris } from '../utils/etaUtils';
 import { MenuNode } from '@/types/menu';
 import { EtaPos, EtaButtons, EtaData } from '@/reader/functions/types-constants/EtaConstants';
 import { logData, pruneOldLogs } from '@/utils/logging';
+import { updateConfig } from '@/utils/cache';
 import { getWifiAf83Data } from '@/utils/cache';
 import * as fs from 'fs';
 import path from 'path';
@@ -141,20 +142,15 @@ export class BackgroundService {
       const configDir = path.dirname(CONFIG_FILE_PATH);
       this.configWatcher = fs.watch(configDir, (eventType, filename) => {
         if (filename === path.basename(CONFIG_FILE_PATH)) {
-          const now = Date.now();
-          // Only proceed if enough time has passed since last check
-          if (now - this.lastConfigCheck >= this.configCheckInterval) {
-            try {
-              // Read current content and compare with last content
-              const currentContent = fs.readFileSync(CONFIG_FILE_PATH, 'utf-8');
-              if (currentContent !== this.lastConfigContent) {
-                this.lastConfigCheck = now;
-                this.lastConfigContent = currentContent;
-                this.handleConfigChange();
-              }
-            } catch (error) {
-              console.error(`${this.getTimestamp()} Error reading config file:`, error);
+          try {
+            const currentContent = fs.readFileSync(CONFIG_FILE_PATH, 'utf-8');
+            if (currentContent !== this.lastConfigContent) {
+              this.lastConfigCheck = Date.now();
+              this.lastConfigContent = currentContent;
+              this.handleConfigChange();
             }
+          } catch (error) {
+            console.error(`${this.getTimestamp()} Error reading config file:`, error);
           }
         }
       });
@@ -202,6 +198,17 @@ export class BackgroundService {
         if (oldUpdateTimer !== newUpdateTimer && this.isRunning) {
           console.log(`${this.getTimestamp()} Update timer changed, restarting interval...`);
           this.restartUpdateInterval();
+        }
+
+        // Immediately recompute diff/slider with current WiFi data to keep UI in sync after config edits
+        try {
+          const stateNow = store.getState() as RootState;
+          const currentWifi = stateNow.wifiAf83.data as WifiAF83Data;
+          if (currentWifi && (currentWifi as any).time) {
+            await this.updateIndoorTemperatureDiff(currentWifi);
+          }
+        } catch (e) {
+          console.warn(`${this.getTimestamp()} Could not immediately recompute diff after config change:`, e);
         }
       } catch (error) {
         console.error(`${this.getTimestamp()} Error handling config change:`, error);
@@ -603,11 +610,17 @@ export class BackgroundService {
           console.log(`${this.getTimestamp()} New slider position: ${newSliderPosition}`);
           if (newSliderPosition !== config.data[ConfigKeys.T_SLIDER] || newDiffValue !== config.data[ConfigKeys.DIFF]) {
             console.log(`${this.getTimestamp()} Updating temperature diff...`);
-            store.dispatch(storeConfigData({
+            const updatedConfigData = {
               ...config.data,
               [ConfigKeys.DIFF]: newDiffValue,
               [ConfigKeys.T_SLIDER]: newSliderPosition
-            }));
+            } as Config;
+            store.dispatch(storeConfigData(updatedConfigData));
+            try {
+              await updateConfig(updatedConfigData);
+            } catch (e) {
+              console.warn(`${this.getTimestamp()} Failed to persist updated config:`, e);
+            }
 
             const { t_soll, t_delta } = config.data;
             // Log the temperature diff update
@@ -625,14 +638,11 @@ export class BackgroundService {
             const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
             const currentPos = etaSP ? parseFloat(etaSP.strValue || '0') : recommendedPos;
             console.log(`${this.getTimestamp()} Current slider position: ${currentPos}, Recommended slider position: ${recommendedPos}`);
-            // Only update if the positions are different, values are valid, and it's not the same update
+            // Only update if the positions are different and values are valid
             if (etaSP &&
               recommendedPos !== currentPos &&
               !isNaN(recommendedPos) &&
-              !isNaN(currentPos) &&
-              this.lastSliderUpdate !== newSliderPosition) {
-
-              this.lastSliderUpdate = newSliderPosition;
+              !isNaN(currentPos)) {
 
               if (!this.etaApi) {
                 console.error(`${this.getTimestamp()} EtaApi not initialized`);
@@ -650,6 +660,8 @@ export class BackgroundService {
                 );
 
                 if (result.success) {
+                  // Mark last successful target to avoid immediate duplicate work
+                  this.lastSliderUpdate = newSliderPosition;
                   // Update the SP value in the Redux store
                   const updatedEtaData = { ...etaState.data };
                   const spId = defaultNames2Id[EtaConstants.SCHIEBERPOS].id;
@@ -660,6 +672,17 @@ export class BackgroundService {
                     };
                     store.dispatch(storeEtaData(updatedEtaData));
                     console.log(`${this.getTimestamp()} Successfully updated slider position to ${result.position}`);
+                  }
+                  // Ensure config reflects the applied target immediately for UI sync
+                  try {
+                    const appliedConfig = {
+                      ...store.getState().config.data,
+                      [ConfigKeys.T_SLIDER]: newSliderPosition
+                    } as Config;
+                    store.dispatch(storeConfigData(appliedConfig));
+                    await updateConfig(appliedConfig);
+                  } catch (e) {
+                    console.warn(`${this.getTimestamp()} Failed to persist applied slider position:`, e);
                   }
                 } else if (result.error) {
                   console.error(`${this.getTimestamp()} Failed to update slider position:`, result.error);

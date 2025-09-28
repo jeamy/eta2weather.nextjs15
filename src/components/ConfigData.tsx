@@ -188,6 +188,16 @@ const ConfigData: React.FC = () => {
                 if (result.success && result.config) {
                     dispatch(storeData(result.config));
                     setIsEditing(null);
+                    // Refresh config shortly after server-side recompute (file watcher debounce)
+                    setTimeout(async () => {
+                        try {
+                            const r = await fetch(API.CONFIG_READ);
+                            const j = await r.json();
+                            if (j?.success && j?.data) {
+                                dispatch(storeData(j.data));
+                            }
+                        } catch { /* ignore */ }
+                    }, 2300);
                 } else {
                     throw new Error('Invalid response format');
                 }
@@ -203,7 +213,7 @@ const ConfigData: React.FC = () => {
                     <span className="font-medium">{label}:</span>
                     {isEditingThis ? (
                         <div className="flex space-x-2">
-                            <div className="input__wrap">
+                            <div className="input__wrap input__wrap--number">
                                 <input
                                     type="number"
                                     value={editValue}
@@ -214,8 +224,33 @@ const ConfigData: React.FC = () => {
                                             handleSaveValue();
                                         }
                                     }}
-                                    className="input w-24 pr-8"
+                                    className="input w-24"
+                                    step={step}
+                                    min={min}
+                                    max={max}
                                 />
+                                <div className="input__spinners">
+                                    <button
+                                        type="button"
+                                        className="input__spinner input__spinner--up"
+                                        onClick={() => {
+                                            const current = parseFloat(editValue) || 0;
+                                            const newValue = Math.min(max, current + step);
+                                            setEditValue(newValue.toString());
+                                        }}
+                                        tabIndex={-1}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="input__spinner input__spinner--down"
+                                        onClick={() => {
+                                            const current = parseFloat(editValue) || 0;
+                                            const newValue = Math.max(min, current - step);
+                                            setEditValue(newValue.toString());
+                                        }}
+                                        tabIndex={-1}
+                                    />
+                                </div>
                                 <span className="input__suffix">{unit}</span>
                             </div>
                             <button
@@ -399,6 +434,16 @@ const ConfigData: React.FC = () => {
                 if (result.success && result.config) {
                     dispatch(storeData(result.config));
                     setIsEditing(null);
+                    // Pull server-recomputed config (diff/t_slider) shortly after file watcher debounce
+                    setTimeout(async () => {
+                        try {
+                            const r = await fetch(API.BACKGROUND_STATUS);
+                            const j = await r.json();
+                            if (j?.success && j?.data?.config) {
+                                dispatch(storeData(j.data.config));
+                            }
+                        } catch { /* ignore */ }
+                    }, 2300);
                 } else {
                     throw new Error('Invalid response format');
                 }
@@ -414,7 +459,7 @@ const ConfigData: React.FC = () => {
                     <span className="font-medium">Manual override:</span>
                     {isEditingThis ? (
                         <div className="flex space-x-2">
-                            <div className="input__wrap">
+                            <div className="input__wrap input__wrap--number">
                                 <input
                                     type="number"
                                     value={editValue}
@@ -425,8 +470,33 @@ const ConfigData: React.FC = () => {
                                             handleSaveValue();
                                         }
                                     }}
-                                    className="input w-24 pr-8"
+                                    className="input w-24"
+                                    step={1}
+                                    min={0}
+                                    max={1440}
                                 />
+                                <div className="input__spinners">
+                                    <button
+                                        type="button"
+                                        className="input__spinner input__spinner--up"
+                                        onClick={() => {
+                                            const current = parseFloat(editValue) || 0;
+                                            const newValue = Math.min(1440, current + 1);
+                                            setEditValue(newValue.toString());
+                                        }}
+                                        tabIndex={-1}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="input__spinner input__spinner--down"
+                                        onClick={() => {
+                                            const current = parseFloat(editValue) || 0;
+                                            const newValue = Math.max(0, current - 1);
+                                            setEditValue(newValue.toString());
+                                        }}
+                                        tabIndex={-1}
+                                    />
+                                </div>
                                 <span className="input__suffix">min</span>
                             </div>
                             <button
@@ -508,51 +578,15 @@ const ConfigData: React.FC = () => {
                         <span className="font-medium">Empfohlene Schieber Position:</span>
                         <span>
                             {(() => {
-                                // Fallback to server-provided T_SLIDER
-                                let recommendedPos = Math.round(parseFloat(sliderValue || '0'));
-                                try {
-                                    // Build a working config that reflects in-progress edits for t_soll/t_delta
-                                    const workingData: Config = { ...config.data };
-                                    if (isEditing === ConfigKeys.T_SOLL) {
-                                        const v = parseFloat(editValue);
-                                        if (!Number.isNaN(v)) workingData[ConfigKeys.T_SOLL] = String(v);
-                                    }
-                                    if (isEditing === ConfigKeys.T_DELTA) {
-                                        const v = parseFloat(editValue);
-                                        if (!Number.isNaN(v)) workingData[ConfigKeys.T_DELTA] = String(v);
-                                    }
-                                    const workingConfig: ConfigState = { ...config, data: workingData };
-
-                                    const { diff } = calculateTemperatureDiff(workingConfig, wifiState);
-                                    if (diff !== null) {
-                                        const etaValues = {
-                                            einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
-                                            schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
-                                            heizentaste: etaState.data[defaultNames2Id[EtaConstants.HEIZENTASTE].id]?.strValue || '0',
-                                            kommentaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
-                                            tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
-                                            tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
-                                        };
-                                        const newSliderPosition = calculateNewSliderPosition(etaValues, diff);
-                                        recommendedPos = Math.round(parseFloat(newSliderPosition));
-                                    }
-                                } catch {
-                                    // Ignore and use fallback
-                                }
-
+                                // Use only server-computed value from config (keine Client-Neuberechnung)
+                                const recommendedPos = Math.round(parseFloat(sliderValue || '0'));
                                 const clamped = Math.max(0, Math.min(100, recommendedPos));
                                 return (
                                     <div className="flex flex-col items-end gap-1 w-40">
                                         <div className="progress">
                                             <div className="progress__bar" style={{ width: `${clamped}%` }} />
                                         </div>
-                                        <span className={`${
-                                            clamped > 0 
-                                                ? 'text-green-600' 
-                                                : clamped < 0 
-                                                    ? 'text-blue-600' 
-                                                    : ''
-                                        }`}>
+                                        <span>
                                             {clamped}
                                             <span className="text-gray-600 ml-1">%</span>
                                         </span>

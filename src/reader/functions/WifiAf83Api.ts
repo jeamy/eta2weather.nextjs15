@@ -59,9 +59,21 @@ export class WifiAf83Api {
       if (!response.ok) {
         throw new Error(`HTTP-Fehler! Status: ${response.status}`);
       }
-      const data = await response.json();
-      // console.log("WifiAf83 data: ", data);
-      return data;
+      
+      // Check if response has content before parsing
+      const text = await response.text();
+      if (!text || text.trim() === '') {
+        throw new Error('Empty response from WiFi API');
+      }
+      
+      try {
+        const data = JSON.parse(text);
+        // console.log("WifiAf83 data: ", data);
+        return data;
+      } catch (parseError) {
+        console.error('JSON parse error. Response text:', text);
+        throw new Error(`Invalid JSON response: ${parseError}`);
+      }
     } catch (error) {
       console.error('Fehler beim Abrufen der All-Daten:', error);
       throw error;
@@ -74,7 +86,19 @@ export class WifiAf83Api {
       if (!response.ok) {
         throw new Error(`HTTP-Fehler! Status: ${response.status}`);
       }
-      return await response.json();
+      
+      // Check if response has content before parsing
+      const text = await response.text();
+      if (!text || text.trim() === '') {
+        throw new Error('Empty response from WiFi API');
+      }
+      
+      try {
+        return JSON.parse(text);
+      } catch (parseError) {
+        console.error('JSON parse error. Response text:', text);
+        throw new Error(`Invalid JSON response: ${parseError}`);
+      }
     } catch (error) {
       console.error('Fehler beim Abrufen der Echtzeit-Daten:', error);
       throw error;

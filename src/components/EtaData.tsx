@@ -538,13 +538,8 @@ const EtaData: React.FC = () => {
     );
   }
 
-  if (!etaState.data || Object.keys(etaState.data).length === 0) {
-    return (
-      <div className="alert alert--warning">
-        <p>No data available</p>
-      </div>
-    );
-  }
+  // Do not hard-fail when ETA store is briefly empty (e.g., during background refresh).
+  // Keep rendering with last known displayData or show skeleton if still loading.
 
   if (!displayData) {
     return (
@@ -640,17 +635,21 @@ const EtaData: React.FC = () => {
           </select>
         </div>
       </div>
-      {etaState.data ? (
+      {(etaState.data && Object.keys(etaState.data).length > 0) || displayData ? (
         <div className="space-y-3 text-sm sm:text-base">
           <div className="grid grid-cols-1 gap-2">
-            {Object.entries(etaState.data)
+            {Object.entries(etaState.data || {})
               .filter(([_, value]) => {
-                // Filter out button entries and empty values
+                // Filter out button entries only; allow entries even if strValue is empty
                 if (Object.values(EtaButtons).includes(value.short as EtaButtons)) {
                   return false;
                 }
-                if (!value.strValue || value.strValue.trim() === '') return false;
-                return true;
+                const hasText = !!(value.strValue && value.strValue.trim() !== '');
+                const hasNumeric = (() => {
+                  const raw: any = (value as any).value;
+                  return raw !== undefined && raw !== null && String(raw).trim() !== '';
+                })();
+                return hasText || hasNumeric;
               })
               .sort(([_, a], [__, b]) => {
                 const order: Record<string, number> = {
@@ -663,20 +662,34 @@ const EtaData: React.FC = () => {
                 const bOrder = bShort in order ? order[bShort] : 99;
                 return aOrder - bOrder;
               })
-              .map(([key, value]) => (
-                <div key={key} className="flex flex-col">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{value.long}:</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="badge badge--neutral">
-                        {value.strValue}{value.unit && <span>&nbsp;{value.unit}</span>}
-                      </span>
+              .map(([key, value]) => {
+                const text = (value.strValue && value.strValue.trim() !== '')
+                  ? value.strValue
+                  : (() => {
+                      const raw: any = (value as any).value;
+                      return raw !== undefined && raw !== null ? String(raw) : '--';
+                    })();
+                return (
+                  <div key={key} className="flex flex-col">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{value.long}:</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="badge badge--neutral">
+                          {text}{value.unit && <span>&nbsp;{value.unit}</span>}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+            {/* If etaState.data is empty but we have displayData, show a message */}
+            {(!etaState.data || Object.keys(etaState.data).length === 0) && displayData && (
+              <div className="text-center text-gray-500 py-4">
+                <p>Daten werden aktualisiert...</p>
+              </div>
+            )}
             {/* Render switches separately */}
             {Object.values(EtaButtons).map(key => {
               const value = displayData[key] || { short: key, long: '', strValue: '', unit: '' };

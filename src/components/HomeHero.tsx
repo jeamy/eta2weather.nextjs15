@@ -94,7 +94,7 @@ export default function HomeHero() {
 
   const outdoorDiffSigned = useMemo(() => {
     if (etaOutdoor == null || wifiOutdoor == null) return null;
-    return wifiOutdoor - etaOutdoor; // + => WiFi wärmer als ETA, - => WiFi kälter
+    return etaOutdoor - wifiOutdoor; // - => WiFi wärmer als ETA, + => WiFi kälter
   }, [etaOutdoor, wifiOutdoor]);
 
   return (
@@ -127,7 +127,7 @@ export default function HomeHero() {
             <div className="stat__label">Diff Indoor/Soll</div>
             <div className="stat__value">
               {diffIndoorSoll !== null ? (
-                <span className={`badge ${diffIndoorSoll > 0 ? 'badge--primary' : diffIndoorSoll < 0 ? 'badge--ok' : 'badge--neutral'}`}>
+                <span className={`badge ${diffIndoorSoll > 0 ? 'badge--ok' : diffIndoorSoll < 0 ? 'badge--primary' : 'badge--neutral'}`}>
                   {diffIndoorSoll.toFixed(1)}°C
                 </span>
               ) : "-"}
