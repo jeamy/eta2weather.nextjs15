@@ -559,9 +559,9 @@ const EtaData: React.FC = () => {
           <Image
             src="/eta-logo.png"
             alt="ETA"
-            width={150}
-            height={150}
-            style={{ width: 'auto', height: '150px', objectFit: 'contain' }}
+            width={100}
+            height={100}
+            style={{ objectFit: 'contain', width: 'auto', height: 'auto' }}
             priority
           />
         </div>

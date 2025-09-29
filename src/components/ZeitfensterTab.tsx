@@ -329,13 +329,13 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
     if (!window) return;
     
     const zeitfensterNum = window.name.match(/(\d+)/)?.[1] ?? '1';
-    const isSynced = syncedWindows[uri];
+    const isSynced = syncedWindows[uri] || false;
     
     if (isSynced) {
       // Update all synced windows of the same Zeitfenster number
       const relatedWindows = tagFenster.flatMap(d => d.windows).filter(w => {
         const num = w.name.match(/(\d+)/)?.[1] ?? '1';
-        return num === zeitfensterNum && syncedWindows[w.uri];
+        return num === zeitfensterNum && (syncedWindows[w.uri] || false);
       });
       
       setEdited(prev => {
@@ -371,7 +371,7 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
     // Find all synced windows of the same Zeitfenster number
     const syncedRelatedWindows = tagFenster.flatMap(d => d.windows).filter(w => {
       const num = w.name.match(/(\d+)/)?.[1] ?? '1';
-      return num === zeitfensterNum && syncedWindows[w.uri];
+      return num === zeitfensterNum && (syncedWindows[w.uri] || false);
     });
     
     const urisToSave = syncedRelatedWindows.map(w => w.uri).filter(uri => {
@@ -424,6 +424,22 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
     }
   }, [tagFenster, syncedWindows, values, edited, fetchValues, showToast]);
 
+  const handleTimelineChange = useCallback((uri: string, start: string, end: string) => {
+    // Use handleTimeChange to ensure sync functionality works
+    const currentData = values[uri];
+    const currentInitial = parseRange(currentData?.strValue || currentData?.value);
+    const currentStart = edited[uri]?.start ?? currentInitial.start;
+    const currentEnd = edited[uri]?.end ?? currentInitial.end;
+    
+    // Determine which field changed and call handleTimeChange accordingly
+    if (start !== currentStart) {
+      handleTimeChange(uri, 'start', start);
+    }
+    if (end !== currentEnd) {
+      handleTimeChange(uri, 'end', end);
+    }
+  }, [values, edited, handleTimeChange]);
+
   if (!heizzeiten) {
     return (
       <div className="card">
@@ -445,9 +461,7 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                 windows={windows}
                 values={values}
                 edited={edited}
-                onChange={(uri, start, end) => {
-                  setEdited(prev => ({ ...prev, [uri]: { start, end } }));
-                }}
+                onChange={handleTimelineChange}
               />
             </div>
             <div className="divide-y">
@@ -460,13 +474,13 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                 const currentStart = edited[uri]?.start ?? initial.start;
                 const currentEnd = edited[uri]?.end ?? initial.end;
                 const isDirty = currentStart !== initial.start || currentEnd !== initial.end;
-                const isSynced = syncedWindows[uri];
+                const isSynced = syncedWindows[uri] || false;
                 
                 // Check if any synced related window has changes
                 const hasSyncedRelatedChanges = isSynced && tagFenster.some(({ windows: dayWindows }) => 
                   dayWindows.some(relatedW => {
                     const relatedNum = relatedW.name.match(/(\d+)/)?.[1] ?? '';
-                    if (relatedNum !== num || !syncedWindows[relatedW.uri]) return false;
+                    if (relatedNum !== num || !(syncedWindows[relatedW.uri] || false)) return false;
                     const relatedData = values[relatedW.uri];
                     const relatedInitial = parseRange(relatedData?.strValue || relatedData?.value);
                     const relatedCurrentStart = edited[relatedW.uri]?.start ?? relatedInitial.start;
@@ -478,34 +492,36 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                 // Count how many windows of this type are synced
                 const syncedCount = tagFenster.flatMap(d => d.windows).filter(w => {
                   const relatedNum = w.name.match(/(\d+)/)?.[1] ?? '';
-                  return relatedNum === num && syncedWindows[w.uri];
+                  return relatedNum === num && (syncedWindows[w.uri] || false);
                 }).length;
 
                 return (
-                  <div key={uri} className="px-3 py-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                    <div className="flex items-center">
+                  <div key={uri} className="px-3 py-3 flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
                       <span className="inline-flex items-center justify-center w-8 h-8 sm:w-7 sm:h-7 rounded-full bg-green-600 text-white text-base sm:text-sm font-semibold">{num}</span>
+                      <div className="flex items-center gap-2 flex-1">
+                        <input
+                          type="time"
+                          step={900}
+                          value={currentStart}
+                          onChange={(e) => handleTimeChange(uri, 'start', e.target.value)}
+                          className="input min-h-[44px] text-base sm:text-sm flex-1 sm:w-28"
+                        />
+                        <span className="text-gray-500">-</span>
+                        <input
+                          type="time"
+                          step={900}
+                          value={currentEnd}
+                          onChange={(e) => handleTimeChange(uri, 'end', e.target.value)}
+                          className="input min-h-[44px] text-base sm:text-sm flex-1 sm:w-28"
+                        />
+                      </div>
                     </div>
-                    <div className="flex items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto" key={remountKey}>
-                      <input
-                        type="time"
-                        step={900}
-                        value={currentStart}
-                        onChange={(e) => handleTimeChange(uri, 'start', e.target.value)}
-                        className="input min-h-[44px] text-base sm:text-sm w-full sm:w-28"
-                      />
-                      <span className="text-gray-500 hidden sm:inline">-</span>
-                      <input
-                        type="time"
-                        step={900}
-                        value={currentEnd}
-                        onChange={(e) => handleTimeChange(uri, 'end', e.target.value)}
-                        className="input min-h-[44px] text-base sm:text-sm w-full sm:w-28"
-                      />
+                    <div className="flex items-center justify-between gap-3" key={remountKey}>
                       <label className="flex items-center gap-1 cursor-pointer whitespace-nowrap">
                         <input
                           type="checkbox"
-                          checked={isSynced}
+                          checked={isSynced || false}
                           onChange={(e) => {
                             setSyncedWindows(prev => ({
                               ...prev,
@@ -516,36 +532,38 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                         />
                         <span className="text-xs text-gray-600">Sync</span>
                       </label>
-                      {isSynced && hasSyncedRelatedChanges && syncedCount > 1 ? (
-                        <button
-                          className={`btn btn--secondary min-w-[44px] min-h-[44px] disabled:opacity-50`}
-                          aria-label="Alle speichern"
-                          title={`${syncedCount} synchronisierte Zeitfenster speichern`}
-                          disabled={!!Object.keys(saving).some(k => saving[k])}
-                          onClick={() => handleSaveAll(num)}
-                        >
-                          ✓✓
-                        </button>
-                      ) : (
-                        <button
-                          className={`btn btn--primary min-w-[44px] min-h-[44px] disabled:opacity-50`}
-                          aria-label="Speichern"
-                          title="Speichern"
-                          disabled={!isDirty || !!saving[uri]}
-                          onClick={async () => {
-                            const start = currentStart;
-                            const end = currentEnd;
-                            await handleSave(uri, data, start, end);
-                            // Clear edited state after successful save
-                            setEdited(prev => {
-                              const { [uri]: _removed, ...rest } = prev;
-                              return rest;
-                            });
-                          }}
-                        >
-                          ✓
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {isSynced && hasSyncedRelatedChanges && syncedCount > 1 ? (
+                          <button
+                            className={`btn btn--secondary min-w-[44px] min-h-[44px] disabled:opacity-50`}
+                            aria-label="Alle speichern"
+                            title={`${syncedCount} synchronisierte Zeitfenster speichern`}
+                            disabled={!!Object.keys(saving).some(k => saving[k])}
+                            onClick={() => handleSaveAll(num)}
+                          >
+                            ✓✓
+                          </button>
+                        ) : (
+                          <button
+                            className={`btn btn--primary min-w-[44px] min-h-[44px] disabled:opacity-50`}
+                            aria-label="Speichern"
+                            title="Speichern"
+                            disabled={!isDirty || !!saving[uri]}
+                            onClick={async () => {
+                              const start = currentStart;
+                              const end = currentEnd;
+                              await handleSave(uri, data, start, end);
+                              // Clear edited state after successful save
+                              setEdited(prev => {
+                                const { [uri]: _removed, ...rest } = prev;
+                                return rest;
+                              });
+                            }}
+                          >
+                            ✓
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

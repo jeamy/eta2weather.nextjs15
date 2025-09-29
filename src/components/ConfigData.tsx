@@ -435,9 +435,9 @@ const ConfigData: React.FC = () => {
             <div className="flex flex-col space-y-1">
                 <div className="flex justify-between items-center">
                     <div className="flex flex-col">
-                        <span className="font-medium">Delta Override:</span>
+                        <span className="font-medium">Delta Override:</span>    
                         <span className="text-xs text-gray-500">
-                            {isEnabled ? 'Manuelle Deltatemperatur' : 'Automatische Berechnung basierend auf ETA/WiFi Differenz'}
+                            {isEnabled ? 'Manuelle Deltatemperatur' : 'Automatische Berechnung'}
                         </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -607,9 +607,9 @@ const ConfigData: React.FC = () => {
                     <Image
                         src="/config-logo.jpg"
                         alt="Configuration"
-                        width={150}
-                        height={150}
-                        style={{ objectFit: 'contain' }}
+                        width={125}
+                        height={125}
+                        style={{ objectFit: 'contain', width: 'auto', height: 'auto' }}
                         priority
                     />
                 </div>

@@ -112,36 +112,14 @@ export default function HomeHero() {
 
   const deltaOverrideEnabled = useMemo(() => {
     const enabled = config?.[ConfigKeys.DELTA_OVERRIDE] === 'true';
-    console.log('Delta override status:', { 
-      enabled, 
-      rawValue: config?.[ConfigKeys.DELTA_OVERRIDE],
-      configKeys: ConfigKeys.DELTA_OVERRIDE 
-    });
     return enabled;
   }, [config]);
 
   // Auto-update delta temperature based on outdoor diff
   useEffect(() => {
-    console.log('Delta auto-update useEffect triggered:', {
-      deltaOverrideEnabled,
-      outdoorDiffSigned,
-      etaOutdoor,
-      wifiOutdoor,
-      currentDelta: config?.[ConfigKeys.T_DELTA]
-    });
-    
+   
     // CRITICAL: Only update if BOTH ETA and WiFi outdoor values are available
     if (deltaOverrideEnabled || outdoorDiffSigned == null || etaOutdoor == null || wifiOutdoor == null) {
-      console.log('Delta auto-update skipped:', { 
-        deltaOverrideEnabled, 
-        outdoorDiffSigned, 
-        etaOutdoor, 
-        wifiOutdoor,
-        reason: deltaOverrideEnabled ? 'override enabled' : 
-                outdoorDiffSigned == null ? 'no diff calculated' :
-                etaOutdoor == null ? 'ETA outdoor missing' :
-                wifiOutdoor == null ? 'WiFi outdoor missing' : 'unknown'
-      });
       return;
     }
     
@@ -150,7 +128,6 @@ export default function HomeHero() {
     
     // Throttle updates to every 30 seconds
     if (timeSinceLastUpdate < 30000) {
-      console.log('Delta auto-update throttled:', { timeSinceLastUpdate, threshold: 30000 });
       return;
     }
     
@@ -160,29 +137,16 @@ export default function HomeHero() {
     
     // Additional safety check: ensure values are realistic (between -50°C and +50°C)
     if (Math.abs(etaOutdoor) > 50 || Math.abs(wifiOutdoor) > 50) {
-      console.log('Delta auto-update skipped - unrealistic temperature values:', { etaOutdoor, wifiOutdoor });
       return;
     }
     
     // Additional safety check3: ensure delta change is not too extreme (max ±5°C)
     if (Math.abs(newDelta) > 3) {
-      console.log('Delta auto-update skipped - extreme delta value:', { newDelta, etaOutdoor, wifiOutdoor });
       return;
     }
     
-    console.log('Delta auto-update check:', {
-      currentDelta,
-      newDelta,
-      deltaChange,
-      threshold: 0.1,
-      outdoorDiffSigned,
-      etaOutdoor,
-      wifiOutdoor
-    });
-    
     // Only update if difference is significant (>= 0.1°C) - reduced threshold
     if (deltaChange >= 0.1) {
-      console.log('Updating delta temperature:', { from: currentDelta, to: newDelta });
       lastDiffUpdateRef.current = now;
       
       // Update config via API
@@ -208,8 +172,6 @@ export default function HomeHero() {
       .catch(error => {
         console.error('Error updating delta temperature:', error);
       });
-    } else {
-      console.log('Delta change too small, skipping update');
     }
   }, [outdoorDiffSigned, deltaOverrideEnabled, config, dispatch, etaOutdoor, wifiOutdoor]);
 
