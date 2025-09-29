@@ -535,7 +535,7 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                       <div className="flex items-center gap-2">
                         {isSynced && hasSyncedRelatedChanges && syncedCount > 1 ? (
                           <button
-                            className={`btn btn--secondary min-w-[44px] min-h-[44px] disabled:opacity-50`}
+                            className={`btn btn--success min-w-[44px] min-h-[44px] disabled:opacity-50`}
                             aria-label="Alle speichern"
                             title={`${syncedCount} synchronisierte Zeitfenster speichern`}
                             disabled={!!Object.keys(saving).some(k => saving[k])}
