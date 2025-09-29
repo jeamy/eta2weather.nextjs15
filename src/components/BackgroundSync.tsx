@@ -17,10 +17,17 @@ const BackgroundSync: React.FC = () => {
   const lastConfigRef = useRef(config.data);
   const isFirstMount = useRef(true);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchBackgroundData = useCallback(async () => {
     try {
-      const response = await fetch(API.BACKGROUND_STATUS);
+      // Abort any in-flight request before starting a new one
+      if (abortRef.current) {
+        abortRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortRef.current = controller;
+      const response = await fetch(API.BACKGROUND_STATUS, { signal: controller.signal });
       const result = await response.json();
       
       if (result.success) {
@@ -30,12 +37,26 @@ const BackgroundSync: React.FC = () => {
           lastConfigRef.current = result.data.config;
         }
         
-        // Always update other data
-        dispatch(storeEtaData(result.data.eta));
-        dispatch(storeWifiAf83Data(result.data.wifiAf83));
-        dispatch(storeNames2IdData(result.data.names2Id));
+        // Always update other data - but only if we actually have data
+        if (result.data.eta && Object.keys(result.data.eta).length > 0) {
+          dispatch(storeEtaData(result.data.eta));
+        }
+        if (result.data.wifiAf83) {
+          // Ensure WiFi data has valid structure before dispatching
+          const wifiData = result.data.wifiAf83;
+          if (wifiData.time && (wifiData.temperature !== undefined || wifiData.indoorTemperature !== undefined)) {
+            dispatch(storeWifiAf83Data(wifiData));
+          } else {
+            console.warn('Received invalid WiFi data structure, skipping update:', wifiData);
+          }
+        }
+        if (result.data.names2Id) {
+          dispatch(storeNames2IdData(result.data.names2Id));
+        }
       }
     } catch (error) {
+      // Ignore aborted fetches
+      if ((error as any)?.name === 'AbortError') return;
       console.error('Error fetching background data:', error);
     }
   }, [dispatch, lastConfigRef]);
@@ -63,6 +84,11 @@ const BackgroundSync: React.FC = () => {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
+        // Abort any in-flight request on unmount
+        if (abortRef.current) {
+          abortRef.current.abort();
+          abortRef.current = null;
+        }
       };
     }
   }, [config.data, fetchBackgroundData]); // Empty dependency array since we only want this to run once on mount
@@ -76,9 +102,43 @@ const BackgroundSync: React.FC = () => {
       );
 
       clearInterval(intervalRef.current);
+      // Abort any in-flight request when resetting
+      if (abortRef.current) {
+        abortRef.current.abort();
+        abortRef.current = null;
+      }
       intervalRef.current = setInterval(fetchBackgroundData, updateTimer);
+      // Trigger an immediate fetch after resetting to avoid waiting a full interval
+      fetchBackgroundData();
     }
   }, [fetchBackgroundData, dispatch, config.data]);
+
+  // Refresh immediately when tab becomes visible, window gains focus, or connection returns
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Tab became visible, refreshing data...');
+        fetchBackgroundData();
+      }
+    };
+    const onFocus = () => {
+      console.log('Window gained focus, refreshing data...');
+      fetchBackgroundData();
+    };
+    const onOnline = () => {
+      console.log('Connection restored, refreshing data...');
+      fetchBackgroundData();
+    };
+
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [fetchBackgroundData]);
 
   return null; // This component doesn't render anything
 };

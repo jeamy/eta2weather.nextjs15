@@ -3,7 +3,7 @@ import { getServerStore } from '@/lib/backgroundService';
 import { WifiAf83Api } from '@/reader/functions/WifiAf83Api';
 import { getWifiAf83Data } from '@/utils/cache';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     // Get data from store first
     const store = getServerStore();
@@ -20,7 +20,7 @@ export async function GET() {
 
     // If no data in store, fetch it directly
     const wifiApi = new WifiAf83Api();
-    const allData = await getWifiAf83Data(() => wifiApi.getAllRealtime());
+    const allData = await getWifiAf83Data((s) => wifiApi.getAllRealtime(s), request.signal);
 
     // Validate that we have the required data
     if (!allData.outdoor?.temperature?.value || !allData.indoor?.temperature?.value) {

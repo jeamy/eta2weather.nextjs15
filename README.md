@@ -7,60 +7,87 @@ Connects the temperature sensors of an Ecowitt weather station with an ETA heati
 
 This project was developed using Windsurf, an advanced AI-powered development environment. The entire codebase was programmed through pair programming with Claude 3.5 Sonnet, making it a showcase of modern AI-assisted development.
 
-> Optimized with GPT‑5, August 2025
+> Major UI/UX redesign completed September 2025 - Enhanced with unified tab interface, improved mobile experience, and intelligent background synchronization
 
-Visit Windsurf at https://codeium.com/windsurf
+> Optimized with GPT‑5, Claude 4, August 2025
+
+Visit Windsurf at https://windsurf.com
 
 ## Features
 
-- **Real-time System Monitoring**
-  - Live ETA heating system data display
-  - Weather station temperature readings
-  - Background synchronization of data
-  
-- **Advanced Configuration**
-  - Comprehensive system parameter management
-  - Name-to-ID mapping functionality
-  - Configurable update intervals
-  - Temperature Control Features:
-    - **Minimum Temperature Protection (`t_min`)**
-      - Prevents room temperature from falling below specified threshold
-      - Default value: 16°C
-      - Configurable through settings interface
-      - Automatically triggers heating when temperature drops below threshold
-    - **ETA Strategy Control**
-      - Enable/disable automatic temperature control via `f_eta` setting
-      - Dynamic temperature adjustment based on:
-        - Target temperature (`t_soll`)
-        - Temperature delta (`t_delta`)
-        - Slider position (`t_slider`)
-      - Temperature override duration (`t_override`)
-      - Configurable temperature difference threshold (`temp_diff`)
-    - **Update Intervals**
-      - System update timer (`t_update_timer`, default: 300000ms)
-      - Minimum API interval protection
-      - Automatic data synchronization
-  
-- **User Interface**
-  - Modern, responsive design with Tailwind CSS
-  - Tab-based navigation system
-  - Editable Heating Time Windows (Zeitfenster)
-    - 0–24h Timeline mit Tick-Linien alle 2h, markierten Hauptticks (0/6/12/18/24)
-    - Draggable Segmente mit 15-Minuten-Snapping
-    - Überlappungen verhindert durch Clamping an Nachbarfenstern
-    - Tooltip-Bubble mit exakter Zeitspanne (Hover, Fokus, Tap‑Toggle)
-    - Touch-Unterstützung (Pointer Events) inkl. `touch-action: none`
-    - Sichtbare Griffe an Segment-Enden für besseres Zielen
-    - Visuelle Kollision: roter Ring + kurzes Shake beim Limit
-    - Gesteuerte Eingaben (controlled inputs) synchron zur Timeline
-    - API-Integration über `API.ETA_UPDATE`
-  - Interactive header with menu navigation
-  - Detailed logging interface
-  
-- **Data Management**
-  - Redux-based state management
-  - Efficient background data synchronization
-  - Type-safe data handling with TypeScript
+- **Modern Responsive UI Design**
+  - **Unified Tab Layout**: Single-page application with seamless tab navigation
+  - **Hero Dashboard**: Centralized overview showing key metrics at a glance
+    - Current indoor/outdoor temperatures with live updates
+    - Temperature difference calculations with color coding (green/blue)
+    - ETA system status and slider position
+    - Weather station connectivity status
+  - **Mobile-First Design**: Optimized for touch devices with responsive breakpoints
+  - **Custom Component System**: Consistent design language with badges, buttons, and cards
+  - **Real-time Updates**: Live data synchronization without page refreshes
+
+- **Advanced Temperature Control System**
+  - **Intelligent Background Service**: Server-side temperature management
+    - Automatic slider position calculation based on indoor/outdoor differential
+    - Real-time ETA device communication and status monitoring
+    - Persistent configuration with file-based storage
+    - Robust error handling and retry mechanisms
+  - **Smart Configuration Interface**:
+    - **Enhanced Number Inputs**: Large, clickable spinner buttons for easy mobile use
+    - **Live Value Updates**: Configuration changes reflect immediately in UI
+    - **Validation & Limits**: Input constraints with visual feedback
+    - **Auto-sync**: Backend recalculates values instantly after config changes
+    - **Delta Override Toggle**: Switch between automatic and manual delta control
+      - Auto: delta is calculated from ETA vs WiFi outdoor temperature difference
+      - Manual: uses the user-entered `t_delta` value exclusively
+  - **Temperature Control Features**:
+    - **Target Temperature (`t_soll`)**: Main setpoint with 0.5°C precision
+    - **Delta Temperature (`t_delta`)**: Fine-tuning offset for comfort zones
+    - **Minimum Protection (`t_min`)**: Prevents room temperature drops below threshold
+    - **Slider Position (`t_slider`)**: Automated ETA valve control (0-100%)
+    - **Override Duration (`t_override`)**: Manual control timeout in minutes
+    - **Update Intervals**: Configurable polling rates with minimum API protection
+    - **Automatic Delta Management**: When override is disabled, `t_delta` is updated automatically from the signed ETA/WiFi outdoor difference with throttling and significance thresholds
+
+- **Interactive Heating Schedule Management**
+  - **Visual Timeline Interface**: 0–24h timeline with clear hour markers
+  - **Drag & Drop Time Windows**: Intuitive segment editing with 15-minute snapping
+  - **Multi-Day Synchronization**: 
+    - Individual sync checkboxes per day and time window
+    - Selective day synchronization (e.g., exclude weekends)
+    - Automatic time propagation across synced days
+    - Smart bulk save for synchronized time windows
+  - **Touch-Optimized Controls**: 
+    - Visible handles for precise segment adjustment
+    - Collision prevention with visual feedback
+    - Tooltip bubbles showing exact time ranges
+    - Mobile gesture support with scroll prevention
+  - **Real-time API Integration**: Direct ETA system updates via `API.ETA_UPDATE`
+
+- **Comprehensive System Monitoring**
+  - **ETA Heating System Interface**:
+    - Live system data display (temperatures, pressures, status indicators)
+    - Interactive control buttons with state management
+    - Manual override system with countdown timers
+    - Automatic mode switching based on temperature thresholds
+  - **Weather Station Integration**:
+    - Real-time indoor/outdoor temperature monitoring
+    - Humidity and pressure readings
+    - Multi-channel sensor support with custom naming
+    - Historical data visualization
+  - **Background Data Synchronization**:
+    - Automatic polling with configurable intervals
+    - Smart refresh on browser focus/visibility changes
+    - Conflict-free updates with abort controller pattern
+    - Persistent state management across sessions
+
+- **Enhanced User Experience**
+  - **Stable UI Rendering**: No flickering during data updates or browser minimize/maximize
+  - **Improved Input Controls**: Custom spinner buttons replace tiny browser arrows
+  - **Color-Coded Status Indicators**: Intuitive green/blue/red system for quick status recognition
+  - **Toast Notifications**: Success/error feedback for user actions
+  - **Responsive Navigation**: Collapsible menu system for mobile devices
+  - **Loading States**: Skeleton screens and progress indicators
 
 - **Interactive Charts**
   - Real-time visualization of temperature and humidity data
@@ -97,14 +124,33 @@ Visit Windsurf at https://codeium.com/windsurf
 ## Pages and Features
 
 ### Main Dashboard (/)
-The main dashboard provides a comprehensive overview of your heating and weather system:
-- Current indoor and outdoor temperatures
-- System status indicators
-- Quick access to essential controls
-- Tab-based navigation between different views:
-  - Temperature Control: Manage heating settings and view current status
-  - Weather Data: Display current weather station readings
-  - System Status: Monitor overall system health
+The redesigned main dashboard features a modern, unified tab interface:
+
+**Hero Section**
+- **Live Temperature Display**: Real-time indoor/outdoor temperatures with automatic updates
+- **Smart Status Indicators**: Color-coded badges showing system health at a glance
+- **Temperature Differential**: ETA vs WiFi outdoor temperature comparison with visual indicators
+- **Slider Position**: Current ETA valve position with recommended settings
+
+**Integrated Tab Navigation**
+- **Configuration**: Enhanced temperature control with improved number inputs
+  - Large, clickable spinner buttons for mobile-friendly operation
+  - Live value synchronization between frontend and backend
+  - Instant feedback for configuration changes
+  - Delta Override toggle (Auto/Manuell) controlling automatic delta calculation
+- **ETA Data**: Complete system monitoring with stable rendering
+  - All ETA parameters displayed without flickering during updates
+  - Interactive control buttons with manual override capabilities
+  - Real-time status updates with persistent display during browser state changes
+- **Zeitfenster (Time Windows)**: Advanced scheduling interface
+  - Visual 24-hour timeline with drag-and-drop time segments
+  - Multi-day synchronization with selective day control
+  - Bulk editing capabilities for efficient schedule management
+- **WiFi Data**: Weather station monitoring with enhanced reliability
+  - Stable data display during browser minimize/maximize operations
+  - Multi-channel temperature and humidity readings
+  - Historical data access and visualization
+  - Live Diff Indoor/Soll calculation: `(t_soll + t_delta) - indoorTemperature`
 
 ### Weather Graphs (/weather)
 Detailed weather visualization and analysis:
@@ -155,55 +201,124 @@ Comprehensive logging system for monitoring and debugging:
 ```
 eta2weather.nextjs15/
 ├── src/
-│   ├── app/                    # Next.js app pages and API routes
-│   │   ├── api/               # API endpoints
-│   │   │   ├── background/    # Background service endpoints
-│   │   │   ├── config/       # Configuration endpoints
-│   │   │   ├── eta/         # ETA system endpoints
-│   │   │   ├── logs/        # Logging endpoints
-│   │   │   ├── weather/     # Weather data endpoints
-│   │   │   └── wifiaf83/    # WiFi sensor endpoints
+│   ├── app/                    # Next.js 15 App Router
+│   │   ├── api/               # API Routes (Server-side endpoints)
+│   │   │   ├── background/    # Background service status & control
+│   │   │   │   └── status/    # Real-time system status endpoint
+│   │   │   ├── config/        # Configuration management
+│   │   │   │   ├── read/      # Read current config
+│   │   │   │   └── route.ts   # Update config values
+│   │   │   ├── eta/          # ETA heating system integration
+│   │   │   │   ├── menu/      # ETA menu structure
+│   │   │   │   ├── raw/       # Raw ETA XML data
+│   │   │   │   ├── read/      # Processed ETA data
+│   │   │   │   ├── readBatchMenuData/ # Batch menu data
+│   │   │   │   ├── readMenuData/ # Single menu item
+│   │   │   │   └── update/    # ETA parameter updates
+│   │   │   ├── logs/         # System logging endpoints
+│   │   │   ├── names2id/     # Name-to-ID mapping management
+│   │   │   ├── weather/      # Historical weather data
+│   │   │   └── wifiaf83/     # WiFi weather station
+│   │   │       ├── all/      # All sensor data
+│   │   │       └── read/     # Current readings
 │   │   ├── fonts/           # Custom fonts (Geist, GeistMono)
-│   │   ├── logs/            # Logs page component
-│   │   ├── raw-eta/         # Raw ETA data page
-│   │   ├── weather/         # Weather graphs page
-│   │   ├── globals.css      # Global styles
-│   │   ├── layout.tsx       # Root layout component
-│   │   └── page.tsx         # Main dashboard page
-│   ├── components/          # React components
-│   │   ├── BackgroundSync   # Background data synchronization
-│   │   ├── ConfigData       # Configuration management
-│   │   ├── EtaData         # ETA system interface
-│   │   ├── Header          # App navigation header
-│   │   ├── MenuPopup       # Navigation menu
-│   │   ├── Names2IdData    # Name mapping interface
-│   │   └── WifiAf83Data    # Weather station interface
-│   ├── config/             # Configuration files
-│   │   ├── f_eta.json      # ETA system config
-│   │   ├── f_etacfg.json   # General config
-│   │   ├── f_etamenu.json  # ETA menu structure
-│   │   ├── f_names2id.json # Name to ID mappings
-│   │   └── f_wifiaf89.json # WiFi sensor config
-│   ├── hooks/              # Custom React hooks
-│   │   └── useEtaData      # ETA data management hook
-│   ├── lib/                # Core libraries
-│   │   └── backgroundService # Background processing service
-│   ├── reader/             # Data processing & API
-│   │   └── functions/      # Core functionality
-│   │       ├── EtaApi      # ETA system API client
-│   │       ├── SetEta      # ETA control functions
-│   │       ├── WifiAf83Api # Weather station API
-│   │       └── types-constants/ # Type definitions
-│   └── redux/              # State management
-│       ├── configSlice     # Configuration state
-│       ├── dataSlice      # Data management
-│       ├── etaSlice       # ETA system state
-│       └── wifiAf83Slice  # Weather data state
-├── public/                # Static files
-│   └── screen/           # Screenshot images
-├── linux/                # Linux service files
-├── windows/              # Windows service files
-└── macos/                # macOS service files
+│   │   ├── logs/            # System logs viewer page
+│   │   ├── raw-eta/         # Raw ETA data explorer
+│   │   ├── weather/         # Weather visualization graphs
+│   │   ├── favicon.ico      # App icon
+│   │   ├── globals.css      # Global styles & CSS variables
+│   │   ├── layout.tsx       # Root layout with providers
+│   │   └── page.tsx         # Main dashboard (unified tab interface)
+│   ├── components/          # React UI Components
+│   │   ├── BackgroundSync.tsx   # Real-time data synchronization
+│   │   ├── ConfigData.tsx       # Enhanced configuration interface
+│   │   ├── EtaData.tsx         # ETA system monitoring & control
+│   │   ├── Header.tsx          # Navigation header with menu
+│   │   ├── HomeHero.tsx        # Dashboard hero section
+│   │   ├── MenuPopup.tsx       # Mobile navigation menu
+│   │   ├── Names2IdData.tsx    # Name mapping management
+│   │   ├── ToastProvider.tsx   # Toast notification system
+│   │   ├── WeatherCharts.tsx   # Interactive weather graphs
+│   │   ├── WifiAf83Data.tsx    # Weather station interface
+│   │   └── ZeitfensterTab.tsx  # Advanced time window scheduler
+│   ├── config/             # JSON Configuration Files
+│   │   ├── f_eta.json      # ETA system parameters
+│   │   ├── f_etacfg.json   # Main application config
+│   │   ├── f_etamenu.json  # ETA menu structure cache
+│   │   ├── f_names2id.json # Parameter name mappings
+│   │   └── f_wifiaf89.json # Weather station data cache
+│   ├── constants/          # Application Constants
+│   │   └── apiPaths.ts     # Centralized API endpoint definitions
+│   ├── hooks/              # Custom React Hooks
+│   │   └── useEtaData.ts   # ETA data management hook
+│   ├── lib/                # Core Business Logic
+│   │   └── backgroundService.ts # Intelligent background processing
+│   ├── reader/             # Data Processing & External APIs
+│   │   └── functions/      # Core functionality modules
+│   │       ├── EtaApi.ts       # ETA heating system API client
+│   │       ├── EtaData.ts      # ETA data processing
+│   │       ├── SetEta.ts       # ETA parameter control
+│   │       ├── WifiAf83Api.ts  # Weather station API client
+│   │       ├── readMenuData.ts # ETA menu data parser
+│   │       └── types-constants/ # TypeScript definitions
+│   │           ├── ConfigConstants.ts  # Configuration types
+│   │           ├── EtaConstants.ts     # ETA system types
+│   │           ├── Names2IDconstants.ts # Name mapping types
+│   │           ├── TimerConstants.ts   # Timing constants
+│   │           └── WifiAf83.ts        # Weather station types
+│   ├── redux/              # Global State Management
+│   │   ├── configSlice.ts      # Configuration state
+│   │   ├── etaSlice.ts        # ETA system state
+│   │   ├── index.ts           # Store configuration
+│   │   ├── names2IdSlice.ts   # Name mapping state
+│   │   └── wifiAf83Slice.ts   # Weather data state
+│   ├── styles/             # CSS Styling System
+│   │   ├── components/     # Component-specific styles
+│   │   │   ├── badge.css       # Status badges
+│   │   │   ├── button.css      # Interactive buttons
+│   │   │   ├── card.css        # Content cards
+│   │   │   ├── input.css       # Enhanced form inputs
+│   │   │   ├── progress.css    # Progress indicators
+│   │   │   ├── segmented.css   # Segmented controls
+│   │   │   ├── switch.css      # Toggle switches
+│   │   │   ├── tabs.css        # Tab navigation
+│   │   │   └── toast.css       # Notification toasts
+│   │   └── globals.css     # Base styles & utilities
+│   └── utils/              # Utility Functions
+│       ├── cache.ts        # File-based caching system
+│       └── logging.ts      # Structured logging utilities
+├── public/                 # Static Assets
+│   ├── log/               # Log file storage
+│   ├── screen/            # Application screenshots
+│   │   ├── l1.png, l2.png # Log interface screenshots
+│   │   ├── m1.png, m2.png, m3.png # Main dashboard views
+│   │   ├── r1.png         # Raw data interface
+│   │   └── w1.png, w2.png # Weather graphs
+│   ├── config-logo.jpg    # Configuration tab icon
+│   ├── eta-logo.png       # ETA system logo
+│   └── *.svg             # Various UI icons
+├── docs/                  # Documentation
+│   ├── background-service-analysis.md # Service architecture
+│   └── ui-modernization.md           # UI redesign notes
+├── linux/                 # Linux Deployment
+│   └── docker-compose-app.service   # systemd service file
+├── osx/                   # macOS Deployment
+│   ├── com.etaweather.docker-compose.plist # Launch agent
+│   ├── install.sh         # Installation script
+│   └── uninstall.sh       # Removal script
+├── windows/               # Windows Deployment
+│   ├── install-service.ps1    # Service installation
+│   └── uninstall-service.ps1 # Service removal
+├── .env.example           # Environment configuration template
+├── .env.local            # Local environment settings
+├── docker-compose.yml    # Docker deployment configuration
+├── Dockerfile           # Container build instructions
+├── eco.example.ts       # Weather API configuration template
+├── next.config.mjs      # Next.js configuration
+├── package.json         # Dependencies & scripts
+├── server.ts           # Custom Node.js server
+├── tailwind.config.ts  # Tailwind CSS configuration
+└── tsconfig.json       # TypeScript configuration
 ```
 
 ## Screenshots and Features
@@ -398,41 +513,65 @@ All endpoints implement proper error handling with appropriate HTTP status codes
 
 ## Recent Updates
 
-### Editable Heating Time Windows (August 2025)
+### Major UI/UX Redesign (September 2025)
 
-- 0–24h Timeline pro Wochentag mit klaren Tick-Linien (alle 2h) und beschrifteten Hauptticks
-- Drag & Resize der Zeitfenster mit 15‑Minuten‑Raster, bidirektional synchron mit Zeit‑Eingabefeldern
-- Anti‑Overlap: Clamping verhindert Überschneidungen zwischen Zeitfenstern desselben Tages
-- Verbesserte Tooltips: stilisierte Bubble oberhalb des Segments; auf Touch per Tap explizit toggelbar
-- Mobile optimiert: Pointer Events, Scroll‑Unterdrückung während des Drags
-- Sichtbare End‑Griffe zur besseren Entdeckbarkeit
-- Visuelles Feedback bei Kollision (roter Ring + kurzes Shake)
-- Beibehaltener API‑Flow über `API.ETA_UPDATE` mit 15‑Minuten‑Indizes (0–96)
+- **Unified Tab Interface**: Complete redesign from multi-page to single-page application
+  - Seamless navigation between Configuration, ETA Data, Zeitfenster, and WiFi Data
+  - Persistent hero section showing key metrics across all tabs
+  - Mobile-optimized layout with responsive design patterns
 
-### Enhanced Temperature Control System
+- **Enhanced User Experience**
+  - **Improved Number Inputs**: Replaced tiny browser spinners with large, clickable custom buttons
+  - **Stable Data Display**: Fixed flickering issues during browser minimize/maximize operations
+  - **Live Configuration Sync**: Immediate UI updates when backend recalculates values
+  - **Color-Coded Status System**: Intuitive green/blue/red indicators for quick status recognition
 
-- **Intelligent Mode Switching**
-  - Automatic switching between comfort mode (`KT`) and auto mode (`AA`) based on temperature thresholds
-  - Smart override prevention during manual control
-  - Smooth transition between heating modes
+- **Background Service Optimization**
+  - **Smart Data Synchronization**: Backend as single source of truth with frontend sync
+  - **Robust Error Handling**: Improved WiFi API error handling with empty response detection
+  - **Persistent State Management**: Maintains data integrity during browser state changes
+  - **Automatic Retry Logic**: Intelligent retry mechanisms for failed operations
 
-- **Temperature Monitoring Improvements**
-  - Real-time indoor temperature tracking with 0.1°C precision
-  - Configurable minimum temperature threshold
-  - Automatic temperature difference calculation and logging
-  - State persistence across system restarts
+### Advanced Heating Schedule Management (August-September 2025)
 
-- **System Protection Features**
+- **Visual Timeline Interface**
+  - 0–24h timeline with clear hour markers and tick lines
+  - Drag & drop time segments with 15-minute precision snapping
+  - Collision prevention with visual feedback (red rings and shake animations)
+  - Touch-optimized controls with visible handles for precise adjustment
+
+- **Multi-Day Synchronization System**
+  - **Granular Sync Control**: Individual checkboxes per day and time window
+  - **Flexible Day Selection**: Enable sync for weekdays while keeping weekends independent
+  - **Smart Bulk Operations**: Automatic time propagation across synchronized days
+  - **Enhanced Save Logic**: Single save (✓) for individual changes, bulk save (✓✓) for synchronized operations
+  - **Visual Feedback**: Clear indicators showing which days are synchronized
+
+- **Mobile-First Design**
+  - Pointer events with scroll prevention during drag operations
+  - Tooltip bubbles with tap-to-toggle functionality
+  - Responsive layout adapting to different screen sizes
+  - Touch gesture support with haptic feedback
+
+### Intelligent Temperature Control System
+
+- **Backend-Driven Logic**
+  - Automatic slider position calculation based on indoor/outdoor temperature differential
+  - Real-time ETA device communication with status monitoring
+  - File-based configuration persistence with immediate updates
+  - Configurable minimum temperature protection with automatic heating activation
+
+- **Smart Configuration Management**
+  - Live value validation with input constraints
+  - Instant backend recalculation after configuration changes
+  - Automatic UI refresh showing updated recommendations
+  - Enhanced error handling with user-friendly feedback
+
+- **System Monitoring & Control**
+  - Manual override system with countdown timers
+  - Automatic mode switching based on temperature thresholds
   - Button state validation before mode changes
-  - Graceful error handling for API communication
-  - Automatic recovery from connection issues
-  - Memory usage optimization with periodic cleanup
-
-- **Performance Optimizations**
-  - Batch processing for ETA system data updates
-  - Configurable update intervals with minimum API call protection
-  - Efficient data storage with automatic outdated data cleanup
-  - Reduced server load through smart polling
+  - Graceful recovery from communication issues
 
 ## Docker Usage
 

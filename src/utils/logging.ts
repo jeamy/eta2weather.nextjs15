@@ -97,6 +97,56 @@ export const logData = async (type: LogType, data: any) => {
     return filePath;
 };
 
+/**
+ * Delete log files older than the specified retention period (in days).
+ * Traverses all subdirectories under public/log and removes files older than cutoff.
+ * Returns the number of deleted files.
+ */
+export const pruneOldLogs = async (retentionDays: number = 14): Promise<number> => {
+    const baseDir = path.join(process.cwd(), 'public', 'log');
+    const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+    let deleted = 0;
+
+    const walk = async (dir: string) => {
+        if (!fs.existsSync(dir)) return;
+        const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name);
+            try {
+                if (entry.isDirectory()) {
+                    await walk(fullPath);
+                    // Try to remove empty directories after pruning
+                    try {
+                        const remain = await fs.promises.readdir(fullPath);
+                        if (remain.length === 0) {
+                            await fs.promises.rmdir(fullPath);
+                        }
+                    } catch { /* ignore */ }
+                } else {
+                    const stat = await fs.promises.stat(fullPath);
+                    if (stat.mtimeMs < cutoff) {
+                        await fs.promises.unlink(fullPath);
+                        deleted++;
+                    }
+                }
+            } catch (err) {
+                // Log and continue
+                // eslint-disable-next-line no-console
+                console.warn(`[logging] prune warning for ${fullPath}:`, err);
+            }
+        }
+    };
+
+    try {
+        await walk(baseDir);
+    } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[logging] prune error:', err);
+    }
+
+    return deleted;
+};
+
 export const getLogFiles = async (type: LogType) => {
     const baseDir = path.join(process.cwd(), 'public', 'log', type);
     const files: string[] = [];

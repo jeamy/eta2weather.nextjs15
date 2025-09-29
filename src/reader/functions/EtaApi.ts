@@ -20,7 +20,7 @@ export class EtaApi {
         this.server = server;
     }
 
-    private async fetchApi(endpoint: string, method: 'GET' | 'POST', body?: Record<string, string>): Promise<ApiResponse> {
+    private async fetchApi(endpoint: string, method: 'GET' | 'POST', body?: Record<string, string>, signal?: AbortSignal): Promise<ApiResponse> {
         try {
             // Ensure server doesn't start with http:// or https://
             const serverAddress = this.server.replace(/^https?:\/\//, '');
@@ -42,6 +42,7 @@ export class EtaApi {
                     "Content-Type": "application/x-www-form-urlencoded",
                 },
                 body: body ? new URLSearchParams(body).toString() : undefined,
+                signal,
             };
             
             try {
@@ -79,20 +80,20 @@ export class EtaApi {
         }
     }
 
-    public async getUserVar(id: string): Promise<ApiResponse> {
-        return this.fetchApi(`user/var/${id}`, 'GET');
+    public async getUserVar(id: string, signal?: AbortSignal): Promise<ApiResponse> {
+        return this.fetchApi(`user/var/${id}`, 'GET', undefined, signal);
     }
 
-    public async setUserVar(id: string, value: string, begin: string, end: string): Promise<ApiResponse> {
+    public async setUserVar(id: string, value: string, begin: string, end: string, signal?: AbortSignal): Promise<ApiResponse> {
         console.log(`Setting user var for ID: ${id} with value: ${value}, begin: ${begin}, end: ${end}`);
         return this.fetchApi(`user/var/${id}`, 'POST', {
             value: value,
             begin: begin,
             end: end
-        });
+        }, signal);
     }
 
-    public async getMenu(): Promise<ApiResponse> {
-        return this.fetchApi('user/menu', 'GET');
+    public async getMenu(signal?: AbortSignal): Promise<ApiResponse> {
+        return this.fetchApi('user/menu', 'GET', undefined, signal);
     }
 }

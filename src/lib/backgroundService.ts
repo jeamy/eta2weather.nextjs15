@@ -13,10 +13,13 @@ import { storeData as storeNames2IdData } from '../redux/names2IdSlice';
 import { getAllUris } from '../utils/etaUtils';
 import { MenuNode } from '@/types/menu';
 import { EtaPos, EtaButtons, EtaData } from '@/reader/functions/types-constants/EtaConstants';
-import { logData } from '@/utils/logging';
+import { logData, pruneOldLogs } from '@/utils/logging';
+import { updateConfig } from '@/utils/cache';
 import { getWifiAf83Data } from '@/utils/cache';
 import * as fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
+import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { calculateNewSliderPosition, calculateTemperatureDiff, updateSliderPosition } from '@/utils/Functions';
 import { parseXML } from '@/reader/functions/EtaData';
 
@@ -54,6 +57,15 @@ export class BackgroundService {
     };
   private lastSliderUpdate: string | null = null;
   private lastEtaUpdate: number | null = null;
+  // Cache for parsed ETA menu and URIs to avoid reparsing when content doesn't change
+  private lastMenuHash: string | null = null;
+  private cachedMenuNodes: MenuNode[] | null = null;
+  private cachedUris: string[] | null = null;
+  // Monitoring and housekeeping
+  private eventLoopDelayMonitor: ReturnType<typeof monitorEventLoopDelay> | null = null;
+  private lastLogPrune: number = 0;
+  private readonly LOG_RETENTION_DAYS = parseInt(process.env.LOG_RETENTION_DAYS || '14');
+  private readonly ETA_CALL_DELAY_MS = parseInt(process.env.ETA_CALL_DELAY_MS || '120');
 
   private constructor() { }
 
@@ -66,6 +78,10 @@ export class BackgroundService {
 
   private getTimestamp(): string {
     return `[${new Date().toISOString()}]`;
+  }
+
+  private sleep(ms: number) {
+    return new Promise<void>(resolve => setTimeout(resolve, ms));
   }
 
   private async loadConfig(): Promise<Config> {
@@ -126,20 +142,15 @@ export class BackgroundService {
       const configDir = path.dirname(CONFIG_FILE_PATH);
       this.configWatcher = fs.watch(configDir, (eventType, filename) => {
         if (filename === path.basename(CONFIG_FILE_PATH)) {
-          const now = Date.now();
-          // Only proceed if enough time has passed since last check
-          if (now - this.lastConfigCheck >= this.configCheckInterval) {
-            try {
-              // Read current content and compare with last content
-              const currentContent = fs.readFileSync(CONFIG_FILE_PATH, 'utf-8');
-              if (currentContent !== this.lastConfigContent) {
-                this.lastConfigCheck = now;
-                this.lastConfigContent = currentContent;
-                this.handleConfigChange();
-              }
-            } catch (error) {
-              console.error(`${this.getTimestamp()} Error reading config file:`, error);
+          try {
+            const currentContent = fs.readFileSync(CONFIG_FILE_PATH, 'utf-8');
+            if (currentContent !== this.lastConfigContent) {
+              this.lastConfigCheck = Date.now();
+              this.lastConfigContent = currentContent;
+              this.handleConfigChange();
             }
+          } catch (error) {
+            console.error(`${this.getTimestamp()} Error reading config file:`, error);
           }
         }
       });
@@ -187,6 +198,17 @@ export class BackgroundService {
         if (oldUpdateTimer !== newUpdateTimer && this.isRunning) {
           console.log(`${this.getTimestamp()} Update timer changed, restarting interval...`);
           this.restartUpdateInterval();
+        }
+
+        // Immediately recompute diff/slider with current WiFi data to keep UI in sync after config edits
+        try {
+          const stateNow = store.getState() as RootState;
+          const currentWifi = stateNow.wifiAf83.data as WifiAF83Data;
+          if (currentWifi && (currentWifi as any).time) {
+            await this.updateIndoorTemperatureDiff(currentWifi);
+          }
+        } catch (e) {
+          console.warn(`${this.getTimestamp()} Could not immediately recompute diff after config change:`, e);
         }
       } catch (error) {
         console.error(`${this.getTimestamp()} Error handling config change:`, error);
@@ -241,12 +263,20 @@ export class BackgroundService {
 
       // Get menu data first
       console.log(`${this.getTimestamp()} Fetching ETA menu data...`);
-      const menuResponse = await this.etaApi.getMenu();
+      // Add timeout with AbortController for getMenu
+      const menuController = new AbortController();
+      const menuTimeout = setTimeout(() => menuController.abort(), 8000);
+      let menuResponse: any;
+      try {
+        menuResponse = await this.etaApi.getMenu(menuController.signal);
+      } finally {
+        clearTimeout(menuTimeout);
+      }
       if (menuResponse.error || !menuResponse.result) {
         throw new Error(menuResponse.error || 'No ETA menu data received');
       }
 
-      // Parse menu XML to get menu nodes
+      // Parse menu XML to get menu nodes (with content-hash caching)
       const menuNodes: MenuNode[] = [];
       const parseMenuXML = (xmlString: string) => {
         const getAttributeValue = (line: string, attr: string): string => {
@@ -299,9 +329,20 @@ export class BackgroundService {
         });
       };
 
-      parseMenuXML(menuResponse.result);
+      const menuXml = menuResponse.result as string;
+      const currentHash = crypto.createHash('sha1').update(menuXml).digest('hex');
+      let menuNodesLocal: MenuNode[];
+      if (this.lastMenuHash && this.cachedMenuNodes && this.lastMenuHash === currentHash) {
+        console.log(`${this.getTimestamp()} Menu XML unchanged (hash=${currentHash}), reusing cached parse`);
+        menuNodesLocal = this.cachedMenuNodes;
+      } else {
+        parseMenuXML(menuXml);
+        menuNodesLocal = menuNodes;
+        this.cachedMenuNodes = menuNodesLocal;
+        this.lastMenuHash = currentHash;
+      }
 
-      // Get all URIs from the menu tree
+      // Get all URIs from the menu tree (cached by hash)
       console.log(`${this.getTimestamp()} Getting URIs from menu tree...`);
       
       // Count all nodes before filtering
@@ -315,8 +356,20 @@ export class BackgroundService {
         return count;
       };
       
-      const totalUris = countAllUris(menuNodes);
-      const uris = getAllUris(menuNodes);
+      const totalUris = countAllUris(menuNodesLocal);
+      let uris: string[];
+      if (this.lastMenuHash === currentHash && this.cachedUris) {
+        uris = this.cachedUris;
+      } else {
+        uris = getAllUris(menuNodesLocal);
+        this.cachedUris = uris;
+      }
+      // Build id->short map once for O(1) lookups
+      const idToShort: Record<string, string> = {};
+      Object.keys(defaultNames2Id).forEach(k => {
+        const id = (defaultNames2Id as any)[k]?.id as string | undefined;
+        if (id) idToShort[id] = k;
+      });
       
       console.log(`${this.getTimestamp()} Found ${uris.length} endpoint URIs to fetch (filtered out ${totalUris - uris.length} category URIs)`);
 
@@ -328,13 +381,11 @@ export class BackgroundService {
       const fetchWithRetry = async (id: string, retries = 2, timeoutMs = 5000): Promise<string> => {
         let attempt = 0;
         while (attempt <= retries) {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), timeoutMs);
           try {
-            const timeoutPromise = new Promise<never>((_, reject) =>
-              setTimeout(() => reject(Object.assign(new Error('timeout'), { uri: id })), timeoutMs)
-            );
-            const res = await Promise.race([this.etaApi!.getUserVar(id), timeoutPromise]) as { result: string | null; error: string | null; uri?: string };
+            const res = await this.etaApi!.getUserVar(id, controller.signal) as { result: string | null; error: string | null; uri?: string };
             if (res?.result) return res.result;
-            // Create error with URI information
             const error = new Error(res?.error || 'no result');
             (error as any).uri = id;
             throw error;
@@ -344,12 +395,13 @@ export class BackgroundService {
               await new Promise(r => setTimeout(r, backoff));
               attempt++;
             } else {
-              // Ensure URI is attached to the error
               if (!(e as any).uri) {
                 (e as any).uri = id;
               }
               throw e;
             }
+          } finally {
+            clearTimeout(timer);
           }
         }
         throw Object.assign(new Error('unreachable'), { uri: id });
@@ -366,8 +418,8 @@ export class BackgroundService {
         results.forEach(r => {
           if (r.status === 'fulfilled') {
             const { uri, result } = r.value;
-            // Try to find the shortkey for this URI from defaultNames2Id; fallback to empty string
-            const shortkey = Object.keys(defaultNames2Id).find(k => defaultNames2Id[k]?.id === uri) || '';
+            // O(1) lookup for shortkey via precomputed map
+            const shortkey = idToShort[uri] || '';
             // Parse the XML into ParsedXmlData so it matches EtaData shape
             menuData[uri] = parseXML(result, shortkey, defaultNames2Id);
           } else {
@@ -558,11 +610,17 @@ export class BackgroundService {
           console.log(`${this.getTimestamp()} New slider position: ${newSliderPosition}`);
           if (newSliderPosition !== config.data[ConfigKeys.T_SLIDER] || newDiffValue !== config.data[ConfigKeys.DIFF]) {
             console.log(`${this.getTimestamp()} Updating temperature diff...`);
-            store.dispatch(storeConfigData({
+            const updatedConfigData = {
               ...config.data,
               [ConfigKeys.DIFF]: newDiffValue,
               [ConfigKeys.T_SLIDER]: newSliderPosition
-            }));
+            } as Config;
+            store.dispatch(storeConfigData(updatedConfigData));
+            try {
+              await updateConfig(updatedConfigData);
+            } catch (e) {
+              console.warn(`${this.getTimestamp()} Failed to persist updated config:`, e);
+            }
 
             const { t_soll, t_delta } = config.data;
             // Log the temperature diff update
@@ -580,14 +638,11 @@ export class BackgroundService {
             const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
             const currentPos = etaSP ? parseFloat(etaSP.strValue || '0') : recommendedPos;
             console.log(`${this.getTimestamp()} Current slider position: ${currentPos}, Recommended slider position: ${recommendedPos}`);
-            // Only update if the positions are different, values are valid, and it's not the same update
+            // Only update if the positions are different and values are valid
             if (etaSP &&
               recommendedPos !== currentPos &&
               !isNaN(recommendedPos) &&
-              !isNaN(currentPos) &&
-              this.lastSliderUpdate !== newSliderPosition) {
-
-              this.lastSliderUpdate = newSliderPosition;
+              !isNaN(currentPos)) {
 
               if (!this.etaApi) {
                 console.error(`${this.getTimestamp()} EtaApi not initialized`);
@@ -605,6 +660,8 @@ export class BackgroundService {
                 );
 
                 if (result.success) {
+                  // Mark last successful target to avoid immediate duplicate work
+                  this.lastSliderUpdate = newSliderPosition;
                   // Update the SP value in the Redux store
                   const updatedEtaData = { ...etaState.data };
                   const spId = defaultNames2Id[EtaConstants.SCHIEBERPOS].id;
@@ -615,6 +672,17 @@ export class BackgroundService {
                     };
                     store.dispatch(storeEtaData(updatedEtaData));
                     console.log(`${this.getTimestamp()} Successfully updated slider position to ${result.position}`);
+                  }
+                  // Ensure config reflects the applied target immediately for UI sync
+                  try {
+                    const appliedConfig = {
+                      ...store.getState().config.data,
+                      [ConfigKeys.T_SLIDER]: newSliderPosition
+                    } as Config;
+                    store.dispatch(storeConfigData(appliedConfig));
+                    await updateConfig(appliedConfig);
+                  } catch (e) {
+                    console.warn(`${this.getTimestamp()} Failed to persist applied slider position:`, e);
                   }
                 } else if (result.error) {
                   console.error(`${this.getTimestamp()} Failed to update slider position:`, result.error);
@@ -662,8 +730,9 @@ export class BackgroundService {
         const etaState = state.eta;
 
         // Check for manual override
-        const manualOverrideMinutes = parseInt(state.config.data?.t_override || '3');
-        const manualOverrideTime = manualOverrideMinutes * 60 * 1000;
+        // t_override is stored in milliseconds (fallback: 60 min)
+        const manualOverrideMs = parseInt(state.config.data?.t_override || String(60 * 60 * 1000));
+        const manualOverrideTime = manualOverrideMs;
         let isManualOverride = false;
 
         // Find currently active button and check manual override
@@ -722,6 +791,7 @@ export class BackgroundService {
             for (const manual of [EtaButtons.HT, EtaButtons.KT, EtaButtons.GT, EtaButtons.DT]) {
               if (flags[manual] && buttonIds[manual]) {
                 await etaApi.setUserVar(buttonIds[manual], EtaPos.AUS, "0", "0");
+                await this.sleep(this.ETA_CALL_DELAY_MS);
               }
             }
           }
@@ -753,14 +823,17 @@ export class BackgroundService {
             }
             const etaApi = this.etaApi;
 
-            // First turn off all buttons except AA
+            // First turn off all buttons except AA and the target, sequentially
             console.log(`${this.getTimestamp()} Turning off all buttons (except AA) before activating ${targetButtonName}`);
-
-            await Promise.all(Object.entries(buttonIds).map(async ([name, id]) => {
+            for (const [name, id] of Object.entries(buttonIds)) {
               if (name !== EtaButtons.AA && name !== targetButtonName) {
-                await etaApi.setUserVar(id, EtaPos.AUS, "0", "0");
+                // Only send if currently ON (idempotent)
+                if (flags[name]) {
+                  await etaApi.setUserVar(id, EtaPos.AUS, "0", "0");
+                  await this.sleep(this.ETA_CALL_DELAY_MS);
+                }
               }
-            }));
+            }
 
             // Then activate target button
             console.log(`${this.getTimestamp()} Activating ${targetButtonName}`);
@@ -833,6 +906,15 @@ export class BackgroundService {
       }, this.MEMORY_CHECK_INTERVAL);
       console.log(`${this.getTimestamp()} Memory monitoring started`);
 
+      // Start event loop delay monitor
+      try {
+        this.eventLoopDelayMonitor = monitorEventLoopDelay({ resolution: 10 });
+        this.eventLoopDelayMonitor.enable();
+        console.log(`${this.getTimestamp()} Event loop delay monitoring started`);
+      } catch (e) {
+        console.warn(`${this.getTimestamp()} Could not start event loop delay monitoring:`, e);
+      }
+
       // Load initial config
       this.config = await this.loadConfig();
 
@@ -879,6 +961,14 @@ export class BackgroundService {
     if (this.configChangeTimeout) {
       clearTimeout(this.configChangeTimeout);
       this.configChangeTimeout = null;
+    }
+
+    // Stop event loop delay monitor
+    if (this.eventLoopDelayMonitor) {
+      try {
+        this.eventLoopDelayMonitor.disable();
+      } catch { /* ignore */ }
+      this.eventLoopDelayMonitor = null;
     }
 
     this.isRunning = false;

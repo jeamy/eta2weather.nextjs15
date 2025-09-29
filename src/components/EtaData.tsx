@@ -9,12 +9,22 @@ import { useAppDispatch } from '@/redux/hooks';
 import { storeData as storeEtaData } from '@/redux/etaSlice';
 import { storeData as storeConfigData } from '@/redux/configSlice';
 import { EtaData as EtaDataType, EtaPos, EtaText, EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
+import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { API } from '@/constants/apiPaths';
+import { useToast } from '@/components/ToastProvider';
 
 // Constants
+
+// Robust parser: extracts first decimal number, handles comma decimals and units like "22,5 °C"
+const parseNum = (raw: any): number | null => {
+  if (raw == null) return null;
+  const s = String(raw).replace(',', '.');
+  const m = s.match(/-?\d+(?:\.\d+)?/);
+  return m ? parseFloat(m[0]) : null;
+};
 
 interface DisplayEtaValue {
   short: string;
@@ -47,6 +57,9 @@ const EtaData: React.FC = () => {
 
   const [displayData, setDisplayData] = useState<DisplayDataType | null>(null);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const [overrideActive, setOverrideActive] = useState<boolean>(false);
+  const [overrideRemainingMs, setOverrideRemainingMs] = useState<number>(0);
+  const { showToast } = useToast();
 
   // Memoized map of button short codes to their URIs
   const buttonIds = useMemo<Record<string, string>>(() => {
@@ -287,6 +300,9 @@ const EtaData: React.FC = () => {
     return null;
   }, [etaState.data]);
 
+  // Current active button (for segmented control state)
+  const activeKey = getActiveButton();
+
   // (Removed duplicate temperature control effect; consolidated below)
 
   // Update display data when etaState changes
@@ -338,16 +354,63 @@ const EtaData: React.FC = () => {
     if (clickedButton !== EtaButtons.AA) {
       lastTempState.current.manualOverride = true;
       lastTempState.current.manualOverrideTime = Date.now();
-      const overrideMinutes = parseInt(config.t_override) || 60;
+      const overrideMs = parseInt(config.t_override) || 60 * 60 * 1000;
+      const overrideMinutes = Math.round(overrideMs / 60000);
       console.log(`Manual override activated for ${overrideMinutes} minutes`);
+      // Immediate UI feedback
+      setOverrideActive(true);
+      setOverrideRemainingMs(overrideMs);
     }
 
     try {
       await updateButtonStates(clickedButton, true);
+      const label = (() => {
+        switch (clickedButton) {
+          case EtaButtons.AA: return 'Auto aktiviert';
+          case EtaButtons.HT: return 'Heizen aktiviert';
+          case EtaButtons.KT: return 'Kommen aktiviert';
+          case EtaButtons.DT: return 'Absenken aktiviert';
+          case EtaButtons.GT: return 'Gehen aktiviert';
+          default: return 'Aktualisiert';
+        }
+      })();
+      showToast(label, 'success');
     } catch (error) {
       console.error('Error handling button click:', error);
+      showToast(error instanceof Error ? error.message : 'Aktion fehlgeschlagen', 'error');
     }
   }, [updateButtonStates, config.t_override]);
+
+  // Countdown for manual override; updates every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const timeoutMs = parseInt(config.t_override) || 60 * 60 * 1000;
+      if (lastTempState.current.manualOverride && lastTempState.current.manualOverrideTime) {
+        const elapsed = Date.now() - lastTempState.current.manualOverrideTime;
+        const remaining = Math.max(0, timeoutMs - elapsed);
+        setOverrideActive(remaining > 0);
+        setOverrideRemainingMs(remaining);
+      } else {
+        setOverrideActive(false);
+        setOverrideRemainingMs(0);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [config.t_override]);
+
+  const cancelOverride = useCallback(async () => {
+    try {
+      lastTempState.current.manualOverride = false;
+      lastTempState.current.manualOverrideTime = null;
+      setOverrideActive(false);
+      setOverrideRemainingMs(0);
+      await updateButtonStates(EtaButtons.AA, true);
+      showToast('Override beendet · Auto aktiviert', 'success');
+    } catch (e) {
+      console.error('Error cancelling manual override:', e);
+      showToast(e instanceof Error ? e.message : 'Override beenden fehlgeschlagen', 'error');
+    }
+  }, [updateButtonStates]);
 
   useEffect(() => {
     const checkTemperature = async () => {
@@ -405,8 +468,9 @@ const EtaData: React.FC = () => {
   }, [wifiState.data?.indoorTemperature, config, config.t_min, updateButtonStates]);
 
   useEffect(() => {
-    const overrideTimeoutMinutes = parseInt(config.t_override) || 60; // Default to 60 minutes if not set
-    const overrideTimeoutMs = overrideTimeoutMinutes * 60 * 1000; // Convert minutes to milliseconds
+    // t_override is stored in milliseconds (ms); default to 60 minutes if not set
+    const overrideTimeoutMs = parseInt(config.t_override) || 60 * 60 * 1000;
+    const overrideTimeoutMinutes = Math.round(overrideTimeoutMs / 60000);
 
     if (lastTempState.current.manualOverride && lastTempState.current.manualOverrideTime) {
       const now = Date.now();
@@ -457,55 +521,40 @@ const EtaData: React.FC = () => {
 
   if (loadingState.isLoading) {
     return (
-      <div className="flex items-center justify-center p-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
-        <span className="ml-2 text-gray-600">Loading ETA data...</span>
+      <div className="card">
+        <div className="skeleton skeleton--title" />
+        <div className="skeleton skeleton--line" />
+        <div className="skeleton skeleton--line" />
+        <div className="skeleton skeleton--line" />
       </div>
     );
   }
 
   if (loadingState.error) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-        <p className="text-red-600">Error loading data: {loadingState.error}</p>
+      <div className="alert alert--error">
+        <p>Error loading data: {loadingState.error}</p>
       </div>
     );
   }
 
-  if (!etaState.data || Object.keys(etaState.data).length === 0) {
-    return (
-      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-        <p className="text-yellow-700">No data available</p>
-      </div>
-    );
-  }
+  // Do not hard-fail when ETA store is briefly empty (e.g., during background refresh).
+  // Keep rendering with last known displayData or show skeleton if still loading.
 
   if (!displayData) {
     return (
-      <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-        <div className="flex flex-col items-center mb-4">
-          <div className="h-[150px] w-full relative flex items-center justify-center">
-            <Image
-              src="/eta-logo.png"
-              alt="ETA"
-              width={150}
-              height={150}
-              style={{ width: 'auto', height: '150px', objectFit: 'contain' }}
-              priority
-            />
-          </div>
-          <h2 className="text-lg sm:text-xl font-semibold">ETA Data</h2>
-        </div>
-        <div className="flex justify-center items-center min-h-[200px]">
-          <p>Loading...</p>
-        </div>
+      <div className="card">
+        <div className="skeleton skeleton--title" />
+        <div className="skeleton skeleton--line" />
+        <div className="skeleton skeleton--line" />
+        <div className="skeleton skeleton--line" />
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-      <div className="flex flex-col items-center mb-4">
+    <div className="card">
+      <div className="flex flex-col items-center mb-4 card__header">
         <div className="h-[150px] w-full relative flex items-center justify-center">
           <Image
             src="/eta-logo.png"
@@ -518,17 +567,89 @@ const EtaData: React.FC = () => {
         </div>
         <h2 className="text-lg sm:text-xl font-semibold">ETA Data</h2>
       </div>
-      {etaState.data ? (
+      {overrideActive && (
+        <div className="alert alert--warning mb-3 flex items-center justify-between">
+          <span>
+            Manual override aktiv – Restzeit {(() => {
+              const total = Math.max(0, overrideRemainingMs);
+              const mm = Math.floor(total / 60000);
+              const ss = Math.floor((total % 60000) / 1000).toString().padStart(2, '0');
+              return `${mm}:${ss} min`;
+            })()}
+          </span>
+          <button
+            onClick={cancelOverride}
+            disabled={isUpdating}
+            className={`btn btn--ghost ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title="Override beenden"
+          >
+            Override beenden
+          </button>
+        </div>
+      )}
+
+      {/* Quick actions: segmented on ≥sm, dropdown on mobile */}
+      <div className="mb-3">
+        <div className="hidden sm:block">
+          <div className="segmented" role="radiogroup" aria-label="Schnellaktionen">
+            {[
+              { key: EtaButtons.AA, label: 'Auto' },
+              { key: EtaButtons.HT, label: 'Heizen' },
+              { key: EtaButtons.KT, label: 'Kommen' },
+              { key: EtaButtons.DT, label: 'Absenken' },
+              { key: EtaButtons.GT, label: 'Gehen' },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                className={`segmented__option ${activeKey === key ? 'segmented__option--active' : ''} ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                aria-checked={activeKey === key}
+                role="radio"
+                onClick={() => { if (!isUpdating) handleButtonClick(key); }}
+                disabled={isUpdating}
+                title={label}
+              >
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="segmented__dropdown sm:hidden">
+          <div className="segmented__dropdown-label">Schnellaktionen</div>
+          <label htmlFor="quick-actions" className="sr-only">Schnellaktionen</label>
+          <select
+            id="quick-actions"
+            value={activeKey || EtaButtons.AA}
+            onChange={(e) => handleButtonClick(e.target.value as EtaButtons)}
+            disabled={isUpdating}
+          >
+            {[
+              { key: EtaButtons.AA, label: 'Auto' },
+              { key: EtaButtons.HT, label: 'Heizen' },
+              { key: EtaButtons.KT, label: 'Kommen' },
+              { key: EtaButtons.DT, label: 'Absenken' },
+              { key: EtaButtons.GT, label: 'Gehen' },
+            ].map(({ key, label }) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      {(etaState.data && Object.keys(etaState.data).length > 0) || displayData ? (
         <div className="space-y-3 text-sm sm:text-base">
           <div className="grid grid-cols-1 gap-2">
-            {Object.entries(etaState.data)
-              .filter(([key, value]) => {
-                // Filter out HT, AA, DT entries and empty values
+            {Object.entries(etaState.data || {})
+              .filter(([_, value]) => {
+                // Filter out button entries only; allow entries even if strValue is empty
                 if (Object.values(EtaButtons).includes(value.short as EtaButtons)) {
                   return false;
                 }
-                if (!value.strValue || value.strValue.trim() === '') return false;
-                return true;
+                const hasText = !!(value.strValue && value.strValue.trim() !== '');
+                const hasNumeric = (() => {
+                  const raw: any = (value as any).value;
+                  return raw !== undefined && raw !== null && String(raw).trim() !== '';
+                })();
+                return hasText || hasNumeric;
               })
               .sort(([_, a], [__, b]) => {
                 const order: Record<string, number> = {
@@ -541,34 +662,34 @@ const EtaData: React.FC = () => {
                 const bOrder = bShort in order ? order[bShort] : 99;
                 return aOrder - bOrder;
               })
-              .map(([key, value]) => (
-                <div key={key} className="flex flex-col">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{value.long}:</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`font-mono ${value.short === 'SP'
-                        ? Number(value.strValue) > 0
-                          ? 'text-black'
-                          : Number(value.strValue) < 0
-                            ? 'text-blue-600'
-                            : 'text-black'
-                        : value.short === 'AT' || value.unit === '°C'
-                          ? Number(value.strValue) > 0
-                            ? 'text-black'
-                            : Number(value.strValue) < 0
-                              ? 'text-blue-600'
-                              : 'text-black'
-                          : 'text-black'
-                        }`}>
-                        {value.strValue}
-                        {value.unit && <span className="text-gray-500">{value.unit}</span>}
-                      </span>
+              .map(([key, value]) => {
+                const text = (value.strValue && value.strValue.trim() !== '')
+                  ? value.strValue
+                  : (() => {
+                      const raw: any = (value as any).value;
+                      return raw !== undefined && raw !== null ? String(raw) : '--';
+                    })();
+                return (
+                  <div key={key} className="flex flex-col">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{value.long}:</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="badge badge--neutral">
+                          {text}{value.unit && <span>&nbsp;{value.unit}</span>}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+            {/* If etaState.data is empty but we have displayData, show a message */}
+            {(!etaState.data || Object.keys(etaState.data).length === 0) && displayData && (
+              <div className="text-center text-gray-500 py-4">
+                <p>Daten werden aktualisiert...</p>
+              </div>
+            )}
             {/* Render switches separately */}
             {Object.values(EtaButtons).map(key => {
               const value = displayData[key] || { short: key, long: '', strValue: '', unit: '' };
@@ -586,9 +707,9 @@ const EtaData: React.FC = () => {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`font-mono ${value.strValue === EtaText.EIN ? 'text-green-500' :
-                        value.strValue === EtaText.AUS ? 'text-red-500' :
-                          'text-black'
+                      <span className={`badge ${value.strValue === EtaText.EIN ? 'badge--ok' :
+                        value.strValue === EtaText.AUS ? 'badge--error' :
+                          'badge--neutral'
                         }`}>
                         {value.strValue}
                       </span>
@@ -599,16 +720,14 @@ const EtaData: React.FC = () => {
                           }
                         }}
                         disabled={isUpdating}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${value.strValue === EtaText.EIN ? 'bg-green-600' : 'bg-red-600'} ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`switch ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
                         role="switch"
                         aria-checked={value.strValue === EtaText.EIN}
                         aria-busy={isUpdating}
+                        title={`Toggle ${value.long}`}
                       >
                         <span className="sr-only">Toggle {value.long}</span>
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${value.strValue === EtaText.EIN ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                        />
+                        <span className="switch__thumb" />
                       </button>
                     </div>
                   </div>

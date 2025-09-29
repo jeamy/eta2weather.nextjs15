@@ -14,6 +14,7 @@ import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constant
 import Image from 'next/image';
 import { WifiAF83Data } from '@/reader/functions/types-constants/WifiAf83';
 import { API } from '@/constants/apiPaths';
+import { useToast } from '@/components/ToastProvider';
 
 interface ApiResponse {
   data: WifiAF83Data & {
@@ -22,8 +23,16 @@ interface ApiResponse {
   config?: ConfigState['data'];
 }
 
+// Robust parser for values like "14,5 °C" or "14.5°C"
+const parseNum = (raw: any): number | null => {
+  if (raw == null) return null;
+  const s = String(raw).replace(',', '.');
+  const m = s.match(/-?\d+(?:\.\d+)?/);
+  return m ? parseFloat(m[0]) : null;
+};
+
 const formatDateTime = (timestamp: number): string => {
-  return new Date(timestamp).toLocaleString('en-US', {
+  return new Date(timestamp).toLocaleString('de-DE', {
     hour: 'numeric',
     minute: 'numeric',
     second: 'numeric',
@@ -31,7 +40,7 @@ const formatDateTime = (timestamp: number): string => {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-    timeZone: 'UTC'
+    timeZone: 'Europe/Vienna'
   });
 };
 
@@ -39,6 +48,7 @@ const WifiAf83Data: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
   const config = useSelector((state: RootState) => state.config);
   const etaState = useSelector((state: RootState) => state.eta);
+  const { showToast } = useToast();
   const [wifiData, setWifiData] = useState<WifiAF83Data | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const isFirstLoad = useRef(true);
@@ -48,7 +58,7 @@ const WifiAf83Data: React.FC = () => {
 
   const saveConfigValue = useCallback(async (key: ConfigKeys, value: string | number) => {
     try {
-      const response = await fetch(API.CONFIG_UPDATE, {
+      const response = await fetch(API.CONFIG, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -66,8 +76,10 @@ const WifiAf83Data: React.FC = () => {
 
       const result = await response.json();
 //      console.log('Saved config value:', result);
+      showToast(`Konfiguration gespeichert: ${key}`, 'success');
     } catch (error) {
       console.error('Error saving config value:', error);
+      showToast(error instanceof Error ? error.message : 'Konfiguration speichern fehlgeschlagen', 'error');
       throw error; // Re-throw to let the caller handle the error
     }
   }, []);
@@ -102,49 +114,18 @@ const WifiAf83Data: React.FC = () => {
     } catch (error) {
       console.error('Error fetching WifiAF83 data:', error);
       dispatch({ type: 'wifiAf83/storeError', payload: (error as Error).message });
+      showToast('WiFi Daten laden fehlgeschlagen', 'error');
     } finally {
       setIsLoading(false);
     }
   }, [dispatch, setIsLoading]);
 
   const updateTemperatureDiff = useCallback(async () => {
-    if (!config.isInitialized || !wifiData || !etaState.data) {
-      return;
-    }
-
-    const { diff: numericDiff } = calculateTemperatureDiff(config, { 
-      data: wifiData,
-      loadingState: {
-        isLoading: false,
-        error: null
-      }
-    });
-    
-    if (numericDiff !== null) {
-      const newDiffValue = numericDiff.toString();
-      // Only update if the diff value has changed
-      if (newDiffValue !== config.data[ConfigKeys.DIFF]) {
-        const etaValues = {
-          einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
-          schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
-          heizentaste: etaState.data[defaultNames2Id[EtaConstants.HEIZENTASTE].id]?.strValue || '0',
-          kommentaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
-          tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
-          tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
-        };
-
-        const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
-        
-        if (newSliderPosition !== config.data[ConfigKeys.T_SLIDER] || newDiffValue !== config.data[ConfigKeys.DIFF]) {
-          dispatch(storeData({
-            ...config.data,
-            [ConfigKeys.DIFF]: newDiffValue,
-            [ConfigKeys.T_SLIDER]: newSliderPosition
-          }));
-        }
-      }
-    }
-  }, [config, wifiData, etaState.data, dispatch]);
+    // BackgroundService ist die Quelle der Wahrheit.
+    // Client berechnet nichts und persistiert nicht mehr.
+    // Anzeige verwendet nur die vom Server gelieferten Config-Werte.
+    return;
+  }, []);
 
   // Monitor t_soll and t_delta changes
   useEffect(() => {
@@ -198,12 +179,7 @@ const WifiAf83Data: React.FC = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [loadAndStoreWifi]);
 
-  // Update temperature diff only when temperatures change
-  useEffect(() => {
-    if (config.isInitialized && wifiData && etaState.data) {
-      updateTemperatureDiff();
-    }
-  }, [config.isInitialized, wifiData, etaState.data, updateTemperatureDiff]);
+  // Client-side Diff/Slider-Update deaktiviert (Server steuert Sync)
 
   const loadAndStoreEta = useCallback(async () => {
     try {
@@ -226,30 +202,18 @@ const WifiAf83Data: React.FC = () => {
 
   if (isLoading || !wifiData) {
     return (
-      <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-        <div className="flex flex-col items-center mb-4">
-          <div className="h-[150px] w-full relative flex items-center justify-center">
-            <Image
-              src="/weather-logo.jpg"
-              alt="Weather"
-              width={150}
-              height={150}
-              style={{ objectFit: 'contain' }}
-              priority
-            />
-          </div>
-          <h2 className="text-lg sm:text-xl font-semibold">WiFi Data</h2>
-        </div>
-        <div className="flex justify-center items-center min-h-[200px]">
-          <p>Loading...</p>
-        </div>
+      <div className="card">
+        <div className="skeleton skeleton--title" />
+        <div className="skeleton skeleton--line" />
+        <div className="skeleton skeleton--line" />
+        <div className="skeleton skeleton--line" />
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-      <div className="flex flex-col items-center mb-4">
+    <div className="card">
+      <div className="flex flex-col items-center mb-4 card__header">
         <div className="h-[150px] w-full relative flex items-center justify-center">
           <Image
             src="/weather-logo.jpg"
@@ -265,52 +229,57 @@ const WifiAf83Data: React.FC = () => {
       <div className="space-y-3 text-sm sm:text-base">
         <div className="grid grid-cols-1 gap-2">
           <div className="flex flex-col space-y-2">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center gap-2">
               <span className="font-medium">Außentemperatur:</span>
-              <span className={`font-mono ${wifiData.temperature < 0 ? 'text-blue-500' : wifiData.temperature > 0 ? 'text-green-500' : 'text-black'}`}>
+              <span className={`badge ${wifiData.temperature > 0 ? 'badge--ok' : wifiData.temperature < 0 ? 'badge--warn' : 'badge--neutral'}`}>
                 {wifiData.temperature}°C
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="font-medium">Innentemperatur:</span>
-              <span className="font-mono text-black">{wifiData.indoorTemperature}°C</span>
+              {(() => {
+                const min = Number(config.data[ConfigKeys.T_MIN]);
+                const ind = Number(wifiData.indoorTemperature);
+                const hasMin = Number.isFinite(min);
+                const cls = hasMin ? (ind >= min ? 'badge--ok' : 'badge--warn') : 'badge--neutral';
+                return <span className={`badge ${cls}`}>{ind}°C</span>;
+              })()}
             </div>
-            {config.data[ConfigKeys.DIFF] && (
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Diff Indoor/Soll:</span>
-                <span className={`font-mono ${
-                  Number(config.data[ConfigKeys.DIFF]) > 0 
-                    ? 'text-green-600' 
-                    : Number(config.data[ConfigKeys.DIFF]) < 0 
-                      ? 'text-blue-600' 
-                      : 'text-black'
-                }`}>
-                  {Number(config.data[ConfigKeys.DIFF]).toFixed(1)}°C
-                </span>
-              </div>
-            )}
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Diff Indoor/Soll:</span>
+              {(() => {
+                // Calculate live diff: (t_soll + t_delta) - indoor_temperature
+                const tSoll = Number(config.data[ConfigKeys.T_SOLL] ?? NaN);
+                const tDelta = Number(config.data[ConfigKeys.T_DELTA] ?? NaN);
+                const indoor = Number(wifiData.indoorTemperature ?? NaN);
+                
+                if (!Number.isFinite(tSoll) || !Number.isFinite(tDelta) || !Number.isFinite(indoor)) {
+                  return <span className="badge badge--warn">--</span>;
+                }
+                
+                const diff = (tSoll + tDelta) - indoor;
+                const roundedDiff = Math.round(diff * 10) / 10;
+                // Positive diff => kälter als Soll (blau), Negative => wärmer als Soll (grün)
+                const cls = roundedDiff > 0 ? 'badge--primary' : roundedDiff < 0 ? 'badge--ok' : 'badge--neutral';
+                return <span className={`badge ${cls}`}>{roundedDiff.toFixed(1)}°C</span>;
+              })()}
+            </div>
             {config.data[ConfigKeys.T_MIN] && (
             <div className="flex justify-between items-center">
               <span className="font-medium">Diff Min/Indoor:</span>
-              <span className={`font-mono ${
-                calculateMinTempDiff(wifiData.indoorTemperature, config.data[ConfigKeys.T_MIN]) > 0 
-                  ? 'text-green-600' 
-                  : calculateMinTempDiff(wifiData.indoorTemperature, config.data[ConfigKeys.T_MIN]) < 0 
-                    ? 'text-blue-600' 
-                    : 'text-black'
-              }`}>
-                {calculateMinTempDiff(wifiData.indoorTemperature, config.data[ConfigKeys.T_MIN])}°C
-              </span>
+              {(() => {
+                const d = calculateMinTempDiff(wifiData.indoorTemperature, config.data[ConfigKeys.T_MIN]);
+                const cls = d > 0 ? 'badge--ok' : d < 0 ? 'badge--warn' : 'badge--neutral';
+                return <span className={`badge ${cls}`}>{d}°C</span>;
+              })()}
             </div>
             )}
           </div>
         </div>
         <div className="mt-4 pt-4 border-t">
-          <div className="flex flex-col">
+          <div className="flex items-center justify-between">
             <span className="font-medium">Last Update:</span>
-            <span className="text-xs sm:text-sm text-gray-600">
-              {formatDateTime(wifiData.time)}
-            </span>
+            <span className="badge badge--neutral">{formatDateTime(wifiData.time)}</span>
           </div>
         </div>
       </div>

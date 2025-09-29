@@ -4,13 +4,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../redux';
 import { useAppDispatch } from '../redux/hooks';
-import { storeData as storeEtaData } from '../redux/etaSlice';
 import { AppDispatch } from '@/redux/index';
 import { storeData, storeError, setIsLoading as setIsConfigLoading } from '@/redux/configSlice';
+import type { ConfigState } from '@/redux/configSlice';
 import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
-import { updateSliderPosition } from '@/utils/Functions';
-import { EtaApi } from '@/reader/functions/EtaApi';
+import { calculateTemperatureDiff, calculateNewSliderPosition } from '@/utils/Functions';
 import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
+import type { Config } from '@/reader/functions/types-constants/ConfigConstants';
 import { DEFAULT_UPDATE_TIMER } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
 import { API } from '@/constants/apiPaths';
@@ -19,11 +19,11 @@ const ConfigData: React.FC = () => {
     const dispatch: AppDispatch = useAppDispatch();
     const config = useSelector((state: RootState) => state.config);
     const etaState = useSelector((state: RootState) => state.eta);
+    const wifiState = useSelector((state: RootState) => state.wifiAf83);
     const [isEditing, setIsEditing] = useState<ConfigKeys | null>(null);
     const [editValue, setEditValue] = useState('');
     const sliderValue = config.data[ConfigKeys.T_SLIDER];
-    const etaApiRef = useRef<EtaApi | null>(null);
-    const lastSliderUpdate = useRef<string | null>(null);
+    // Removed client-side slider updates; handled by server-side BackgroundService
     const [nextUpdate, setNextUpdate] = useState<number>(0);
     const lastUpdateTime = useRef<number>(Date.now());
 
@@ -54,59 +54,13 @@ const ConfigData: React.FC = () => {
 //        console.log('Current config state:', config);
     }, [config]);
 
-    useEffect(() => {
-        if (config.data[ConfigKeys.S_ETA]) {
-            etaApiRef.current = new EtaApi(config.data[ConfigKeys.S_ETA]);
-        }
-    }, [config.data]);
+    // EtaApi instance no longer needed on client for slider updates
 
     useEffect(() => {
         lastUpdateTime.current = Date.now();
     }, [etaState.data]);
 
-    const etaSliderPosition = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue;
-
-    useEffect(() => {
-        const recommendedPos = Math.round(parseFloat(sliderValue || '0'));
-        const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
-        const currentPos = etaSP ? parseFloat(etaSP.strValue || '0') : recommendedPos;
-
-        // Only update if the positions are different, values are valid, and it's not the same update
-        if (etaSP && 
-            recommendedPos !== currentPos && 
-            !isNaN(recommendedPos) && 
-            !isNaN(currentPos) &&
-            lastSliderUpdate.current !== sliderValue) {
-            
-            lastSliderUpdate.current = sliderValue;
-            
-            if (!etaApiRef.current) {
-                console.error('EtaApi not initialized');
-                return;
-            }
-            updateSliderPosition(
-                recommendedPos,
-                currentPos,
-                defaultNames2Id,
-                etaApiRef.current,
-            ).then(result => {
-                if (result.success) {
-                    // Update the SP value in the Redux store immediately
-                    const updatedEtaData = { ...etaState.data };
-                    const spId = defaultNames2Id[EtaConstants.SCHIEBERPOS].id;
-                    if (updatedEtaData[spId]) {
-                        updatedEtaData[spId] = {
-                            ...updatedEtaData[spId],
-                            strValue: (result.position).toString()
-                        };
-                        dispatch(storeEtaData(updatedEtaData));
-                    }
-                }
-            }).catch(error => {
-                console.error('Error updating slider position:', error);
-            });
-        }
-    }, [sliderValue, etaState.data, dispatch]);
+    // Client-side slider auto-update effect removed (server is source of truth)
 
     useEffect(() => {
         const updateTimer = parseInt(config.data[ConfigKeys.T_UPDATE_TIMER]) || 60000;
@@ -234,6 +188,16 @@ const ConfigData: React.FC = () => {
                 if (result.success && result.config) {
                     dispatch(storeData(result.config));
                     setIsEditing(null);
+                    // Refresh config shortly after server-side recompute (file watcher debounce)
+                    setTimeout(async () => {
+                        try {
+                            const r = await fetch(API.CONFIG_READ);
+                            const j = await r.json();
+                            if (j?.success && j?.data) {
+                                dispatch(storeData(j.data));
+                            }
+                        } catch { /* ignore */ }
+                    }, 2300);
                 } else {
                     throw new Error('Invalid response format');
                 }
@@ -249,7 +213,7 @@ const ConfigData: React.FC = () => {
                     <span className="font-medium">{label}:</span>
                     {isEditingThis ? (
                         <div className="flex space-x-2">
-                            <div className="flex items-center space-x-1">
+                            <div className="input__wrap input__wrap--number">
                                 <input
                                     type="number"
                                     value={editValue}
@@ -260,14 +224,39 @@ const ConfigData: React.FC = () => {
                                             handleSaveValue();
                                         }
                                     }}
-                                    className="w-24 px-2 py-1 border rounded border-gray-300"
+                                    className="input w-24"
+                                    step={step}
+                                    min={min}
+                                    max={max}
                                 />
-                                <span className="text-gray-500 text-sm">{unit}</span>
+                                <div className="input__spinners">
+                                    <button
+                                        type="button"
+                                        className="input__spinner input__spinner--up"
+                                        onClick={() => {
+                                            const current = parseFloat(editValue) || 0;
+                                            const newValue = Math.min(max, current + step);
+                                            setEditValue(newValue.toString());
+                                        }}
+                                        tabIndex={-1}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="input__spinner input__spinner--down"
+                                        onClick={() => {
+                                            const current = parseFloat(editValue) || 0;
+                                            const newValue = Math.max(min, current - step);
+                                            setEditValue(newValue.toString());
+                                        }}
+                                        tabIndex={-1}
+                                    />
+                                </div>
+                                <span className="input__suffix">{unit}</span>
                             </div>
                             <button
                                 type="button"
                                 onClick={handleSaveValue}
-                                className="text-green-600 hover:text-green-800 px-1"
+                                className="btn btn--primary"
                                 title="Save"
                             >
                                 ✓
@@ -275,7 +264,7 @@ const ConfigData: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={handleCancel}
-                                className="text-red-600 hover:text-red-800 px-1"
+                                className="btn btn--danger"
                                 title="Cancel"
                             >
                                 ✗
@@ -294,8 +283,7 @@ const ConfigData: React.FC = () => {
                                 }
                             }}
                         >
-                            <span>{value}</span>
-                            <span className="text-gray-500 text-sm">{unit}</span>
+                            <span className="badge badge--neutral">{value}{unit ? <span>&nbsp;{unit}</span> : null}</span>
                         </div>
                     )}
                 </div>
@@ -368,15 +356,13 @@ const ConfigData: React.FC = () => {
                                         handleSaveValue();
                                     }
                                 }}
-                                className={`w-full px-2 py-1 border rounded ${
-                                    validator && !validator(editValue) ? 'border-red-500' : 'border-gray-300'
-                                }`}
+                                className={`input w-full ${validator && !validator(editValue) ? 'input--invalid' : ''}`}
                                 placeholder="xxx.xxx.xxx.xxx:port"
                             />
                             <button
                                 type="button"
                                 onClick={handleSaveValue}
-                                className="text-green-600 hover:text-green-800 px-1"
+                                className="btn btn--primary"
                                 title="Save"
                             >
                                 ✓
@@ -384,7 +370,7 @@ const ConfigData: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={handleCancel}
-                                className="text-red-600 hover:text-red-800 px-1"
+                                className="btn btn--danger"
                                 title="Cancel"
                             >
                                 ✗
@@ -411,6 +397,69 @@ const ConfigData: React.FC = () => {
         );
     };
 
+    const renderDeltaOverrideToggle = () => {
+        const isEnabled = config.data[ConfigKeys.DELTA_OVERRIDE] === 'true';
+
+        const handleToggle = async () => {
+            try {
+                const newValue = isEnabled ? 'false' : 'true';
+                const response = await fetch(API.CONFIG, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        key: ConfigKeys.DELTA_OVERRIDE,
+                        value: newValue
+                    }),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to update delta override');
+                }
+
+                const result = await response.json();
+                if (result.success && result.config) {
+                    dispatch(storeData(result.config));
+                } else {
+                    throw new Error('Invalid response format');
+                }
+            } catch (error) {
+                console.error('Error updating delta override:', error);
+                alert('Failed to update delta override. Please try again.');
+            }
+        };
+
+        return (
+            <div className="flex flex-col space-y-1">
+                <div className="flex justify-between items-center">
+                    <div className="flex flex-col">
+                        <span className="font-medium">Delta Override:</span>
+                        <span className="text-xs text-gray-500">
+                            {isEnabled ? 'Manuelle Deltatemperatur' : 'Automatische Berechnung basierend auf ETA/WiFi Differenz'}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className={`badge ${isEnabled ? 'badge--warn' : 'badge--ok'}`}>
+                            {isEnabled ? 'Manuell' : 'Auto'}
+                        </span>
+                        <button
+                            onClick={handleToggle}
+                            className="switch"
+                            role="switch"
+                            aria-checked={isEnabled}
+                            title={`Toggle Delta Override (${isEnabled ? 'Manuell' : 'Auto'})`}
+                        >
+                            <span className="sr-only">Toggle Delta Override</span>
+                            <span className="switch__thumb" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     const renderManualOverride = () => {
         const isEditingThis = isEditing === ConfigKeys.T_OVERRIDE;
         const configValue = config.data[ConfigKeys.T_OVERRIDE] || '';
@@ -428,7 +477,7 @@ const ConfigData: React.FC = () => {
             try {
                 const minutes = parseInt(editValue);
                 const valueToSave = String(minutes * 60000);
-                const response = await fetch('/api/config', {
+                const response = await fetch(API.CONFIG, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -448,6 +497,16 @@ const ConfigData: React.FC = () => {
                 if (result.success && result.config) {
                     dispatch(storeData(result.config));
                     setIsEditing(null);
+                    // Pull server-recomputed config (diff/t_slider) shortly after file watcher debounce
+                    setTimeout(async () => {
+                        try {
+                            const r = await fetch(API.BACKGROUND_STATUS);
+                            const j = await r.json();
+                            if (j?.success && j?.data?.config) {
+                                dispatch(storeData(j.data.config));
+                            }
+                        } catch { /* ignore */ }
+                    }, 2300);
                 } else {
                     throw new Error('Invalid response format');
                 }
@@ -463,7 +522,7 @@ const ConfigData: React.FC = () => {
                     <span className="font-medium">Manual override:</span>
                     {isEditingThis ? (
                         <div className="flex space-x-2">
-                            <div className="flex items-center space-x-1">
+                            <div className="input__wrap input__wrap--number">
                                 <input
                                     type="number"
                                     value={editValue}
@@ -474,14 +533,39 @@ const ConfigData: React.FC = () => {
                                             handleSaveValue();
                                         }
                                     }}
-                                    className="w-24 px-2 py-1 border rounded border-gray-300"
+                                    className="input w-24"
+                                    step={1}
+                                    min={0}
+                                    max={1440}
                                 />
-                                <span className="text-gray-500 text-sm">min</span>
+                                <div className="input__spinners">
+                                    <button
+                                        type="button"
+                                        className="input__spinner input__spinner--up"
+                                        onClick={() => {
+                                            const current = parseFloat(editValue) || 0;
+                                            const newValue = Math.min(1440, current + 1);
+                                            setEditValue(newValue.toString());
+                                        }}
+                                        tabIndex={-1}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="input__spinner input__spinner--down"
+                                        onClick={() => {
+                                            const current = parseFloat(editValue) || 0;
+                                            const newValue = Math.max(0, current - 1);
+                                            setEditValue(newValue.toString());
+                                        }}
+                                        tabIndex={-1}
+                                    />
+                                </div>
+                                <span className="input__suffix">min</span>
                             </div>
                             <button
                                 type="button"
                                 onClick={handleSaveValue}
-                                className="text-green-600 hover:text-green-800 px-1"
+                                className="btn btn--primary"
                                 title="Save"
                             >
                                 ✓
@@ -489,7 +573,7 @@ const ConfigData: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={handleCancel}
-                                className="text-red-600 hover:text-red-800 px-1"
+                                className="btn btn--danger"
                                 title="Cancel"
                             >
                                 ✗
@@ -508,8 +592,7 @@ const ConfigData: React.FC = () => {
                                 }
                             }}
                         >
-                            <span>{value}</span>
-                            <span className="text-gray-500 text-sm ml-1">min</span>
+                            <span className="badge badge--neutral">{value} <span>min</span></span>
                         </div>
                     )}
                 </div>
@@ -518,8 +601,8 @@ const ConfigData: React.FC = () => {
     };
 
     return (
-        <div className="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-            <div className="flex flex-col items-center mb-4">
+        <div className="card">
+            <div className="flex flex-col items-center mb-4 card__header">
                 <div className="h-[150px] w-full relative flex items-center justify-center">
                     <Image
                         src="/config-logo.jpg"
@@ -534,6 +617,7 @@ const ConfigData: React.FC = () => {
             </div>
             <div className="space-y-4 text-sm sm:text-base">
                 {renderEditableValue(ConfigKeys.T_SOLL, 'Solltemperatur', 10, 25, 0.5, '°C')}
+                {renderDeltaOverrideToggle()}
                 {renderEditableValue(ConfigKeys.T_DELTA, 'Deltatemperatur', -5, 5, 0.5, '°C')}
                 {renderEditableValue(ConfigKeys.T_MIN, 'Minimumtemperatur', 10, 25, 0.5, '°C')}
                 {renderEditableValue(
@@ -551,28 +635,26 @@ const ConfigData: React.FC = () => {
                 {renderManualOverride()}
                 <div className="flex justify-between items-center">
                     <span className="font-medium">Next Update:</span>
-                    <span className="font-mono">{nextUpdate} s</span>
+                    <span className="badge badge--neutral">{nextUpdate} s</span>
                 </div>
                 <div className="flex flex-col space-y-1">
                     <div className="flex justify-between items-center">
                         <span className="font-medium">Empfohlene Schieber Position:</span>
                         <span>
                             {(() => {
+                                // Use only server-computed value from config (keine Client-Neuberechnung)
                                 const recommendedPos = Math.round(parseFloat(sliderValue || '0'));
-                                const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
-                                const currentPos = etaSP ? parseFloat(etaSP.strValue || '0') : recommendedPos;
-                                
+                                const clamped = Math.max(0, Math.min(100, recommendedPos));
                                 return (
-                                    <span className={`${
-                                        recommendedPos > 0 
-                                            ? 'text-green-600' 
-                                            : recommendedPos < 0 
-                                                ? 'text-blue-600' 
-                                                : ''
-                                    }`}>
-                                        {recommendedPos}
-                                        <span className="text-gray-600 ml-1">%</span>
-                                    </span>
+                                    <div className="flex flex-col items-end gap-1 w-40">
+                                        <div className="progress">
+                                            <div className="progress__bar" style={{ width: `${clamped}%` }} />
+                                        </div>
+                                        <span>
+                                            {clamped}
+                                            <span className="text-gray-600 ml-1">%</span>
+                                        </span>
+                                    </div>
                                 );
                             })()}
                         </span>

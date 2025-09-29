@@ -78,46 +78,49 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
   }, [menuItems, fetchActiveValues]);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex justify-between items-center h-14 mb-4">
+    <div className="tabs">
+      <div className="card__header">
         <h2 className="text-lg font-semibold">ETA Data</h2>
         {lastUpdated && (
           <span className="text-xs text-gray-500">Zuletzt aktualisiert: {new Date(lastUpdated).toLocaleTimeString()}</span>
         )}
-        <button 
+        <button
           onClick={handleRefresh}
-          className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+          className="btn btn--ghost"
           disabled={isRefreshing}
+          title="Aktualisieren"
         >
-          <ArrowPathIcon 
-            className={`w-5 h-5 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} 
-          />
+          <ArrowPathIcon className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
         </button>
       </div>
       <div>
-        <div className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 h-24">
+        <div className="tabs__list tabs__list--sticky" role="tablist" aria-label="ETA categories">
           {menuItems.map((category, categoryIndex) => (
             <button
               key={`tab-${categoryIndex}-${category.name}`}
               onClick={() => setSelectedIndex(categoryIndex)}
-              className={`w-full rounded-lg py-2 text-sm font-medium leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 transition-colors flex flex-col items-center justify-center
-                ${selectedIndex === categoryIndex 
-                  ? 'bg-white text-blue-700 shadow' 
-                  : 'text-black hover:bg-white/[0.12] hover:text-blue-700'}`}
+              className={`tabs__button ${selectedIndex === categoryIndex ? 'tabs__button--active' : ''}`}
+              role="tab"
+              id={`tab-eta-${categoryIndex}`}
+              aria-selected={selectedIndex === categoryIndex}
+              aria-controls={`panel-eta-${categoryIndex}`}
+              tabIndex={selectedIndex === categoryIndex ? 0 : -1}
               title={category.name}
             >
-              {getTabIcon(category.name)}
-              <span className="hidden lg:inline-block mt-1 text-xs">{category.name}</span>
+              <span className="tabs__icon">{getTabIcon(category.name)}</span>
+              <span className="tabs__label">{category.name}</span>
             </button>
           ))}
         </div>
-        <div className="mt-5">
+        <div>
           {menuItems.map((category, categoryIndex) => (
             <div
               key={`panel-${categoryIndex}-${category.name}`}
-              className={`bg-gray-50 rounded-xl p-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 border border-gray-200 shadow-lg ${
-                selectedIndex === categoryIndex ? '' : 'hidden'
-              }`}
+              className="tabs__panel"
+              id={`panel-eta-${categoryIndex}`}
+              role="tabpanel"
+              aria-labelledby={`tab-eta-${categoryIndex}`}
+              hidden={selectedIndex !== categoryIndex}
             >
               <div className="space-y-4">
                 {category.children?.map((item, itemIndex) => {

@@ -5,6 +5,7 @@ import StoreProvider from "@/components/StoreProvider";
 import HeaderWithMenu from "@/components/HeaderWithMenu";
 import BackgroundSync from "@/components/BackgroundSync";
 import Header from "@/components/Header";
+import ToastProvider from "@/components/ToastProvider";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -29,13 +30,15 @@ export default function RootLayout({
     <html lang="de" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <StoreProvider>
-          <BackgroundSync />
-          <Header />
-          <div className="min-h-screen bg-gray-100">
-            <main className="container mx-auto px-4 py-8">
-              {children}
-            </main>
-          </div>
+          <ToastProvider>
+            <BackgroundSync />
+            <Header />
+            <div className="min-h-screen bg-gray-100">
+              <main className="container mx-auto px-4 py-8">
+                {children}
+              </main>
+            </div>
+          </ToastProvider>
         </StoreProvider>
       </body>
     </html>

@@ -1,13 +1,13 @@
 {
-  "t_soll": "23",
-  "t_delta": "0",
-  "t_slider": "0.0",
+  "t_soll": "22",
+  "t_delta": "0.1",
+  "t_slider": "10",
   "s_eta": "192.168.8.100:8080",
   "f_eta": "f_eta.json",
   "f_wifiaf83": "f_wifiaf89.json",
   "f_names2id": "f_names2id.json",
-  "t_update_timer": "180000",
-  "diff": "4.1",
+  "t_update_timer": "60000",
+  "diff": "0.8",
   "t_min": "18.5",
   "temp_diff": "-2.3",
   "t_override": "180000",
@@ -19,5 +19,6 @@
     "CH7": "Garten",
     "CH5": "Bad",
     "CH8": "Schlafzimmer"
-  }
+  },
+  "delta_override": "false"
 }
