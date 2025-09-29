@@ -397,6 +397,69 @@ const ConfigData: React.FC = () => {
         );
     };
 
+    const renderDeltaOverrideToggle = () => {
+        const isEnabled = config.data[ConfigKeys.DELTA_OVERRIDE] === 'true';
+
+        const handleToggle = async () => {
+            try {
+                const newValue = isEnabled ? 'false' : 'true';
+                const response = await fetch(API.CONFIG, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        key: ConfigKeys.DELTA_OVERRIDE,
+                        value: newValue
+                    }),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to update delta override');
+                }
+
+                const result = await response.json();
+                if (result.success && result.config) {
+                    dispatch(storeData(result.config));
+                } else {
+                    throw new Error('Invalid response format');
+                }
+            } catch (error) {
+                console.error('Error updating delta override:', error);
+                alert('Failed to update delta override. Please try again.');
+            }
+        };
+
+        return (
+            <div className="flex flex-col space-y-1">
+                <div className="flex justify-between items-center">
+                    <div className="flex flex-col">
+                        <span className="font-medium">Delta Override:</span>
+                        <span className="text-xs text-gray-500">
+                            {isEnabled ? 'Manuelle Deltatemperatur' : 'Automatische Berechnung basierend auf ETA/WiFi Differenz'}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className={`badge ${isEnabled ? 'badge--warn' : 'badge--ok'}`}>
+                            {isEnabled ? 'Manuell' : 'Auto'}
+                        </span>
+                        <button
+                            onClick={handleToggle}
+                            className="switch"
+                            role="switch"
+                            aria-checked={isEnabled}
+                            title={`Toggle Delta Override (${isEnabled ? 'Manuell' : 'Auto'})`}
+                        >
+                            <span className="sr-only">Toggle Delta Override</span>
+                            <span className="switch__thumb" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     const renderManualOverride = () => {
         const isEditingThis = isEditing === ConfigKeys.T_OVERRIDE;
         const configValue = config.data[ConfigKeys.T_OVERRIDE] || '';
@@ -554,6 +617,7 @@ const ConfigData: React.FC = () => {
             </div>
             <div className="space-y-4 text-sm sm:text-base">
                 {renderEditableValue(ConfigKeys.T_SOLL, 'Solltemperatur', 10, 25, 0.5, '°C')}
+                {renderDeltaOverrideToggle()}
                 {renderEditableValue(ConfigKeys.T_DELTA, 'Deltatemperatur', -5, 5, 0.5, '°C')}
                 {renderEditableValue(ConfigKeys.T_MIN, 'Minimumtemperatur', 10, 25, 0.5, '°C')}
                 {renderEditableValue(

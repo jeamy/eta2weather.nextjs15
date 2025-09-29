@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useMemo } from "react";
-import { useSelector } from "react-redux";
+import React, { useMemo, useEffect, useRef } from "react";
+import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/redux";
+import { storeData } from "@/redux/configSlice";
 import { ConfigKeys } from "@/reader/functions/types-constants/ConfigConstants";
 import { EtaButtons, EtaPos } from "@/reader/functions/types-constants/EtaConstants";
 import { EtaConstants as EtaConstKeys, defaultNames2Id } from "@/reader/functions/types-constants/Names2IDconstants";
+import { API } from "@/constants/apiPaths";
 
 function formatTime(ts: number): string {
   if (!ts) return "-";
@@ -28,9 +30,11 @@ function parseNum(raw: any): number | null {
 }
 
 export default function HomeHero() {
+  const dispatch = useDispatch();
   const wifi = useSelector((s: RootState) => s.wifiAf83.data);
   const config = useSelector((s: RootState) => s.config.data);
   const eta = useSelector((s: RootState) => s.eta.data);
+  const lastDiffUpdateRef = useRef<number>(0);
 
   const sliderPercent = useMemo(() => {
     const v = Number(config?.[ConfigKeys.T_SLIDER] ?? 0);
@@ -39,10 +43,18 @@ export default function HomeHero() {
   }, [config]);
 
   const diffIndoorSoll = useMemo(() => {
-    const d = Number(config?.[ConfigKeys.DIFF] ?? NaN);
-    if (!Number.isFinite(d)) return null;
-    return d;
-  }, [config]);
+    // Calculate live diff: (t_soll + t_delta) - indoor_temperature
+    const tSoll = Number(config?.[ConfigKeys.T_SOLL] ?? NaN);
+    const tDelta = Number(config?.[ConfigKeys.T_DELTA] ?? NaN);
+    const indoor = Number(wifi?.indoorTemperature ?? NaN);
+    
+    if (!Number.isFinite(tSoll) || !Number.isFinite(tDelta) || !Number.isFinite(indoor)) {
+      return null;
+    }
+    
+    const diff = (tSoll + tDelta) - indoor;
+    return Math.round(diff * 10) / 10; // Round to 0.1°C
+  }, [config, wifi]);
 
   const indoorOk = useMemo(() => {
     const min = Number((config as any)?.[ConfigKeys.T_MIN]);
@@ -94,8 +106,112 @@ export default function HomeHero() {
 
   const outdoorDiffSigned = useMemo(() => {
     if (etaOutdoor == null || wifiOutdoor == null) return null;
-    return wifiOutdoor - etaOutdoor; // + => WiFi wärmer als ETA, - => WiFi kälter
+    const diff = wifiOutdoor - etaOutdoor; // + => WiFi wärmer als ETA, - => WiFi kälter
+    return Math.round(diff * 10) / 10; // Round to 0.1°C to avoid floating point precision issues
   }, [etaOutdoor, wifiOutdoor]);
+
+  const deltaOverrideEnabled = useMemo(() => {
+    const enabled = config?.[ConfigKeys.DELTA_OVERRIDE] === 'true';
+    console.log('Delta override status:', { 
+      enabled, 
+      rawValue: config?.[ConfigKeys.DELTA_OVERRIDE],
+      configKeys: ConfigKeys.DELTA_OVERRIDE 
+    });
+    return enabled;
+  }, [config]);
+
+  // Auto-update delta temperature based on outdoor diff
+  useEffect(() => {
+    console.log('Delta auto-update useEffect triggered:', {
+      deltaOverrideEnabled,
+      outdoorDiffSigned,
+      etaOutdoor,
+      wifiOutdoor,
+      currentDelta: config?.[ConfigKeys.T_DELTA]
+    });
+    
+    // CRITICAL: Only update if BOTH ETA and WiFi outdoor values are available
+    if (deltaOverrideEnabled || outdoorDiffSigned == null || etaOutdoor == null || wifiOutdoor == null) {
+      console.log('Delta auto-update skipped:', { 
+        deltaOverrideEnabled, 
+        outdoorDiffSigned, 
+        etaOutdoor, 
+        wifiOutdoor,
+        reason: deltaOverrideEnabled ? 'override enabled' : 
+                outdoorDiffSigned == null ? 'no diff calculated' :
+                etaOutdoor == null ? 'ETA outdoor missing' :
+                wifiOutdoor == null ? 'WiFi outdoor missing' : 'unknown'
+      });
+      return;
+    }
+    
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastDiffUpdateRef.current;
+    
+    // Throttle updates to every 30 seconds
+    if (timeSinceLastUpdate < 30000) {
+      console.log('Delta auto-update throttled:', { timeSinceLastUpdate, threshold: 30000 });
+      return;
+    }
+    
+    const currentDelta = Number(config?.[ConfigKeys.T_DELTA] ?? 0);
+    const newDelta = Math.round(outdoorDiffSigned * 10) / 10; // Round to 0.1°C
+    const deltaChange = Math.round(Math.abs(newDelta - currentDelta) * 10) / 10; // Round to avoid floating point precision issues
+    
+    // Additional safety check: ensure values are realistic (between -50°C and +50°C)
+    if (Math.abs(etaOutdoor) > 50 || Math.abs(wifiOutdoor) > 50) {
+      console.log('Delta auto-update skipped - unrealistic temperature values:', { etaOutdoor, wifiOutdoor });
+      return;
+    }
+    
+    // Additional safety check3: ensure delta change is not too extreme (max ±5°C)
+    if (Math.abs(newDelta) > 3) {
+      console.log('Delta auto-update skipped - extreme delta value:', { newDelta, etaOutdoor, wifiOutdoor });
+      return;
+    }
+    
+    console.log('Delta auto-update check:', {
+      currentDelta,
+      newDelta,
+      deltaChange,
+      threshold: 0.1,
+      outdoorDiffSigned,
+      etaOutdoor,
+      wifiOutdoor
+    });
+    
+    // Only update if difference is significant (>= 0.1°C) - reduced threshold
+    if (deltaChange >= 0.1) {
+      console.log('Updating delta temperature:', { from: currentDelta, to: newDelta });
+      lastDiffUpdateRef.current = now;
+      
+      // Update config via API
+      fetch(API.CONFIG, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          key: ConfigKeys.T_DELTA,
+          value: newDelta.toString()
+        }),
+      })
+      .then(response => response.json())
+      .then(result => {
+        if (result.success && result.config) {
+          console.log('Delta temperature updated successfully:', result.config[ConfigKeys.T_DELTA]);
+          dispatch(storeData(result.config));
+        } else {
+          console.error('Failed to update delta temperature:', result);
+        }
+      })
+      .catch(error => {
+        console.error('Error updating delta temperature:', error);
+      });
+    } else {
+      console.log('Delta change too small, skipping update');
+    }
+  }, [outdoorDiffSigned, deltaOverrideEnabled, config, dispatch, etaOutdoor, wifiOutdoor]);
 
   return (
     <div className="card" aria-label="Übersicht">
@@ -168,7 +284,13 @@ export default function HomeHero() {
                 <span className="badge badge--warn">Warte auf Daten</span>
               )}
             </div>
-            <div className="stat__trend">ETA vs WiFi Außentemperatur</div>
+            <div className="stat__trend">
+              ETA vs WiFi Außentemperatur · {deltaOverrideEnabled ? (
+                <span className="text-orange-500">Delta manuell</span>
+              ) : (
+                <span className="text-green-600">Delta automatisch</span>
+              )}
+            </div>
           </div>
           <div className="stat" title="Betriebsmodus">
             <div className="stat__label">Modus</div>

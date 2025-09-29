@@ -245,17 +245,25 @@ const WifiAf83Data: React.FC = () => {
                 return <span className={`badge ${cls}`}>{ind}°C</span>;
               })()}
             </div>
-            {config.data[ConfigKeys.DIFF] && (
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Diff Indoor/Soll:</span>
-                {(() => {
-                  const d = Number(config.data[ConfigKeys.DIFF]);
-                  // Positive diff => kälter als Soll (blau), Negative => wärmer als Soll (grün)
-                  const cls = d > 0 ? 'badge--primary' : d < 0 ? 'badge--ok' : 'badge--neutral';
-                  return <span className={`badge ${cls}`}>{d.toFixed(1)}°C</span>;
-                })()}
-              </div>
-            )}
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Diff Indoor/Soll:</span>
+              {(() => {
+                // Calculate live diff: (t_soll + t_delta) - indoor_temperature
+                const tSoll = Number(config.data[ConfigKeys.T_SOLL] ?? NaN);
+                const tDelta = Number(config.data[ConfigKeys.T_DELTA] ?? NaN);
+                const indoor = Number(wifiData.indoorTemperature ?? NaN);
+                
+                if (!Number.isFinite(tSoll) || !Number.isFinite(tDelta) || !Number.isFinite(indoor)) {
+                  return <span className="badge badge--warn">--</span>;
+                }
+                
+                const diff = (tSoll + tDelta) - indoor;
+                const roundedDiff = Math.round(diff * 10) / 10;
+                // Positive diff => kälter als Soll (blau), Negative => wärmer als Soll (grün)
+                const cls = roundedDiff > 0 ? 'badge--primary' : roundedDiff < 0 ? 'badge--ok' : 'badge--neutral';
+                return <span className={`badge ${cls}`}>{roundedDiff.toFixed(1)}°C</span>;
+              })()}
+            </div>
             {config.data[ConfigKeys.T_MIN] && (
             <div className="flex justify-between items-center">
               <span className="font-medium">Diff Min/Indoor:</span>

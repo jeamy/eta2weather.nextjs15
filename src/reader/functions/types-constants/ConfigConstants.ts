@@ -12,6 +12,7 @@ export type Config = {
     [ConfigKeys.T_MIN]: string;
     [ConfigKeys.TEMP_DIFF]: string;
     [ConfigKeys.T_OVERRIDE]: string;
+    [ConfigKeys.DELTA_OVERRIDE]: string;
     [ConfigKeys.CHANNEL_NAMES]: {
         [key: string]: string;
     };
@@ -31,6 +32,7 @@ export enum ConfigKeys {
     T_MIN = 't_min',
     TEMP_DIFF = 'temp_diff',
     T_OVERRIDE = 't_override',
+    DELTA_OVERRIDE = 'delta_override',
     CHANNEL_NAMES = 'channelNames'
 }
 
@@ -47,6 +49,7 @@ export const defaultConfig: Config = {
     [ConfigKeys.T_MIN]: '16',
     [ConfigKeys.TEMP_DIFF]: '0',
     [ConfigKeys.T_OVERRIDE]: '600000',
+    [ConfigKeys.DELTA_OVERRIDE]: 'false',
     [ConfigKeys.CHANNEL_NAMES]: {
         'CH1': 'Channel 1',
         'CH2': 'Channel 2',

@@ -37,6 +37,9 @@ Visit Windsurf at https://windsurf.com
     - **Live Value Updates**: Configuration changes reflect immediately in UI
     - **Validation & Limits**: Input constraints with visual feedback
     - **Auto-sync**: Backend recalculates values instantly after config changes
+    - **Delta Override Toggle**: Switch between automatic and manual delta control
+      - Auto: delta is calculated from ETA vs WiFi outdoor temperature difference
+      - Manual: uses the user-entered `t_delta` value exclusively
   - **Temperature Control Features**:
     - **Target Temperature (`t_soll`)**: Main setpoint with 0.5°C precision
     - **Delta Temperature (`t_delta`)**: Fine-tuning offset for comfort zones
@@ -44,6 +47,7 @@ Visit Windsurf at https://windsurf.com
     - **Slider Position (`t_slider`)**: Automated ETA valve control (0-100%)
     - **Override Duration (`t_override`)**: Manual control timeout in minutes
     - **Update Intervals**: Configurable polling rates with minimum API protection
+    - **Automatic Delta Management**: When override is disabled, `t_delta` is updated automatically from the signed ETA/WiFi outdoor difference with throttling and significance thresholds
 
 - **Interactive Heating Schedule Management**
   - **Visual Timeline Interface**: 0–24h timeline with clear hour markers
@@ -133,6 +137,7 @@ The redesigned main dashboard features a modern, unified tab interface:
   - Large, clickable spinner buttons for mobile-friendly operation
   - Live value synchronization between frontend and backend
   - Instant feedback for configuration changes
+  - Delta Override toggle (Auto/Manuell) controlling automatic delta calculation
 - **ETA Data**: Complete system monitoring with stable rendering
   - All ETA parameters displayed without flickering during updates
   - Interactive control buttons with manual override capabilities
@@ -145,6 +150,7 @@ The redesigned main dashboard features a modern, unified tab interface:
   - Stable data display during browser minimize/maximize operations
   - Multi-channel temperature and humidity readings
   - Historical data access and visualization
+  - Live Diff Indoor/Soll calculation: `(t_soll + t_delta) - indoorTemperature`
 
 ### Weather Graphs (/weather)
 Detailed weather visualization and analysis:
