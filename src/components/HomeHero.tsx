@@ -106,7 +106,7 @@ export default function HomeHero() {
 
   const outdoorDiffSigned = useMemo(() => {
     if (etaOutdoor == null || wifiOutdoor == null) return null;
-    const diff = wifiOutdoor - etaOutdoor; // + => WiFi wärmer als ETA, - => WiFi kälter
+    const diff = etaOutdoor - wifiOutdoor; // - => WiFi wärmer als ETA, + => WiFi kälter
     return Math.round(diff * 10) / 10; // Round to 0.1°C to avoid floating point precision issues
   }, [etaOutdoor, wifiOutdoor]);
 
