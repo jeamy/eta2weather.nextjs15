@@ -94,7 +94,7 @@ export default function HomeHero() {
 
   const outdoorDiffSigned = useMemo(() => {
     if (etaOutdoor == null || wifiOutdoor == null) return null;
-    return etaOutdoor - wifiOutdoor; // - => WiFi wärmer als ETA, + => WiFi kälter
+    return wifiOutdoor - etaOutdoor; // + => WiFi wärmer als ETA, - => WiFi kälter
   }, [etaOutdoor, wifiOutdoor]);
 
   return (

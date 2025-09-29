@@ -305,6 +305,7 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
   const { values, fetchValues } = useEtaData();
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [edited, setEdited] = useState<Record<string, { start: string; end: string }>>({});
+  const [syncedWindows, setSyncedWindows] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (allUris.length) fetchValues(allUris, { chunkSize: 50, concurrency: 3 });
@@ -322,6 +323,106 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
       setSaving(prev => ({ ...prev, [uri]: false }));
     }
   }, [fetchValues]);
+
+  const handleTimeChange = useCallback((uri: string, field: 'start' | 'end', value: string) => {
+    const window = tagFenster.flatMap(d => d.windows).find(w => w.uri === uri);
+    if (!window) return;
+    
+    const zeitfensterNum = window.name.match(/(\d+)/)?.[1] ?? '1';
+    const isSynced = syncedWindows[uri];
+    
+    if (isSynced) {
+      // Update all synced windows of the same Zeitfenster number
+      const relatedWindows = tagFenster.flatMap(d => d.windows).filter(w => {
+        const num = w.name.match(/(\d+)/)?.[1] ?? '1';
+        return num === zeitfensterNum && syncedWindows[w.uri];
+      });
+      
+      setEdited(prev => {
+        const newEdited = { ...prev };
+        relatedWindows.forEach(w => {
+          const data = values[w.uri];
+          const initial = parseRange(data?.strValue || data?.value);
+          const currentStart = prev[w.uri]?.start ?? initial.start;
+          const currentEnd = prev[w.uri]?.end ?? initial.end;
+          
+          newEdited[w.uri] = {
+            start: field === 'start' ? value : currentStart,
+            end: field === 'end' ? value : currentEnd
+          };
+        });
+        return newEdited;
+      });
+    } else {
+      // Update only this window
+      const data = values[uri];
+      const initial = parseRange(data?.strValue || data?.value);
+      setEdited(prev => ({
+        ...prev,
+        [uri]: {
+          start: field === 'start' ? value : (prev[uri]?.start ?? initial.start),
+          end: field === 'end' ? value : (prev[uri]?.end ?? initial.end)
+        }
+      }));
+    }
+  }, [tagFenster, syncedWindows, values]);
+
+  const handleSaveAll = useCallback(async (zeitfensterNum: string) => {
+    // Find all synced windows of the same Zeitfenster number
+    const syncedRelatedWindows = tagFenster.flatMap(d => d.windows).filter(w => {
+      const num = w.name.match(/(\d+)/)?.[1] ?? '1';
+      return num === zeitfensterNum && syncedWindows[w.uri];
+    });
+    
+    const urisToSave = syncedRelatedWindows.map(w => w.uri).filter(uri => {
+      const data = values[uri];
+      const initial = parseRange(data?.strValue || data?.value);
+      const currentStart = edited[uri]?.start ?? initial.start;
+      const currentEnd = edited[uri]?.end ?? initial.end;
+      return currentStart !== initial.start || currentEnd !== initial.end;
+    });
+    
+    if (urisToSave.length === 0) return;
+    
+    setSaving(prev => {
+      const newState = { ...prev };
+      urisToSave.forEach(uri => { newState[uri] = true; });
+      return newState;
+    });
+
+    try {
+      const promises = urisToSave.map(async (uri) => {
+        const data = values[uri];
+        const initial = parseRange(data?.strValue || data?.value);
+        const start = edited[uri]?.start ?? initial.start;
+        const end = edited[uri]?.end ?? initial.end;
+        await saveZeitfenster(uri, data, start, end);
+      });
+      
+      await Promise.all(promises);
+      await fetchValues(urisToSave);
+      
+      const syncedDays = syncedRelatedWindows.length;
+      showToast(`Zeitfenster ${zeitfensterNum} für ${syncedDays} synchronisierte Tage gespeichert`, 'success');
+      
+      // Clear edited state for saved URIs
+      setEdited(prev => {
+        const newEdited = { ...prev };
+        urisToSave.forEach(uri => {
+          delete newEdited[uri];
+        });
+        return newEdited;
+      });
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Speichern fehlgeschlagen', 'error');
+    } finally {
+      setSaving(prev => {
+        const newState = { ...prev };
+        urisToSave.forEach(uri => { newState[uri] = false; });
+        return newState;
+      });
+    }
+  }, [tagFenster, syncedWindows, values, edited, fetchValues, showToast]);
 
   if (!heizzeiten) {
     return (
@@ -359,6 +460,26 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                 const currentStart = edited[uri]?.start ?? initial.start;
                 const currentEnd = edited[uri]?.end ?? initial.end;
                 const isDirty = currentStart !== initial.start || currentEnd !== initial.end;
+                const isSynced = syncedWindows[uri];
+                
+                // Check if any synced related window has changes
+                const hasSyncedRelatedChanges = isSynced && tagFenster.some(({ windows: dayWindows }) => 
+                  dayWindows.some(relatedW => {
+                    const relatedNum = relatedW.name.match(/(\d+)/)?.[1] ?? '';
+                    if (relatedNum !== num || !syncedWindows[relatedW.uri]) return false;
+                    const relatedData = values[relatedW.uri];
+                    const relatedInitial = parseRange(relatedData?.strValue || relatedData?.value);
+                    const relatedCurrentStart = edited[relatedW.uri]?.start ?? relatedInitial.start;
+                    const relatedCurrentEnd = edited[relatedW.uri]?.end ?? relatedInitial.end;
+                    return relatedCurrentStart !== relatedInitial.start || relatedCurrentEnd !== relatedInitial.end;
+                  })
+                );
+                
+                // Count how many windows of this type are synced
+                const syncedCount = tagFenster.flatMap(d => d.windows).filter(w => {
+                  const relatedNum = w.name.match(/(\d+)/)?.[1] ?? '';
+                  return relatedNum === num && syncedWindows[w.uri];
+                }).length;
 
                 return (
                   <div key={uri} className="px-3 py-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
@@ -370,10 +491,7 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                         type="time"
                         step={900}
                         value={currentStart}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setEdited(prev => ({ ...prev, [uri]: { start: val, end: prev[uri]?.end ?? initial.end } }));
-                        }}
+                        onChange={(e) => handleTimeChange(uri, 'start', e.target.value)}
                         className="input min-h-[44px] text-base sm:text-sm w-full sm:w-28"
                       />
                       <span className="text-gray-500 hidden sm:inline">-</span>
@@ -381,30 +499,53 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                         type="time"
                         step={900}
                         value={currentEnd}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setEdited(prev => ({ ...prev, [uri]: { start: prev[uri]?.start ?? initial.start, end: val } }));
-                        }}
+                        onChange={(e) => handleTimeChange(uri, 'end', e.target.value)}
                         className="input min-h-[44px] text-base sm:text-sm w-full sm:w-28"
                       />
-                      <button
-                        className={`btn btn--primary min-w-[44px] min-h-[44px] disabled:opacity-50`}
-                        aria-label="Speichern"
-                        title="Speichern"
-                        disabled={!isDirty || !!saving[uri]}
-                        onClick={async () => {
-                          const start = currentStart;
-                          const end = currentEnd;
-                          await handleSave(uri, data, start, end);
-                          // Clear edited state after successful save
-                          setEdited(prev => {
-                            const { [uri]: _removed, ...rest } = prev;
-                            return rest;
-                          });
-                        }}
-                      >
-                        ✓
-                      </button>
+                      <label className="flex items-center gap-1 cursor-pointer whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={isSynced}
+                          onChange={(e) => {
+                            setSyncedWindows(prev => ({
+                              ...prev,
+                              [uri]: e.target.checked
+                            }));
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-xs text-gray-600">Sync</span>
+                      </label>
+                      {isSynced && hasSyncedRelatedChanges && syncedCount > 1 ? (
+                        <button
+                          className={`btn btn--secondary min-w-[44px] min-h-[44px] disabled:opacity-50`}
+                          aria-label="Alle speichern"
+                          title={`${syncedCount} synchronisierte Zeitfenster speichern`}
+                          disabled={!!Object.keys(saving).some(k => saving[k])}
+                          onClick={() => handleSaveAll(num)}
+                        >
+                          ✓✓
+                        </button>
+                      ) : (
+                        <button
+                          className={`btn btn--primary min-w-[44px] min-h-[44px] disabled:opacity-50`}
+                          aria-label="Speichern"
+                          title="Speichern"
+                          disabled={!isDirty || !!saving[uri]}
+                          onClick={async () => {
+                            const start = currentStart;
+                            const end = currentEnd;
+                            await handleSave(uri, data, start, end);
+                            // Clear edited state after successful save
+                            setEdited(prev => {
+                              const { [uri]: _removed, ...rest } = prev;
+                              return rest;
+                            });
+                          }}
+                        >
+                          ✓
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
