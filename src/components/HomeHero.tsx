@@ -151,11 +151,21 @@ export default function HomeHero() {
                   ETA: {etaOutdoor?.toFixed(1)}° WIFI: {wifiOutdoor?.toFixed(1)}°
                   {' '}
                   <span className={`badge ${outdoorDiffSigned > 0 ? 'badge--ok' : outdoorDiffSigned < 0 ? 'badge--primary' : 'badge--neutral'}`}>
-                    {outdoorDiffSigned > 0 ? '+' : outdoorDiffSigned < 0 ? '-' : ''}{Math.abs(outdoorDiffSigned).toFixed(1)}°
+                    {outdoorDiffSigned > 0 ? '+' : ''}{outdoorDiffSigned.toFixed(1)}°
                   </span>
                 </span>
+              ) : etaOutdoor !== null ? (
+                <span title="WiFi data temporarily unavailable">
+                  ETA: {etaOutdoor.toFixed(1)}° WIFI: -- 
+                  <span className="badge badge--warn">Warte auf WiFi</span>
+                </span>
+              ) : wifiOutdoor !== null ? (
+                <span title="ETA data temporarily unavailable">
+                  ETA: -- WIFI: {wifiOutdoor.toFixed(1)}°
+                  <span className="badge badge--warn">Warte auf ETA</span>
+                </span>
               ) : (
-                '-'
+                <span className="badge badge--warn">Warte auf Daten</span>
               )}
             </div>
             <div className="stat__trend">ETA vs WiFi Außentemperatur</div>

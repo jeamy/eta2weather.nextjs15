@@ -32,18 +32,28 @@ export const wifiAf83Slice = createSlice({
     initialState,
     reducers: {
         storeData(state, action: PayloadAction<WifiAF83State['data']>) {
-            // Ensure numeric values
+            // Ensure numeric values with fallback to previous values or 0
             const temperature = Number(action.payload.temperature);
             const indoorTemperature = Number(action.payload.indoorTemperature);
             
+            // Handle invalid values gracefully instead of throwing errors
+            const validTemperature = isNaN(temperature) ? (state.data.temperature || 0) : temperature;
+            const validIndoorTemperature = isNaN(indoorTemperature) ? (state.data.indoorTemperature || 0) : indoorTemperature;
+            
+            // Log warning if invalid values were received
             if (isNaN(temperature) || isNaN(indoorTemperature)) {
-                throw new Error('Invalid temperature values');
+                console.warn('Invalid temperature values received, using fallback values:', {
+                    receivedTemperature: action.payload.temperature,
+                    receivedIndoorTemperature: action.payload.indoorTemperature,
+                    fallbackTemperature: validTemperature,
+                    fallbackIndoorTemperature: validIndoorTemperature
+                });
             }
             
             state.data = {
                 ...action.payload,
-                temperature,
-                indoorTemperature
+                temperature: validTemperature,
+                indoorTemperature: validIndoorTemperature
             };
             state.loadingState.isLoading = false;
             state.loadingState.error = null;

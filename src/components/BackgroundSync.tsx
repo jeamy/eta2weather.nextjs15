@@ -42,7 +42,13 @@ const BackgroundSync: React.FC = () => {
           dispatch(storeEtaData(result.data.eta));
         }
         if (result.data.wifiAf83) {
-          dispatch(storeWifiAf83Data(result.data.wifiAf83));
+          // Ensure WiFi data has valid structure before dispatching
+          const wifiData = result.data.wifiAf83;
+          if (wifiData.time && (wifiData.temperature !== undefined || wifiData.indoorTemperature !== undefined)) {
+            dispatch(storeWifiAf83Data(wifiData));
+          } else {
+            console.warn('Received invalid WiFi data structure, skipping update:', wifiData);
+          }
         }
         if (result.data.names2Id) {
           dispatch(storeNames2IdData(result.data.names2Id));
@@ -111,11 +117,18 @@ const BackgroundSync: React.FC = () => {
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
+        console.log('Tab became visible, refreshing data...');
         fetchBackgroundData();
       }
     };
-    const onFocus = () => fetchBackgroundData();
-    const onOnline = () => fetchBackgroundData();
+    const onFocus = () => {
+      console.log('Window gained focus, refreshing data...');
+      fetchBackgroundData();
+    };
+    const onOnline = () => {
+      console.log('Connection restored, refreshing data...');
+      fetchBackgroundData();
+    };
 
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onFocus);
