@@ -150,7 +150,7 @@ The redesigned main dashboard features a modern, unified tab interface:
   - Stable data display during browser minimize/maximize operations
   - Multi-channel temperature and humidity readings
   - Historical data access and visualization
-  - Live Diff Indoor/Soll calculation: `(t_soll + t_delta) - indoorTemperature`
+  - Live Diff Indoor/Soll calculation: `(t_soll + t_delta/2.0) - indoorTemperature`
 
 ### Weather Graphs (/weather)
 Detailed weather visualization and analysis:
@@ -195,6 +195,36 @@ Comprehensive logging system for monitoring and debugging:
   - TypeScript for type safety
   - ESLint for code quality
   - Cross-env for environment management
+
+### Temperature Calculation Method
+
+The system uses a sophisticated temperature differential calculation to determine heating requirements:
+
+**Diff Indoor/Soll Calculation:**
+```
+diff = (t_soll + t_delta/2.0) - indoorTemperature
+```
+
+**Parameters:**
+- `t_soll`: Target room temperature set by user (°C)
+- `t_delta`: Temperature offset adjustment (°C)
+  - Automatically calculated from ETA vs WiFi outdoor temperature difference (when Delta Override is disabled)
+  - Can be manually set (when Delta Override is enabled)
+  - **Divided by 2.0** to apply a dampened correction factor
+- `indoorTemperature`: Current room temperature from WiFi sensor (°C)
+
+**Result Interpretation:**
+- **Positive value** (e.g., +1.5°C): Room is colder than target → More heating needed (displayed in green)
+- **Negative value** (e.g., -0.8°C): Room is warmer than target → Less heating needed (displayed in blue)
+- **Zero**: Room is at target temperature (displayed in neutral)
+
+**Implementation Locations:**
+- Frontend display: `src/components/HomeHero.tsx` (line 55)
+- WiFi data tab: `src/components/WifiAf83Data.tsx` (line 260)
+- Backend calculation: `src/utils/Functions.ts` (line 61)
+- Used by background service for automatic slider position control
+
+This calculation directly influences the **slider position** (0-100%) which controls the ETA heating valve position.
 
 ## Project Structure
 
