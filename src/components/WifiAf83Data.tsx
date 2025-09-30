@@ -257,11 +257,11 @@ const WifiAf83Data: React.FC = () => {
                   return <span className="badge badge--warn">--</span>;
                 }
                 
-                const diff = (tSoll + tDelta) - indoor;
-                const roundedDiff = Math.round(diff * 10) / 10;
+                const diff = (tSoll + tDelta/2.0) - indoor;
+                const roundedDiff = Math.round(diff * 100) / 100;
                 // Positive diff => kälter als Soll (blau), Negative => wärmer als Soll (grün)
                 const cls = roundedDiff > 0 ? 'badge--primary' : roundedDiff < 0 ? 'badge--ok' : 'badge--neutral';
-                return <span className={`badge ${cls}`}>{roundedDiff.toFixed(1)}°C</span>;
+                return <span className={`badge ${cls}`}>{roundedDiff.toFixed(2)}°C</span>;
               })()}
             </div>
             {config.data[ConfigKeys.T_MIN] && (
