@@ -66,6 +66,11 @@ export class BackgroundService {
   private lastLogPrune: number = 0;
   private readonly LOG_RETENTION_DAYS = parseInt(process.env.LOG_RETENTION_DAYS || '14');
   private readonly ETA_CALL_DELAY_MS = parseInt(process.env.ETA_CALL_DELAY_MS || '120');
+  // Track active timeouts for cleanup
+  private activeTimeouts: Set<NodeJS.Timeout> = new Set();
+  private activeSleeps: Set<{ resolve: () => void; timeout: NodeJS.Timeout }> = new Set();
+  // Redux store subscription for monitoring
+  private storeUnsubscribe: (() => void) | null = null;
 
   private constructor() { }
 
@@ -81,7 +86,14 @@ export class BackgroundService {
   }
 
   private sleep(ms: number) {
-    return new Promise<void>(resolve => setTimeout(resolve, ms));
+    return new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => {
+        this.activeSleeps.delete(sleepObj);
+        resolve();
+      }, ms);
+      const sleepObj = { resolve, timeout };
+      this.activeSleeps.add(sleepObj);
+    });
   }
 
   private async loadConfig(): Promise<Config> {
@@ -155,6 +167,22 @@ export class BackgroundService {
         }
       });
 
+      // Add error handler for file watcher
+      this.configWatcher.on('error', (error) => {
+        console.error(`${this.getTimestamp()} Config file watcher error:`, error);
+        // Try to restart watcher after error
+        if (this.configWatcher) {
+          this.configWatcher.close();
+          this.configWatcher = null;
+        }
+        setTimeout(() => {
+          if (this.isRunning) {
+            console.log(`${this.getTimestamp()} Attempting to restart config watcher...`);
+            this.startConfigWatcher();
+          }
+        }, 5000);
+      });
+
       console.log(`${this.getTimestamp()} Config file watcher started`);
     } catch (error) {
       console.error(`${this.getTimestamp()} Error starting config watcher:`, error);
@@ -182,6 +210,14 @@ export class BackgroundService {
         this.config = newConfig;
         if (oldEtaEndpoint !== newEtaEndpoint) {
           try {
+            // Dispose old EtaApi instance
+            if (this.etaApi) {
+              if (!this.etaApi.disposed) {
+                this.etaApi.dispose();
+                console.log(`${this.getTimestamp()} Old EtaApi instance disposed`);
+              }
+              this.etaApi = null;
+            }
             this.etaApi = new EtaApi(newEtaEndpoint);
             console.log(`${this.getTimestamp()} EtaApi reinitialized due to endpoint change`);
           } catch (e) {
@@ -258,19 +294,29 @@ export class BackgroundService {
 
       // Create EtaApi instance if not exists
       if (!this.etaApi) {
-        this.etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
+        try {
+          this.etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
+        } catch (e) {
+          console.error(`${this.getTimestamp()} Failed to create EtaApi instance:`, e);
+          throw e;
+        }
       }
 
       // Get menu data first
       console.log(`${this.getTimestamp()} Fetching ETA menu data...`);
       // Add timeout with AbortController for getMenu
       const menuController = new AbortController();
-      const menuTimeout = setTimeout(() => menuController.abort(), 8000);
+      const menuTimeout = setTimeout(() => {
+        this.activeTimeouts.delete(menuTimeout);
+        menuController.abort();
+      }, 8000);
+      this.activeTimeouts.add(menuTimeout);
       let menuResponse: any;
       try {
         menuResponse = await this.etaApi.getMenu(menuController.signal);
       } finally {
         clearTimeout(menuTimeout);
+        this.activeTimeouts.delete(menuTimeout);
       }
       if (menuResponse.error || !menuResponse.result) {
         throw new Error(menuResponse.error || 'No ETA menu data received');
@@ -382,7 +428,11 @@ export class BackgroundService {
         let attempt = 0;
         while (attempt <= retries) {
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), timeoutMs);
+          const timer = setTimeout(() => {
+            this.activeTimeouts.delete(timer);
+            controller.abort();
+          }, timeoutMs);
+          this.activeTimeouts.add(timer);
           try {
             const res = await this.etaApi!.getUserVar(id, controller.signal) as { result: string | null; error: string | null; uri?: string };
             if (res?.result) return res.result;
@@ -392,6 +442,10 @@ export class BackgroundService {
           } catch (e) {
             if (attempt < retries) {
               const backoff = 200 * Math.pow(2, attempt) + Math.floor(Math.random() * 100);
+              const backoffTimeout = setTimeout(() => {
+                this.activeTimeouts.delete(backoffTimeout);
+              }, backoff);
+              this.activeTimeouts.add(backoffTimeout);
               await new Promise(r => setTimeout(r, backoff));
               attempt++;
             } else {
@@ -402,6 +456,7 @@ export class BackgroundService {
             }
           } finally {
             clearTimeout(timer);
+            this.activeTimeouts.delete(timer);
           }
         }
         throw Object.assign(new Error('unreachable'), { uri: id });
@@ -510,16 +565,39 @@ export class BackgroundService {
     const used = process.memoryUsage();
     const heapUsedMB = Math.round(used.heapUsed / 1024 / 1024);
     const heapTotalMB = Math.round(used.heapTotal / 1024 / 1024);
+    const externalMB = Math.round(used.external / 1024 / 1024);
+    const rssMB = Math.round(used.rss / 1024 / 1024);
 
-    console.log(`${this.getTimestamp()} Memory usage - heapTotal: ${heapTotalMB}MB, heapUsed: ${heapUsedMB}MB`);
+    // Calculate resource usage
+    const activeTimeoutsCount = this.activeTimeouts.size;
+    const activeSleepsCount = this.activeSleeps.size;
+    const cacheSize = this.cachedUris ? this.cachedUris.length : 0;
+
+    console.log(`${this.getTimestamp()} Memory Monitor:`, {
+      heapUsed: `${heapUsedMB}MB`,
+      heapTotal: `${heapTotalMB}MB`,
+      external: `${externalMB}MB`,
+      rss: `${rssMB}MB`,
+      activeTimeouts: activeTimeoutsCount,
+      activeSleeps: activeSleepsCount,
+      cachedUris: cacheSize,
+      etaApiStatus: this.etaApi ? (this.etaApi.disposed ? 'disposed' : 'active') : 'null'
+    });
 
     // Alert if memory usage is too high
     if (used.heapUsed > this.MAX_HEAP_SIZE) {
-      console.warn(`${this.getTimestamp()} High memory usage detected! Running emergency cleanup...`);
+      console.warn(`${this.getTimestamp()} ⚠️ High memory usage detected! Running emergency cleanup...`);
       this.cleanupOldData(true).catch(error => {
         console.error(`${this.getTimestamp()} Error during emergency cleanup:`, error);
       });
-      global.gc?.(); // Optional: Force garbage collection if --expose-gc flag is set
+      
+      // Force garbage collection if available
+      if (global.gc) {
+        console.log(`${this.getTimestamp()} Forcing garbage collection...`);
+        global.gc();
+      } else {
+        console.log(`${this.getTimestamp()} Garbage collection not available (run with --expose-gc flag)`);
+      }
     }
   }
 
@@ -900,6 +978,13 @@ export class BackgroundService {
       this.isRunning = true;
       console.log(`${this.getTimestamp()} Starting background service...`);
 
+      // Subscribe to Redux store for monitoring (optional, for debugging)
+      this.storeUnsubscribe = store.subscribe(() => {
+        // This runs on every state change - keep it lightweight
+        // We're just monitoring, not reacting
+      });
+      console.log(`${this.getTimestamp()} Redux store subscription established`);
+
       // Start memory monitoring
       this.memoryMonitorInterval = setInterval(() => {
         this.monitorMemoryUsage();
@@ -938,6 +1023,13 @@ export class BackgroundService {
   stop() {
     console.log(`${this.getTimestamp()} Stopping background service...`);
 
+    // Unsubscribe from Redux store
+    if (this.storeUnsubscribe) {
+      this.storeUnsubscribe();
+      this.storeUnsubscribe = null;
+      console.log(`${this.getTimestamp()} Redux store unsubscribed`);
+    }
+
     // Clear memory monitoring interval
     if (this.memoryMonitorInterval) {
       clearInterval(this.memoryMonitorInterval);
@@ -970,6 +1062,40 @@ export class BackgroundService {
       } catch { /* ignore */ }
       this.eventLoopDelayMonitor = null;
     }
+
+    // Clear all active timeouts
+    this.activeTimeouts.forEach(timeout => clearTimeout(timeout));
+    this.activeTimeouts.clear();
+    console.log(`${this.getTimestamp()} Cleared ${this.activeTimeouts.size} active timeouts`);
+
+    // Cancel all active sleep promises
+    this.activeSleeps.forEach(({ resolve, timeout }) => {
+      clearTimeout(timeout);
+      resolve(); // Resolve immediately to prevent hanging promises
+    });
+    this.activeSleeps.clear();
+    console.log(`${this.getTimestamp()} Cancelled ${this.activeSleeps.size} active sleep promises`);
+
+    // Dispose EtaApi instance
+    if (this.etaApi) {
+      try {
+        if (!this.etaApi.disposed) {
+          this.etaApi.dispose();
+          console.log(`${this.getTimestamp()} EtaApi instance disposed`);
+        } else {
+          console.log(`${this.getTimestamp()} EtaApi instance already disposed`);
+        }
+      } catch (e) {
+        console.warn(`${this.getTimestamp()} Error disposing EtaApi:`, e);
+      }
+      this.etaApi = null;
+    }
+
+    // Clear caches to free memory
+    this.lastMenuHash = null;
+    this.cachedMenuNodes = null;
+    this.cachedUris = null;
+    console.log(`${this.getTimestamp()} Cleared menu cache`);
 
     this.isRunning = false;
     console.log(`${this.getTimestamp()} Background service stopped`);

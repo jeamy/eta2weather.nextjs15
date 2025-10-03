@@ -11,6 +11,8 @@ type ApiResponse = {
 
 export class EtaApi {
     private server: string;
+    private abortControllers: Set<AbortController> = new Set();
+    private isDisposed: boolean = false;
 
     constructor(server: string = DEFAULT_SERVER) {
         this.server = server;
@@ -21,6 +23,10 @@ export class EtaApi {
     }
 
     private async fetchApi(endpoint: string, method: 'GET' | 'POST', body?: Record<string, string>, signal?: AbortSignal): Promise<ApiResponse> {
+        if (this.isDisposed) {
+            return { result: null, error: 'EtaApi instance has been disposed', uri: endpoint };
+        }
+        
         try {
             // Ensure server doesn't start with http:// or https://
             const serverAddress = this.server.replace(/^https?:\/\//, '');
@@ -46,6 +52,16 @@ export class EtaApi {
             };
             
             try {
+                // Track external abort controller if provided
+                if (signal && signal instanceof AbortSignal) {
+                    const controller = new AbortController();
+                    this.abortControllers.add(controller);
+                    // Clean up when signal aborts
+                    signal.addEventListener('abort', () => {
+                        this.abortControllers.delete(controller);
+                    });
+                }
+                
                 const response = await fetch(url, fetchOptions);
                 
                 if (!response.ok) {
@@ -57,6 +73,16 @@ export class EtaApi {
                 }
                 
                 const result = await response.text();
+                
+                // Clean up abort controller tracking
+                if (signal) {
+                    this.abortControllers.forEach(controller => {
+                        if (controller.signal === signal) {
+                            this.abortControllers.delete(controller);
+                        }
+                    });
+                }
+                
                 return { result, error: null };
             } catch (fetchError) {
                 // Handle network errors silently
@@ -95,5 +121,37 @@ export class EtaApi {
 
     public async getMenu(signal?: AbortSignal): Promise<ApiResponse> {
         return this.fetchApi('user/menu', 'GET', undefined, signal);
+    }
+
+    /**
+     * Dispose method to clean up resources and abort pending requests
+     */
+    public dispose(): void {
+        if (this.isDisposed) {
+            return;
+        }
+        
+        console.log(`[EtaApi] Disposing instance, aborting ${this.abortControllers.size} pending requests`);
+        
+        // Abort all pending requests
+        this.abortControllers.forEach(controller => {
+            try {
+                controller.abort();
+            } catch (e) {
+                // Ignore abort errors
+            }
+        });
+        
+        this.abortControllers.clear();
+        this.isDisposed = true;
+        
+        console.log('[EtaApi] Instance disposed successfully');
+    }
+
+    /**
+     * Check if instance is disposed
+     */
+    public get disposed(): boolean {
+        return this.isDisposed;
     }
 }

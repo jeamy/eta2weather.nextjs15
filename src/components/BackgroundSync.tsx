@@ -24,6 +24,7 @@ const BackgroundSync: React.FC = () => {
       // Abort any in-flight request before starting a new one
       if (abortRef.current) {
         abortRef.current.abort();
+        abortRef.current = null;
       }
       const controller = new AbortController();
       abortRef.current = controller;
@@ -58,8 +59,13 @@ const BackgroundSync: React.FC = () => {
       // Ignore aborted fetches
       if ((error as any)?.name === 'AbortError') return;
       console.error('Error fetching background data:', error);
+    } finally {
+      // Clear reference after request completes
+      if (abortRef.current) {
+        abortRef.current = null;
+      }
     }
-  }, [dispatch, lastConfigRef]);
+  }, [dispatch]);
 
   useEffect(() => {
     // Only set up the interval if this is the first mount
@@ -91,15 +97,19 @@ const BackgroundSync: React.FC = () => {
         }
       };
     }
-  }, [config.data, fetchBackgroundData]); // Empty dependency array since we only want this to run once on mount
+  }, [fetchBackgroundData]); // Only depend on fetchBackgroundData, not config.data
 
-  // Handle timer updates
+  // Handle timer updates - only when timer value actually changes
+  const updateTimerValue = Math.max(
+    parseInt(config.data[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER,
+    MIN_API_INTERVAL
+  );
+  const lastTimerRef = useRef(updateTimerValue);
+
   useEffect(() => {
-    if (!isFirstMount.current && intervalRef.current) {
-      const updateTimer = Math.max(
-        parseInt(config.data[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER,
-        MIN_API_INTERVAL
-      );
+    if (!isFirstMount.current && intervalRef.current && lastTimerRef.current !== updateTimerValue) {
+      console.log(`Timer changed from ${lastTimerRef.current}ms to ${updateTimerValue}ms, restarting interval...`);
+      lastTimerRef.current = updateTimerValue;
 
       clearInterval(intervalRef.current);
       // Abort any in-flight request when resetting
@@ -107,11 +117,11 @@ const BackgroundSync: React.FC = () => {
         abortRef.current.abort();
         abortRef.current = null;
       }
-      intervalRef.current = setInterval(fetchBackgroundData, updateTimer);
+      intervalRef.current = setInterval(fetchBackgroundData, updateTimerValue);
       // Trigger an immediate fetch after resetting to avoid waiting a full interval
       fetchBackgroundData();
     }
-  }, [fetchBackgroundData, dispatch, config.data]);
+  }, [updateTimerValue, fetchBackgroundData]);
 
   // Refresh immediately when tab becomes visible, window gains focus, or connection returns
   useEffect(() => {
