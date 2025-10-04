@@ -52,7 +52,7 @@ export default function HomeHero() {
       return null;
     }
     
-    const diff = (tSoll + tDelta/2.0) - indoor;
+    const diff = (tSoll + tDelta/5.0) - indoor;
     return Math.round(diff * 100) / 100; // Round to 0.01°C
   }, [config, wifi]);
 
@@ -205,7 +205,7 @@ export default function HomeHero() {
             <div className="stat__label">Diff Indoor/Soll</div>
             <div className="stat__value">
               {diffIndoorSoll !== null ? (
-                <span className={`badge ${diffIndoorSoll > 0 ? 'badge--ok' : diffIndoorSoll < 0 ? 'badge--primary' : 'badge--neutral'}`}>
+                <span className={`badge ${diffIndoorSoll > 0 ? 'badge--primary' : diffIndoorSoll < 0 ? 'badge--ok' : 'badge--neutral'}`}>
                   {diffIndoorSoll.toFixed(2)}°C
                 </span>
               ) : "-"}
