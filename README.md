@@ -227,11 +227,19 @@ diff = (t_soll + t_delta / DELTA_DAMPENING_FACTOR) - indoorTemperature
 - Calculation result is rounded to **2 decimal places** (0.01°C precision)
 - Displayed with 2 decimal places in all UI components
 
+**Safety Limits:**
+- `MAX_DELTA_VALUE`: Maximum allowed delta for automatic updates
+  - **Default: 5.0°C** (allows delta values between -5°C and +5°C)
+  - **Location**: `src/reader/functions/types-constants/ConfigConstants.ts`
+  - Prevents extreme outdoor temperature differences from causing unsafe heating adjustments
+  - If `|outdoorDiff| > MAX_DELTA_VALUE`, automatic delta update is blocked and logged
+
 **Implementation Locations:**
-- **Global constant**: `src/reader/functions/types-constants/ConfigConstants.ts` (TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR)
+- **Global constants**: `src/reader/functions/types-constants/ConfigConstants.ts` (TEMP_CALC_CONSTANTS)
 - Frontend display: `src/components/HomeHero.tsx` (line 55)
 - WiFi data tab: `src/components/WifiAf83Data.tsx` (line 260)
 - Backend calculation: `src/utils/Functions.ts` (line 62)
+- Safety check: `src/components/HomeHero.tsx` (line 144)
 - Used by background service for automatic slider position control
 
 This calculation directly influences the **slider position** (0-100%) which controls the ETA heating valve position.

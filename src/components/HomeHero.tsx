@@ -140,8 +140,9 @@ export default function HomeHero() {
       return;
     }
     
-    // Additional safety check3: ensure delta change is not too extreme (max ±5°C)
-    if (Math.abs(newDelta) > 3) {
+    // Additional safety check3: ensure delta change is not too extreme (max ±MAX_DELTA_VALUE°C)
+    if (Math.abs(newDelta) > TEMP_CALC_CONSTANTS.MAX_DELTA_VALUE) {
+      console.log(`Delta update blocked: |${newDelta}| > ${TEMP_CALC_CONSTANTS.MAX_DELTA_VALUE}°C`);
       return;
     }
     

@@ -73,5 +73,16 @@ export const TEMP_CALC_CONSTANTS = {
      * 
      * Default: 5.0 (dampens delta by 80%)
      */
-    DELTA_DAMPENING_FACTOR: 5.0
+    DELTA_DAMPENING_FACTOR: 5.0,
+    
+    /**
+     * Maximum allowed delta value for automatic updates (in °C).
+     * Prevents extreme delta values from being applied automatically.
+     * 
+     * If the calculated outdoor temperature difference exceeds this limit,
+     * the automatic delta update will be blocked.
+     * 
+     * Default: 5.0 (allows delta values between -5°C and +5°C)
+     */
+    MAX_DELTA_VALUE: 5.0
 } as const;

@@ -9,7 +9,7 @@ import { storeData, storeError, setIsLoading as setIsConfigLoading } from '@/red
 import type { ConfigState } from '@/redux/configSlice';
 import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 import { calculateTemperatureDiff, calculateNewSliderPosition } from '@/utils/Functions';
-import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
+import { ConfigKeys, TEMP_CALC_CONSTANTS } from '@/reader/functions/types-constants/ConfigConstants';
 import type { Config } from '@/reader/functions/types-constants/ConfigConstants';
 import { DEFAULT_UPDATE_TIMER } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
@@ -397,6 +397,140 @@ const ConfigData: React.FC = () => {
         );
     };
 
+    const renderDeltaTemperature = () => {
+        const isEditingThis = isEditing === ConfigKeys.T_DELTA;
+        const deltaOverrideEnabled = config.data[ConfigKeys.DELTA_OVERRIDE] === 'true';
+        const rawDelta = parseFloat(config.data[ConfigKeys.T_DELTA] || '0');
+        
+        // Display value: divided by dampening factor (unless manual override is active)
+        const displayValue = deltaOverrideEnabled 
+            ? rawDelta.toFixed(1)
+            : (rawDelta / TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR).toFixed(2);
+
+        const handleEditStart = () => {
+            // When editing, show the raw value
+            setEditValue(rawDelta.toString());
+            setIsEditing(ConfigKeys.T_DELTA);
+        };
+
+        const handleSaveValue = async () => {
+            if (!isEditing) return;
+            
+            try {
+                const response = await fetch(API.CONFIG, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        key: ConfigKeys.T_DELTA,
+                        value: editValue.trim()
+                    }),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to update config');
+                }
+
+                const result = await response.json();
+                if (result.success && result.config) {
+                    dispatch(storeData(result.config));
+                    setIsEditing(null);
+                    // Refresh config shortly after server-side recompute
+                    setTimeout(async () => {
+                        try {
+                            const r = await fetch(API.CONFIG_READ);
+                            const j = await r.json();
+                            if (j?.success && j?.data) {
+                                dispatch(storeData(j.data));
+                            }
+                        } catch { /* ignore */ }
+                    }, 2300);
+                } else {
+                    throw new Error('Invalid response format');
+                }
+            } catch (error) {
+                console.error('Error updating config:', error);
+                alert('Failed to update config. Please try again.');
+            }
+        };
+
+        return (
+            <div className="flex flex-col space-y-1">
+                <div className="flex justify-between items-center">
+                    <div className="flex flex-col">
+                        <span className="font-medium">Deltatemperatur:</span>
+                        <span className="text-xs text-gray-500">
+                            {deltaOverrideEnabled 
+                                ? `Roh: ${rawDelta.toFixed(1)}°C` 
+                                : `Roh: ${rawDelta.toFixed(1)}°C ÷ ${TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR}`
+                            }
+                        </span>
+                    </div>
+                    {isEditingThis ? (
+                        <div className="flex space-x-2">
+                            <div className="input__wrap input__wrap--number">
+                                <input
+                                    type="number"
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleSaveValue();
+                                        }
+                                    }}
+                                    className="input w-24"
+                                    step={0.5}
+                                    min={-10}
+                                    max={10}
+                                />
+                                <div className="input__spinners">
+                                    <button
+                                        type="button"
+                                        className="input__spinner input__spinner--up"
+                                        onClick={() => {
+                                            const current = parseFloat(editValue) || 0;
+                                            const newValue = Math.min(10, current + 0.5);
+                                            setEditValue(newValue.toString());
+                                        }}
+                                        tabIndex={-1}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="input__spinner input__spinner--down"
+                                        onClick={() => {
+                                            const current = parseFloat(editValue) || 0;
+                                            const newValue = Math.max(-10, current - 0.5);
+                                            setEditValue(newValue.toString());
+                                        }}
+                                        tabIndex={-1}
+                                    />
+                                </div>
+                            </div>
+                            <button onClick={handleSaveValue} className="btn btn--primary">
+                                ✓
+                            </button>
+                            <button onClick={handleCancel} className="btn btn--secondary">
+                                ✗
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex space-x-2 items-center">
+                            <span className="badge badge--neutral">
+                                {displayValue}°C
+                            </span>
+                            <button onClick={handleEditStart} className="btn btn--secondary">
+                                ✎
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     const renderDeltaOverrideToggle = () => {
         const isEnabled = config.data[ConfigKeys.DELTA_OVERRIDE] === 'true';
 
@@ -618,7 +752,7 @@ const ConfigData: React.FC = () => {
             <div className="space-y-4 text-sm sm:text-base">
                 {renderEditableValue(ConfigKeys.T_SOLL, 'Solltemperatur', 10, 25, 0.5, '°C')}
                 {renderDeltaOverrideToggle()}
-                {renderEditableValue(ConfigKeys.T_DELTA, 'Deltatemperatur', -5, 5, 0.5, '°C')}
+                {renderDeltaTemperature()}
                 {renderEditableValue(ConfigKeys.T_MIN, 'Minimumtemperatur', 10, 25, 0.5, '°C')}
                 {renderEditableValue(
                     ConfigKeys.T_UPDATE_TIMER,
