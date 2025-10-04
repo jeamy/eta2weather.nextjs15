@@ -150,7 +150,7 @@ The redesigned main dashboard features a modern, unified tab interface:
   - Stable data display during browser minimize/maximize operations
   - Multi-channel temperature and humidity readings
   - Historical data access and visualization
-  - Live Diff Indoor/Soll calculation: `(t_soll + t_delta/2.0) - indoorTemperature`
+  - Live Diff Indoor/Soll calculation: `(t_soll + t_delta/5.0) - indoorTemperature`
 
 ### Weather Graphs (/weather)
 Detailed weather visualization and analysis:
@@ -202,7 +202,7 @@ The system uses a sophisticated temperature differential calculation to determin
 
 **Diff Indoor/Soll Calculation:**
 ```
-diff = (t_soll + t_delta/2.0) - indoorTemperature
+diff = (t_soll + t_delta/5.0) - indoorTemperature
 ```
 
 **Parameters:**

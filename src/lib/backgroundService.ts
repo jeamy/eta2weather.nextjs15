@@ -61,6 +61,8 @@ export class BackgroundService {
   private lastMenuHash: string | null = null;
   private cachedMenuNodes: MenuNode[] | null = null;
   private cachedUris: string[] | null = null;
+  // Menu is loaded once at startup and cached permanently
+  private menuLoadedOnce: boolean = false;
   // Monitoring and housekeeping
   private eventLoopDelayMonitor: ReturnType<typeof monitorEventLoopDelay> | null = null;
   private lastLogPrune: number = 0;
@@ -220,6 +222,13 @@ export class BackgroundService {
             }
             this.etaApi = new EtaApi(newEtaEndpoint);
             console.log(`${this.getTimestamp()} EtaApi reinitialized due to endpoint change`);
+            
+            // Clear menu cache and reload menu structure with new endpoint
+            this.menuLoadedOnce = false;
+            this.cachedMenuNodes = null;
+            this.cachedUris = null;
+            this.lastMenuHash = null;
+            console.log(`${this.getTimestamp()} Menu cache cleared, will reload on next data fetch`);
           } catch (e) {
             console.error(`${this.getTimestamp()} Failed to reinitialize EtaApi:`, e);
           }
@@ -302,122 +311,24 @@ export class BackgroundService {
         }
       }
 
-      // Get menu data first
-      console.log(`${this.getTimestamp()} Fetching ETA menu data...`);
-      // Add timeout with AbortController for getMenu
-      const menuController = new AbortController();
-      const menuTimeout = setTimeout(() => {
-        this.activeTimeouts.delete(menuTimeout);
-        menuController.abort();
-      }, 8000);
-      this.activeTimeouts.add(menuTimeout);
-      let menuResponse: any;
-      try {
-        menuResponse = await this.etaApi.getMenu(menuController.signal);
-      } finally {
-        clearTimeout(menuTimeout);
-        this.activeTimeouts.delete(menuTimeout);
-      }
-      if (menuResponse.error || !menuResponse.result) {
-        throw new Error(menuResponse.error || 'No ETA menu data received');
+      // Load menu only once at startup (menu structure doesn't change)
+      if (!this.menuLoadedOnce) {
+        await this.loadMenuStructure();
+        this.menuLoadedOnce = true;
       }
 
-      // Parse menu XML to get menu nodes (with content-hash caching)
-      const menuNodes: MenuNode[] = [];
-      const parseMenuXML = (xmlString: string) => {
-        const getAttributeValue = (line: string, attr: string): string => {
-          const match = line.match(new RegExp(`${attr}="([^"]+)"`));
-          return match ? match[1] : '';
-        };
-
-        const lines = xmlString.split('\n');
-        const nodeStack: MenuNode[] = [];
-
-        lines.forEach(line => {
-          if (!line.trim() || line.includes('<?xml') || line.includes('</eta>')) {
-            return;
-          }
-
-          if (line.includes('<eta')) {
-            // Root node
-            return;
-          }
-
-          const uri = getAttributeValue(line, 'uri');
-          const name = getAttributeValue(line, 'name');
-
-          if (uri && name) {
-            const node: MenuNode = {
-              uri,
-              name,
-              children: []
-            };
-
-            if (line.includes('</node>')) {
-              // Leaf node
-              if (nodeStack.length > 0) {
-                nodeStack[nodeStack.length - 1].children?.push(node);
-              } else {
-                menuNodes.push(node);
-              }
-            } else {
-              // Parent node
-              if (nodeStack.length > 0) {
-                nodeStack[nodeStack.length - 1].children?.push(node);
-              } else {
-                menuNodes.push(node);
-              }
-              nodeStack.push(node);
-            }
-          } else if (line.includes('</node>') && nodeStack.length > 0) {
-            nodeStack.pop();
-          }
-        });
-      };
-
-      const menuXml = menuResponse.result as string;
-      const currentHash = crypto.createHash('sha1').update(menuXml).digest('hex');
-      let menuNodesLocal: MenuNode[];
-      if (this.lastMenuHash && this.cachedMenuNodes && this.lastMenuHash === currentHash) {
-        console.log(`${this.getTimestamp()} Menu XML unchanged (hash=${currentHash}), reusing cached parse`);
-        menuNodesLocal = this.cachedMenuNodes;
-      } else {
-        parseMenuXML(menuXml);
-        menuNodesLocal = menuNodes;
-        this.cachedMenuNodes = menuNodesLocal;
-        this.lastMenuHash = currentHash;
+      // Get URIs from cached menu
+      if (!this.cachedUris || this.cachedUris.length === 0) {
+        throw new Error('Menu structure not loaded, cannot fetch data');
       }
+      const uris = this.cachedUris;
 
-      // Get all URIs from the menu tree (cached by hash)
-      console.log(`${this.getTimestamp()} Getting URIs from menu tree...`);
-      
-      // Count all nodes before filtering
-      const countAllUris = (nodes: MenuNode[]): number => {
-        let count = 0;
-        const countNode = (node: MenuNode) => {
-          if (node.uri) count++;
-          node.children?.forEach(countNode);
-        };
-        nodes.forEach(countNode);
-        return count;
-      };
-      
-      const totalUris = countAllUris(menuNodesLocal);
-      let uris: string[];
-      if (this.lastMenuHash === currentHash && this.cachedUris) {
-        uris = this.cachedUris;
-      } else {
-        uris = getAllUris(menuNodesLocal);
-        this.cachedUris = uris;
-      }
       // Build id->short map once for O(1) lookups
       const idToShort: Record<string, string> = {};
       Object.keys(defaultNames2Id).forEach(k => {
         const id = (defaultNames2Id as any)[k]?.id as string | undefined;
         if (id) idToShort[id] = k;
       });
-      
-      console.log(`${this.getTimestamp()} Found ${uris.length} endpoint URIs to fetch (filtered out ${totalUris - uris.length} category URIs)`);
 
       // Fetch data in batches using EtaApi with timeout/retry
       console.log(`${this.getTimestamp()} Fetching ETA data...`);
@@ -1020,6 +931,118 @@ export class BackgroundService {
     }
   }
 
+  /**
+   * Load menu structure once at startup (menu doesn't change during runtime)
+   */
+  private async loadMenuStructure(): Promise<void> {
+    console.log(`${this.getTimestamp()} Loading ETA menu structure (one-time operation)...`);
+    
+    if (!this.etaApi) {
+      throw new Error('EtaApi not initialized');
+    }
+
+    // Add timeout with AbortController for getMenu
+    const menuController = new AbortController();
+    const menuTimeout = setTimeout(() => {
+      this.activeTimeouts.delete(menuTimeout);
+      menuController.abort();
+    }, 8000);
+    this.activeTimeouts.add(menuTimeout);
+    
+    let menuResponse: any;
+    try {
+      menuResponse = await this.etaApi.getMenu(menuController.signal);
+    } finally {
+      clearTimeout(menuTimeout);
+      this.activeTimeouts.delete(menuTimeout);
+    }
+    
+    if (menuResponse.error || !menuResponse.result) {
+      throw new Error(menuResponse.error || 'No ETA menu data received');
+    }
+
+    // Parse menu XML to get menu nodes
+    const menuNodes: MenuNode[] = [];
+    const parseMenuXML = (xmlString: string) => {
+      const getAttributeValue = (line: string, attr: string): string => {
+        const match = line.match(new RegExp(`${attr}="([^"]+)"`));
+        return match ? match[1] : '';
+      };
+
+      const lines = xmlString.split('\n');
+      const nodeStack: MenuNode[] = [];
+
+      lines.forEach(line => {
+        if (!line.trim() || line.includes('<?xml') || line.includes('</eta>')) {
+          return;
+        }
+
+        if (line.includes('<eta')) {
+          // Root node
+          return;
+        }
+
+        const uri = getAttributeValue(line, 'uri');
+        const name = getAttributeValue(line, 'name');
+
+        if (uri && name) {
+          const node: MenuNode = {
+            uri,
+            name,
+            children: []
+          };
+
+          if (line.includes('</node>')) {
+            // Leaf node
+            if (nodeStack.length > 0) {
+              nodeStack[nodeStack.length - 1].children?.push(node);
+            } else {
+              menuNodes.push(node);
+            }
+          } else {
+            // Parent node
+            if (nodeStack.length > 0) {
+              nodeStack[nodeStack.length - 1].children?.push(node);
+            } else {
+              menuNodes.push(node);
+            }
+            nodeStack.push(node);
+          }
+        } else if (line.includes('</node>') && nodeStack.length > 0) {
+          nodeStack.pop();
+        }
+      });
+    };
+
+    const menuXml = menuResponse.result as string;
+    const currentHash = crypto.createHash('sha1').update(menuXml).digest('hex');
+    
+    parseMenuXML(menuXml);
+    this.cachedMenuNodes = menuNodes;
+    this.lastMenuHash = currentHash;
+
+    // Get all URIs from the menu tree
+    console.log(`${this.getTimestamp()} Extracting URIs from menu tree...`);
+    
+    // Count all nodes before filtering
+    const countAllUris = (nodes: MenuNode[]): number => {
+      let count = 0;
+      const countNode = (node: MenuNode) => {
+        if (node.uri) count++;
+        node.children?.forEach(countNode);
+      };
+      nodes.forEach(countNode);
+      return count;
+    };
+    
+    const totalUris = countAllUris(menuNodes);
+    const uris = getAllUris(menuNodes);
+    this.cachedUris = uris;
+    
+    console.log(`${this.getTimestamp()} ✓ Menu structure loaded: ${uris.length} endpoint URIs (filtered out ${totalUris - uris.length} category URIs)`);
+    console.log(`${this.getTimestamp()} ✓ Menu will be reused for all subsequent data fetches`);
+  }
+
   stop() {
     console.log(`${this.getTimestamp()} Stopping background service...`);
 
@@ -1095,6 +1118,7 @@ export class BackgroundService {
     this.lastMenuHash = null;
     this.cachedMenuNodes = null;
     this.cachedUris = null;
+    this.menuLoadedOnce = false;
     console.log(`${this.getTimestamp()} Cleared menu cache`);
 
     this.isRunning = false;

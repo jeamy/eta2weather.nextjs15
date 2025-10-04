@@ -206,8 +206,30 @@ if (this.etaApi && !this.etaApi.disposed) {
 
 ---
 
+---
+
+## 🚀 Performance Optimierung (2025-10-04)
+
+### Menu Loading Optimierung
+**Problem:** Menu wurde bei jedem Update-Zyklus neu geladen (alle paar Minuten), obwohl es sich nie ändert  
+**Lösung:**
+- Menu wird nur einmal beim Start geladen (`loadMenuStructure()` Methode)
+- `menuLoadedOnce` Flag verhindert erneutes Laden
+- Cache wird für alle nachfolgenden Fetches wiederverwendet
+- Bei Endpoint-Änderung wird Menu automatisch neu geladen
+
+**Performance Impact:**
+- **Vorher:** ~1-2 Sekunden Menu-Parsing bei jedem Update (alle 2-5 Minuten)
+- **Nachher:** Menu-Parsing nur einmal beim Start (~1-2 Sekunden einmalig)
+- **Ersparnis:** ~20-30 API-Calls und Parsing-Operationen pro Stunde
+
+**Dateien:** `src/lib/backgroundService.ts` (Zeilen 65, 307-311, 930-1037)
+
+---
+
 ## Datum
-2025-10-03
+- Initial: 2025-10-03
+- Menu Optimierung: 2025-10-04
 
 ## Version
-1.0.0
+1.1.0
