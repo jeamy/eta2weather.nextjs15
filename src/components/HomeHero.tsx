@@ -4,7 +4,7 @@ import React, { useMemo, useEffect, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/redux";
 import { storeData } from "@/redux/configSlice";
-import { ConfigKeys } from "@/reader/functions/types-constants/ConfigConstants";
+import { ConfigKeys, TEMP_CALC_CONSTANTS } from "@/reader/functions/types-constants/ConfigConstants";
 import { EtaButtons, EtaPos } from "@/reader/functions/types-constants/EtaConstants";
 import { EtaConstants as EtaConstKeys, defaultNames2Id } from "@/reader/functions/types-constants/Names2IDconstants";
 import { API } from "@/constants/apiPaths";
@@ -52,7 +52,7 @@ export default function HomeHero() {
       return null;
     }
     
-    const diff = (tSoll + tDelta/5.0) - indoor;
+    const diff = (tSoll + tDelta / TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR) - indoor;
     return Math.round(diff * 100) / 100; // Round to 0.01°C
   }, [config, wifi]);
 

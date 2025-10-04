@@ -5,6 +5,7 @@ import { EtaApi } from '@/reader/functions/EtaApi';
 import { EtaConstants, Names2Id } from "@/reader/functions/types-constants/Names2IDconstants";
 import { EtaPos } from "@/reader/functions/types-constants/EtaConstants";
 import { API } from '@/constants/apiPaths';
+import { TEMP_CALC_CONSTANTS } from '@/reader/functions/types-constants/ConfigConstants';
 
 type EtaValues = {
     einaus: string;
@@ -58,8 +59,8 @@ export function calculateTemperatureDiff(config: ConfigState, wifiAf83Data: Wifi
         return { diff: null, twa, twi };
     }
 
-    const diff = Math.min(tSollNum + tDeltaNum/5.0 - twi, 5.0);
-//    console.log(`Diff calculation: ${tSollNum} + ${tDeltaNum}5.0 - ${twi} = ${diff}`);
+    const diff = Math.min(tSollNum + tDeltaNum / TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR - twi, 5.0);
+//    console.log(`Diff calculation: ${tSollNum} + ${tDeltaNum}/${TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR} - ${twi} = ${diff}`);
     return { diff: Number(diff.toFixed(2)), twa, twi };
 }
 

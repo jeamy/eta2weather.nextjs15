@@ -61,3 +61,17 @@ export const defaultConfig: Config = {
         'CH8': 'Channel 8'
     }
 };
+
+// Temperature calculation constants
+export const TEMP_CALC_CONSTANTS = {
+    /**
+     * Delta dampening factor for temperature difference calculation.
+     * Used in: (t_soll + t_delta / DELTA_DAMPENING_FACTOR) - indoorTemperature
+     * 
+     * Higher values = less aggressive temperature correction
+     * Lower values = more aggressive temperature correction
+     * 
+     * Default: 5.0 (dampens delta by 80%)
+     */
+    DELTA_DAMPENING_FACTOR: 5.0
+} as const;

@@ -150,7 +150,7 @@ The redesigned main dashboard features a modern, unified tab interface:
   - Stable data display during browser minimize/maximize operations
   - Multi-channel temperature and humidity readings
   - Historical data access and visualization
-  - Live Diff Indoor/Soll calculation: `(t_soll + t_delta/5.0) - indoorTemperature`
+  - Live Diff Indoor/Soll calculation: `(t_soll + t_delta/DELTA_DAMPENING_FACTOR) - indoorTemperature`
 
 ### Weather Graphs (/weather)
 Detailed weather visualization and analysis:
@@ -202,7 +202,7 @@ The system uses a sophisticated temperature differential calculation to determin
 
 **Diff Indoor/Soll Calculation:**
 ```
-diff = (t_soll + t_delta/5.0) - indoorTemperature
+diff = (t_soll + t_delta / DELTA_DAMPENING_FACTOR) - indoorTemperature
 ```
 
 **Parameters:**
@@ -210,7 +210,12 @@ diff = (t_soll + t_delta/5.0) - indoorTemperature
 - `t_delta`: Temperature offset adjustment (°C)
   - Automatically calculated from ETA vs WiFi outdoor temperature difference (when Delta Override is disabled)
   - Can be manually set (when Delta Override is enabled)
-  - **Divided by 2.0** to apply a dampened correction factor
+  - **Divided by DELTA_DAMPENING_FACTOR** to apply a dampened correction factor
+- `DELTA_DAMPENING_FACTOR`: Global constant controlling temperature correction aggressiveness
+  - **Default: 5.0** (dampens delta by 80%)
+  - **Location**: `src/reader/functions/types-constants/ConfigConstants.ts`
+  - Higher values = less aggressive correction, Lower values = more aggressive correction
+  - **Change this single value to adjust the dampening factor globally**
 - `indoorTemperature`: Current room temperature from WiFi sensor (°C)
 
 **Result Interpretation:**
@@ -218,10 +223,15 @@ diff = (t_soll + t_delta/5.0) - indoorTemperature
 - **Negative value** (e.g., -0.8°C): Room is warmer than target → Less heating needed (displayed in blue)
 - **Zero**: Room is at target temperature (displayed in neutral)
 
+**Precision:**
+- Calculation result is rounded to **2 decimal places** (0.01°C precision)
+- Displayed with 2 decimal places in all UI components
+
 **Implementation Locations:**
+- **Global constant**: `src/reader/functions/types-constants/ConfigConstants.ts` (TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR)
 - Frontend display: `src/components/HomeHero.tsx` (line 55)
 - WiFi data tab: `src/components/WifiAf83Data.tsx` (line 260)
-- Backend calculation: `src/utils/Functions.ts` (line 61)
+- Backend calculation: `src/utils/Functions.ts` (line 62)
 - Used by background service for automatic slider position control
 
 This calculation directly influences the **slider position** (0-100%) which controls the ETA heating valve position.

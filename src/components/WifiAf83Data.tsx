@@ -9,7 +9,7 @@ import { useAppDispatch } from '@/redux/hooks';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
 import { calculateTemperatureDiff, calculateNewSliderPosition, calculateMinTempDiff } from '@/utils/Functions';
 import { storeData } from '@/redux/configSlice';
-import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
+import { ConfigKeys, TEMP_CALC_CONSTANTS } from '@/reader/functions/types-constants/ConfigConstants';
 import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 import Image from 'next/image';
 import { WifiAF83Data } from '@/reader/functions/types-constants/WifiAf83';
@@ -257,7 +257,7 @@ const WifiAf83Data: React.FC = () => {
                   return <span className="badge badge--warn">--</span>;
                 }
                 
-                const diff = (tSoll + tDelta/2.0) - indoor;
+                const diff = (tSoll + tDelta / TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR) - indoor;
                 const roundedDiff = Math.round(diff * 100) / 100;
                 // Positive diff => kälter als Soll (blau), Negative => wärmer als Soll (grün)
                 const cls = roundedDiff > 0 ? 'badge--primary' : roundedDiff < 0 ? 'badge--ok' : 'badge--neutral';
