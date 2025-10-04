@@ -508,22 +508,39 @@ const ConfigData: React.FC = () => {
                                         tabIndex={-1}
                                     />
                                 </div>
+                                <span className="input__suffix">°C</span>
                             </div>
-                            <button onClick={handleSaveValue} className="btn btn--primary">
+                            <button
+                                type="button"
+                                onClick={handleSaveValue}
+                                className="btn btn--primary"
+                                title="Save"
+                            >
                                 ✓
                             </button>
-                            <button onClick={handleCancel} className="btn btn--secondary">
+                            <button
+                                type="button"
+                                onClick={handleCancel}
+                                className="btn btn--danger"
+                                title="Cancel"
+                            >
                                 ✗
                             </button>
                         </div>
                     ) : (
-                        <div className="flex space-x-2 items-center">
-                            <span className="badge badge--neutral">
-                                {displayValue}°C
-                            </span>
-                            <button onClick={handleEditStart} className="btn btn--secondary">
-                                ✎
-                            </button>
+                        <div 
+                            className="cursor-pointer hover:text-blue-600 flex items-center space-x-1"
+                            onClick={handleEditStart}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    handleEditStart();
+                                }
+                            }}
+                        >
+                            <span className="badge badge--neutral">{displayValue}°C</span>
                         </div>
                     )}
                 </div>
