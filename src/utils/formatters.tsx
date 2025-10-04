@@ -47,33 +47,34 @@ export const formatValue = (data: ParsedXmlData): FormattedValue => {
     };
   }
   
-  // Try to convert to number
-  const numValue = parseFloat(value);
-  
-  // If not a valid number, return the original text
-  if (isNaN(numValue)) {
-    return { text: value, color: "text-gray-900" };
+  // Special handling for "Letzte Änderung" - check by long name
+  if (data.long === "Letzte Änderung") {
+    // Parse the raw value (in seconds) and format as HH:MM:SS
+    const numValue = parseFloat(value.replace(',', '.'));
+    if (!isNaN(numValue)) {
+      const hours = Math.floor(numValue / 3600);
+      const minutes = Math.floor((numValue % 3600) / 60);
+      const seconds = Math.floor(numValue % 60);
+      
+      return {
+        text: (
+          <>{hours}:{minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}</>
+        ),
+        color: "text-gray-900"
+      };
+    }
   }
   
-  // Special handling for "Letzte Änderung"
-  if (data.strValue === "Letzte Änderung") {
-    const hours = Math.floor(numValue / 3600);
-    const minutes = Math.floor((numValue % 3600) / 60);
-    const seconds = Math.floor(numValue % 60);
-    
-    return {
-      text: (
-        <>{hours}:{minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}</>
-      ),
-      color: "text-gray-900"
-    };
-  }
+  // Default: Use strValue directly as it's already correctly formatted by the ETA API
+  // The API provides strValue with proper decimal places and formatting
   
-  // Format number with 2 decimal places if it has decimals
-  const formattedNumber = Number.isInteger(numValue) ? numValue : numValue.toFixed(2);
-  const unit = data.unit ? <span className="text-gray-500 ml-1">{data.unit}</span> : null;
+  // Special case: If strValue already contains time units (h, m, s), don't append the unit
+  // Example: strValue="174h 8m" with unit="s" should display as "174h 8m", not "174h 8m s"
+  const hasTimeUnits = /\d+[hms]\b/.test(value);
+  const unit = (data.unit && !hasTimeUnits) ? <span className="text-gray-500 ml-1">{data.unit}</span> : null;
+  
   return { 
-    text: <>{formattedNumber}{unit}</>, 
+    text: <>{value}{unit}</>, 
     color: "text-gray-900" 
   };
 };
