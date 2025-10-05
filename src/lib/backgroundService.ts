@@ -18,7 +18,6 @@ import { updateConfig } from '@/utils/cache';
 import { getWifiAf83Data } from '@/utils/cache';
 import * as fs from 'fs';
 import path from 'path';
-import crypto from 'crypto';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { calculateNewSliderPosition, calculateTemperatureDiff, updateSliderPosition } from '@/utils/Functions';
 import { parseXML } from '@/reader/functions/EtaData';
@@ -36,8 +35,6 @@ export class BackgroundService {
   private config: Config = defaultConfig;
   private isRunning = false;
   private configWatcher: fs.FSWatcher | null = null;
-  private lastConfigCheck = 0;
-  private configCheckInterval = 10000;
   private isUpdating = false;
   private configChangeTimeout: NodeJS.Timeout | null = null;
   private lastConfigContent: string = '';
@@ -55,19 +52,14 @@ export class BackgroundService {
       manualOverride: false,
       manualOverrideTime: null
     };
-  private lastSliderUpdate: string | null = null;
   private lastEtaUpdate: number | null = null;
   // Cache for parsed ETA menu and URIs to avoid reparsing when content doesn't change
-  private lastMenuHash: string | null = null;
   private cachedMenuNodes: MenuNode[] | null = null;
   private cachedUris: string[] | null = null;
   // Menu is loaded once at startup and cached permanently
   private menuLoadedOnce: boolean = false;
-  // Track active WiFi fetch controller for cancellation
-  private wifiFetchController: AbortController | null = null;
   // Monitoring and housekeeping
   private eventLoopDelayMonitor: ReturnType<typeof monitorEventLoopDelay> | null = null;
-  private readonly LOG_RETENTION_DAYS = parseInt(process.env.LOG_RETENTION_DAYS || '14');
   private readonly ETA_CALL_DELAY_MS = parseInt(process.env.ETA_CALL_DELAY_MS || '120');
   // Track active timeouts for cleanup
   private activeTimeouts: Set<NodeJS.Timeout> = new Set();
@@ -160,7 +152,6 @@ export class BackgroundService {
           try {
             const currentContent = fs.readFileSync(CONFIG_FILE_PATH, 'utf-8');
             if (currentContent !== this.lastConfigContent) {
-              this.lastConfigCheck = Date.now();
               this.lastConfigContent = currentContent;
               this.handleConfigChange();
             }
@@ -228,7 +219,6 @@ export class BackgroundService {
             this.menuLoadedOnce = false;
             this.cachedMenuNodes = null;
             this.cachedUris = null;
-            this.lastMenuHash = null;
             console.log(`${this.getTimestamp()} Menu cache cleared, will reload on next data fetch`);
           } catch (e) {
             console.error(`${this.getTimestamp()} Failed to reinitialize EtaApi:`, e);
@@ -430,19 +420,7 @@ export class BackgroundService {
 
       // Load WiFi AF83 data
       const wifiApi = new WifiAf83Api();
-      if (this.wifiFetchController) {
-        this.wifiFetchController.abort();
-      }
-      const wifiController = new AbortController();
-      this.wifiFetchController = wifiController;
-      let allData;
-      try {
-        allData = await getWifiAf83Data((signal?: AbortSignal) => wifiApi.getAllRealtime(signal), wifiController.signal);
-      } finally {
-        if (this.wifiFetchController === wifiController) {
-          this.wifiFetchController = null;
-        }
-      }
+      const allData = await getWifiAf83Data(() => wifiApi.getAllRealtime());
 
       // Extract and validate temperature values
       const outdoorTempRaw = allData.outdoor?.temperature?.value;
@@ -507,7 +485,7 @@ export class BackgroundService {
     const activeSleepsCount = this.activeSleeps.size;
     const cacheSize = this.cachedUris ? this.cachedUris.length : 0;
 
-    const memoryStats = {
+    console.log(`${this.getTimestamp()} Memory Monitor:`, {
       heapUsed: `${heapUsedMB}MB`,
       heapTotal: `${heapTotalMB}MB`,
       external: `${externalMB}MB`,
@@ -516,9 +494,7 @@ export class BackgroundService {
       activeSleeps: activeSleepsCount,
       cachedUris: cacheSize,
       etaApiStatus: this.etaApi ? (this.etaApi.disposed ? 'disposed' : 'active') : 'null'
-    };
-
-    console.log(`\x1b[32m${this.getTimestamp()} Memory Monitor: ${JSON.stringify(memoryStats)}\x1b[0m`);
+    });
 
     // Alert if memory usage is too high
     if (used.heapUsed > this.MAX_HEAP_SIZE) {
@@ -674,8 +650,6 @@ export class BackgroundService {
                 );
 
                 if (result.success) {
-                  // Mark last successful target to avoid immediate duplicate work
-                  this.lastSliderUpdate = newSliderPosition;
                   // Update the SP value in the Redux store
                   const updatedEtaData = { ...etaState.data };
                   const spId = defaultNames2Id[EtaConstants.SCHIEBERPOS].id;
@@ -897,21 +871,6 @@ export class BackgroundService {
     }
   }
 
-  private async isServerReady(url: string, retries = 5, delay = 2000): Promise<boolean> {
-    for (let i = 0; i < retries; i++) {
-      try {
-        const response = await fetch(url);
-        if (response.ok) {
-          return true;
-        }
-      } catch (error) {
-        console.warn(`Server not ready, retrying... (${i + 1}/${retries})`);
-      }
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-    return false;
-  }
-
   async start() {
     if (this.isRunning) {
       console.log(`${this.getTimestamp()} Background service is already running`);
@@ -1048,11 +1007,9 @@ export class BackgroundService {
     };
 
     const menuXml = menuResponse.result as string;
-    const currentHash = crypto.createHash('sha1').update(menuXml).digest('hex');
     
     parseMenuXML(menuXml);
     this.cachedMenuNodes = menuNodes;
-    this.lastMenuHash = currentHash;
 
     // Get all URIs from the menu tree
     console.log(`${this.getTimestamp()} Extracting URIs from menu tree...`);
@@ -1111,12 +1068,6 @@ export class BackgroundService {
       this.configChangeTimeout = null;
     }
 
-    // Abort any in-flight WiFi fetch
-    if (this.wifiFetchController) {
-      this.wifiFetchController.abort();
-      this.wifiFetchController = null;
-    }
-
     // Stop event loop delay monitor
     if (this.eventLoopDelayMonitor) {
       try {
@@ -1154,7 +1105,6 @@ export class BackgroundService {
     }
 
     // Clear caches to free memory
-    this.lastMenuHash = null;
     this.cachedMenuNodes = null;
     this.cachedUris = null;
     this.menuLoadedOnce = false;

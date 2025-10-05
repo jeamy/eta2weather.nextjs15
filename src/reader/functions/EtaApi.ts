@@ -30,68 +30,67 @@ export class EtaApi {
         try {
             // Ensure server doesn't start with http:// or https://
             const serverAddress = this.server.replace(/^https?:\/\//, '');
-
+            
             // Ensure endpoint starts with a slash
             const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-
+            
             // Construct the full URL
             const url = `http://${serverAddress}${formattedEndpoint}`;
-
+            
+            // console.log(`Sending ${method} request to ${url}`);
             if (body) {
                 console.log(`Body: ${JSON.stringify(body)}`);
-            }
-
-            const controller = signal instanceof AbortSignal ? null : new AbortController();
-            const effectiveSignal = signal ?? controller?.signal;
-
-            if (controller) {
-                this.abortControllers.add(controller);
-            }
-
-            if (signal && controller) {
-                const onAbort = () => controller.abort();
-                signal.addEventListener('abort', onAbort, { once: true });
-                controller.signal.addEventListener('abort', () => {
-                    signal.removeEventListener('abort', onAbort);
-                });
             }
 
             const fetchOptions: RequestInit = {
                 method,
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    "Content-Type": "application/x-www-form-urlencoded",
                 },
                 body: body ? new URLSearchParams(body).toString() : undefined,
-                signal: effectiveSignal,
+                signal,
             };
-
+            
             try {
+                // Track external abort controller if provided
+                if (signal && signal instanceof AbortSignal) {
+                    const controller = new AbortController();
+                    this.abortControllers.add(controller);
+                    // Clean up when signal aborts
+                    signal.addEventListener('abort', () => {
+                        this.abortControllers.delete(controller);
+                    });
+                }
+                
                 const response = await fetch(url, fetchOptions);
-
+                
                 if (!response.ok) {
-                    return {
-                        result: null,
+                    return { 
+                        result: null, 
                         error: `HTTP error! Status: ${response.status}`,
-                        uri: url,
+                        uri: url
                     };
                 }
-
+                
                 const result = await response.text();
+                
+                // Clean up abort controller tracking
+                if (signal) {
+                    this.abortControllers.forEach(controller => {
+                        if (controller.signal === signal) {
+                            this.abortControllers.delete(controller);
+                        }
+                    });
+                }
+                
                 return { result, error: null };
             } catch (fetchError) {
-                if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-                    return { result: null, error: 'Request aborted', uri: url };
-                }
-                return {
-                    result: null,
+                // Handle network errors silently
+                return { 
+                    result: null, 
                     error: 'Network error - request will be retried automatically',
-                    uri: url,
+                    uri: url
                 };
-            } finally {
-                if (controller) {
-                    controller.abort();
-                    this.abortControllers.delete(controller);
-                }
             }
         } catch (error) {
             // Log but don't throw
