@@ -507,7 +507,7 @@ export class BackgroundService {
     const activeSleepsCount = this.activeSleeps.size;
     const cacheSize = this.cachedUris ? this.cachedUris.length : 0;
 
-    console.log(`${this.getTimestamp()} Memory Monitor:`, {
+    const memoryStats = {
       heapUsed: `${heapUsedMB}MB`,
       heapTotal: `${heapTotalMB}MB`,
       external: `${externalMB}MB`,
@@ -516,7 +516,9 @@ export class BackgroundService {
       activeSleeps: activeSleepsCount,
       cachedUris: cacheSize,
       etaApiStatus: this.etaApi ? (this.etaApi.disposed ? 'disposed' : 'active') : 'null'
-    });
+    };
+
+    console.log(`\x1b[32m${this.getTimestamp()} Memory Monitor: ${JSON.stringify(memoryStats)}\x1b[0m`);
 
     // Alert if memory usage is too high
     if (used.heapUsed > this.MAX_HEAP_SIZE) {
