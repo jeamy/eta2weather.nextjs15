@@ -184,26 +184,20 @@ async function readWifiAf83File(): Promise<any> {
 }
 
 export async function getWifiAf83Data(fetchFn: (signal?: AbortSignal) => Promise<any>, signal?: AbortSignal) {
-    // Try to get data from cache first
     const cachedData = wifiaf83Cache.get(WIFIAF83_CACHE_KEY);
-    
+
     try {
-        // If not in cache or expired, fetch new data
         if (!cachedData) {
             try {
                 const response = await fetchFn(signal);
-
-                // Check if the response has the expected structure
                 if (!response || response.code !== 0) {
                     throw new Error(`Failed to fetch WifiAf83 data: ${response?.msg || 'Unknown error'}`);
                 }
 
-                // Store in cache and file
                 wifiaf83Cache.set(WIFIAF83_CACHE_KEY, response.data);
                 await updateWifiAf83File(response.data);
                 return response.data;
             } catch (fetchError) {
-                // If fetch fails and we have no cache, try to read from file
                 const fileData = await readWifiAf83File();
                 if (fileData) {
                     wifiaf83Cache.set(WIFIAF83_CACHE_KEY, fileData);
@@ -212,29 +206,55 @@ export async function getWifiAf83Data(fetchFn: (signal?: AbortSignal) => Promise
                 throw fetchError;
             }
         }
-        
-        // If we have cached data, try to fetch new data in the background
-        fetchFn(signal).then(response => {
-            if (response && response.code === 0) {
-                wifiaf83Cache.set(WIFIAF83_CACHE_KEY, response.data);
-                updateWifiAf83File(response.data).catch(() => {
-                    // Ignore file write errors in background update
-                });
+
+        if (!signal || !signal.aborted) {
+            const backgroundController = new AbortController();
+            let removeAbortListener: (() => void) | null = null;
+
+            if (signal) {
+                const onAbort = () => {
+                    backgroundController.abort();
+                };
+                signal.addEventListener('abort', onAbort, { once: true });
+                removeAbortListener = () => signal.removeEventListener('abort', onAbort);
+                if (signal.aborted) {
+                    backgroundController.abort();
+                }
             }
-        }).catch(() => {
-            // Ignore background fetch errors
-        });
-        
+
+            const runBackgroundFetch = async () => {
+                try {
+                    const response = await fetchFn(backgroundController.signal);
+                    if (response && response.code === 0) {
+                        wifiaf83Cache.set(WIFIAF83_CACHE_KEY, response.data);
+                        await updateWifiAf83File(response.data);
+                    }
+                } catch (error) {
+                    if (!(error instanceof Error && error.name === 'AbortError')) {
+                        // Ignore non-abort errors silently
+                    }
+                } finally {
+                    if (removeAbortListener) {
+                        removeAbortListener();
+                    }
+                }
+            };
+
+            if (!backgroundController.signal.aborted) {
+                void runBackgroundFetch();
+            } else if (removeAbortListener) {
+                removeAbortListener();
+            }
+        }
+
         return cachedData;
     } catch (error) {
-        // If we have cached data and get a rate limit error, return the cached data
-        if (cachedData && error instanceof Error && 
+        if (cachedData && error instanceof Error &&
             (error.message.includes('too frequent') || error.message.includes('rate limit'))) {
             console.log('Using cached data due to rate limit');
             return cachedData;
         }
 
-        // If no cache and error is not rate limit, try file as last resort
         const fileData = await readWifiAf83File();
         if (fileData) {
             console.log('Using file data as fallback');

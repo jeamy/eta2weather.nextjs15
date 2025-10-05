@@ -196,9 +196,11 @@ const WifiAf83Data: React.FC = () => {
     }
   }, [dispatch]);
 
+  // Load ETA data only once on mount to avoid circular dependency
   useEffect(() => {
     loadAndStoreEta();
-  }, [loadAndStoreEta]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array = only on mount
 
   if (isLoading || !wifiData) {
     return (

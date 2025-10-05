@@ -150,7 +150,8 @@ export default function HomeHero() {
     if (deltaChange >= 0.1) {
       lastDiffUpdateRef.current = now;
       
-      // Update config via API
+      // Update config via API with AbortController for cleanup
+      const controller = new AbortController();
       fetch(API.CONFIG, {
         method: 'POST',
         headers: {
@@ -160,6 +161,7 @@ export default function HomeHero() {
           key: ConfigKeys.T_DELTA,
           value: newDelta.toString()
         }),
+        signal: controller.signal
       })
       .then(response => response.json())
       .then(result => {
@@ -171,8 +173,15 @@ export default function HomeHero() {
         }
       })
       .catch(error => {
-        console.error('Error updating delta temperature:', error);
+        if (error.name !== 'AbortError') {
+          console.error('Error updating delta temperature:', error);
+        }
       });
+      
+      // Cleanup function to abort fetch if component unmounts
+      return () => {
+        controller.abort();
+      };
     }
   }, [outdoorDiffSigned, deltaOverrideEnabled, config, dispatch, etaOutdoor, wifiOutdoor]);
 

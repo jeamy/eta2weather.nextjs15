@@ -26,6 +26,8 @@ const ConfigData: React.FC = () => {
     // Removed client-side slider updates; handled by server-side BackgroundService
     const [nextUpdate, setNextUpdate] = useState<number>(0);
     const lastUpdateTime = useRef<number>(Date.now());
+    // Track timeouts for cleanup
+    const pendingTimeouts = useRef<Set<NodeJS.Timeout>>(new Set());
 
     useEffect(() => {
         const loadConfigData = async () => {
@@ -81,7 +83,12 @@ const ConfigData: React.FC = () => {
         updateCountdown();
         interval = setInterval(updateCountdown, 1000);
 
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            // Cleanup all pending timeouts on unmount
+            pendingTimeouts.current.forEach(clearTimeout);
+            pendingTimeouts.current.clear();
+        };
     }, [config.data]);
 
     if (config.loadingState.isLoading) {
@@ -189,7 +196,8 @@ const ConfigData: React.FC = () => {
                     dispatch(storeData(result.config));
                     setIsEditing(null);
                     // Refresh config shortly after server-side recompute (file watcher debounce)
-                    setTimeout(async () => {
+                    const timeout = setTimeout(async () => {
+                        pendingTimeouts.current.delete(timeout);
                         try {
                             const r = await fetch(API.CONFIG_READ);
                             const j = await r.json();
@@ -198,6 +206,7 @@ const ConfigData: React.FC = () => {
                             }
                         } catch { /* ignore */ }
                     }, 2300);
+                    pendingTimeouts.current.add(timeout);
                 } else {
                     throw new Error('Invalid response format');
                 }
@@ -438,7 +447,8 @@ const ConfigData: React.FC = () => {
                     dispatch(storeData(result.config));
                     setIsEditing(null);
                     // Refresh config shortly after server-side recompute
-                    setTimeout(async () => {
+                    const timeout = setTimeout(async () => {
+                        pendingTimeouts.current.delete(timeout);
                         try {
                             const r = await fetch(API.CONFIG_READ);
                             const j = await r.json();
@@ -447,6 +457,7 @@ const ConfigData: React.FC = () => {
                             }
                         } catch { /* ignore */ }
                     }, 2300);
+                    pendingTimeouts.current.add(timeout);
                 } else {
                     throw new Error('Invalid response format');
                 }
@@ -649,7 +660,8 @@ const ConfigData: React.FC = () => {
                     dispatch(storeData(result.config));
                     setIsEditing(null);
                     // Pull server-recomputed config (diff/t_slider) shortly after file watcher debounce
-                    setTimeout(async () => {
+                    const timeout = setTimeout(async () => {
+                        pendingTimeouts.current.delete(timeout);
                         try {
                             const r = await fetch(API.BACKGROUND_STATUS);
                             const j = await r.json();
@@ -658,6 +670,7 @@ const ConfigData: React.FC = () => {
                             }
                         } catch { /* ignore */ }
                     }, 2300);
+                    pendingTimeouts.current.add(timeout);
                 } else {
                     throw new Error('Invalid response format');
                 }

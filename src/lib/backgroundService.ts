@@ -13,7 +13,7 @@ import { storeData as storeNames2IdData } from '../redux/names2IdSlice';
 import { getAllUris } from '../utils/etaUtils';
 import { MenuNode } from '@/types/menu';
 import { EtaPos, EtaButtons, EtaData } from '@/reader/functions/types-constants/EtaConstants';
-import { logData, pruneOldLogs } from '@/utils/logging';
+import { logData } from '@/utils/logging';
 import { updateConfig } from '@/utils/cache';
 import { getWifiAf83Data } from '@/utils/cache';
 import * as fs from 'fs';
@@ -63,9 +63,10 @@ export class BackgroundService {
   private cachedUris: string[] | null = null;
   // Menu is loaded once at startup and cached permanently
   private menuLoadedOnce: boolean = false;
+  // Track active WiFi fetch controller for cancellation
+  private wifiFetchController: AbortController | null = null;
   // Monitoring and housekeeping
   private eventLoopDelayMonitor: ReturnType<typeof monitorEventLoopDelay> | null = null;
-  private lastLogPrune: number = 0;
   private readonly LOG_RETENTION_DAYS = parseInt(process.env.LOG_RETENTION_DAYS || '14');
   private readonly ETA_CALL_DELAY_MS = parseInt(process.env.ETA_CALL_DELAY_MS || '120');
   // Track active timeouts for cleanup
@@ -302,8 +303,12 @@ export class BackgroundService {
       await this.cleanupOldData();
 
       // Create EtaApi instance if not exists
-      if (!this.etaApi) {
+      if (!this.etaApi || this.etaApi.disposed) {
         try {
+          // Dispose old instance if it exists and is not already disposed
+          if (this.etaApi && !this.etaApi.disposed) {
+            this.etaApi.dispose();
+          }
           this.etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
         } catch (e) {
           console.error(`${this.getTimestamp()} Failed to create EtaApi instance:`, e);
@@ -340,24 +345,33 @@ export class BackgroundService {
         while (attempt <= retries) {
           const controller = new AbortController();
           const timer = setTimeout(() => {
-            this.activeTimeouts.delete(timer);
             controller.abort();
           }, timeoutMs);
           this.activeTimeouts.add(timer);
+          
           try {
             const res = await this.etaApi!.getUserVar(id, controller.signal) as { result: string | null; error: string | null; uri?: string };
+            clearTimeout(timer);
+            this.activeTimeouts.delete(timer);
+            
             if (res?.result) return res.result;
             const error = new Error(res?.error || 'no result');
             (error as any).uri = id;
             throw error;
           } catch (e) {
+            // Always clean up timer
+            clearTimeout(timer);
+            this.activeTimeouts.delete(timer);
+            
             if (attempt < retries) {
               const backoff = 200 * Math.pow(2, attempt) + Math.floor(Math.random() * 100);
-              const backoffTimeout = setTimeout(() => {
-                this.activeTimeouts.delete(backoffTimeout);
-              }, backoff);
-              this.activeTimeouts.add(backoffTimeout);
-              await new Promise(r => setTimeout(r, backoff));
+              await new Promise(r => {
+                const backoffTimeout = setTimeout(() => {
+                  this.activeTimeouts.delete(backoffTimeout);
+                  r(undefined);
+                }, backoff);
+                this.activeTimeouts.add(backoffTimeout);
+              });
               attempt++;
             } else {
               if (!(e as any).uri) {
@@ -365,9 +379,6 @@ export class BackgroundService {
               }
               throw e;
             }
-          } finally {
-            clearTimeout(timer);
-            this.activeTimeouts.delete(timer);
           }
         }
         throw Object.assign(new Error('unreachable'), { uri: id });
@@ -419,7 +430,19 @@ export class BackgroundService {
 
       // Load WiFi AF83 data
       const wifiApi = new WifiAf83Api();
-      const allData = await getWifiAf83Data(() => wifiApi.getAllRealtime());
+      if (this.wifiFetchController) {
+        this.wifiFetchController.abort();
+      }
+      const wifiController = new AbortController();
+      this.wifiFetchController = wifiController;
+      let allData;
+      try {
+        allData = await getWifiAf83Data((signal?: AbortSignal) => wifiApi.getAllRealtime(signal), wifiController.signal);
+      } finally {
+        if (this.wifiFetchController === wifiController) {
+          this.wifiFetchController = null;
+        }
+      }
 
       // Extract and validate temperature values
       const outdoorTempRaw = allData.outdoor?.temperature?.value;
@@ -770,7 +793,11 @@ export class BackgroundService {
 
         try {
           // Ensure EtaApi instance is available
-          if (!this.etaApi) {
+          if (!this.etaApi || this.etaApi.disposed) {
+            // Dispose old instance if it exists and is not already disposed
+            if (this.etaApi && !this.etaApi.disposed) {
+              this.etaApi.dispose();
+            }
             this.etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
           }
           const etaApi = this.etaApi;
@@ -807,7 +834,11 @@ export class BackgroundService {
 
           try {
             // Ensure EtaApi instance is available
-            if (!this.etaApi) {
+            if (!this.etaApi || this.etaApi.disposed) {
+              // Dispose old instance if it exists and is not already disposed
+              if (this.etaApi && !this.etaApi.disposed) {
+                this.etaApi.dispose();
+              }
               this.etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
             }
             const etaApi = this.etaApi;
@@ -1076,6 +1107,12 @@ export class BackgroundService {
     if (this.configChangeTimeout) {
       clearTimeout(this.configChangeTimeout);
       this.configChangeTimeout = null;
+    }
+
+    // Abort any in-flight WiFi fetch
+    if (this.wifiFetchController) {
+      this.wifiFetchController.abort();
+      this.wifiFetchController = null;
     }
 
     // Stop event loop delay monitor

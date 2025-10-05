@@ -28,6 +28,7 @@ export class SetEta {
   private config: Config = {} as Config;
   private names2id: Names2Id = {} as Names2Id;
   private etaApi: EtaApi;
+  private updateInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.etaApi = new EtaApi();
@@ -163,7 +164,16 @@ export class SetEta {
     // Set up interval for periodic updates with default fallback
     const updateTimer = parseInt(this.config.t_update_timer) || DEFAULT_UPDATE_TIMER;
     if (updateTimer > 0) {
-      setInterval(() => this.fetchData(dispatch), updateTimer);
+      // Store interval reference for cleanup
+      this.updateInterval = setInterval(() => this.fetchData(dispatch), updateTimer);
+    }
+  }
+
+  // Add cleanup method
+  public cleanup(): void {
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = null;
     }
   }
 }

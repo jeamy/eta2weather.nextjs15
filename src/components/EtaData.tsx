@@ -75,9 +75,20 @@ const EtaData: React.FC = () => {
 
   useEffect(() => {
     if (config?.s_eta) {
+      // Dispose alte Instance vor Erstellung einer neuen
+      if (etaApiRef.current && !etaApiRef.current.disposed) {
+        etaApiRef.current.dispose();
+      }
       etaApiRef.current = new EtaApi(config.s_eta);
     }
-  }, [config]);
+    // Cleanup beim unmount
+    return () => {
+      if (etaApiRef.current && !etaApiRef.current.disposed) {
+        etaApiRef.current.dispose();
+        etaApiRef.current = null;
+      }
+    };
+  }, [config?.s_eta]);
 
   const loadAndStoreEta = useCallback(async (force: boolean = false, background: boolean = false) => {
     const now = Date.now();
