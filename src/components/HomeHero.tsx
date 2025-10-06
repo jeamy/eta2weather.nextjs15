@@ -110,6 +110,22 @@ export default function HomeHero() {
     return Math.round(diff * 10) / 10; // Round to 0.1°C to avoid floating point precision issues
   }, [etaOutdoor, wifiOutdoor]);
 
+  const schaltzustand = useMemo(() => {
+    try {
+      // Find SZ (Schaltzustand) entry
+      for (const [, item] of Object.entries((eta as any) || {})) {
+        if ((item as any)?.short === 'SZ') {
+          const strVal = (item as any)?.strValue;
+          const numVal = (item as any)?.value;
+          return strVal && strVal.trim() !== '' ? strVal : (numVal !== undefined && numVal !== null ? String(numVal) : null);
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, [eta]);
+
   const deltaOverrideEnabled = useMemo(() => {
     const enabled = config?.[ConfigKeys.DELTA_OVERRIDE] === 'true';
     return enabled;
@@ -223,6 +239,9 @@ export default function HomeHero() {
             <div className="stat__trend">positiv = kälter als Soll · negativ = wärmer als Soll</div>
           </div>
           <div className="stat" title="Schieber Position">
+            <div className="stat__label">Schaltzustand: {schaltzustand !== null ? (
+              <span className="badge badge--neutral ml-1">{schaltzustand}</span>
+            ) : "-"}</div>
             <div className="stat__label">Schieber</div>
             <div className="stat__value">{sliderPercent}%</div>
             <div className="progress mt-1" aria-label="Empfohlene Schieber Position">
