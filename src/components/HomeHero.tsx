@@ -239,9 +239,8 @@ export default function HomeHero() {
             <div className="stat__trend">positiv = kälter als Soll · negativ = wärmer als Soll</div>
           </div>
           <div className="stat" title="Schieber Position">
-            <div className="stat__label">Schaltzustand: {schaltzustand !== null ? (
-              <span className="stat__value">{schaltzustand}</span>
-            ) : "-"}</div>
+            <div className="stat__label">Schaltzustand</div>
+            <div className="stat__value">{schaltzustand !== null ? schaltzustand : "-"}</div>
             <div className="stat__label">Schieber</div>
             <div className="stat__value">{sliderPercent}%</div>
             <div className="progress mt-1" aria-label="Empfohlene Schieber Position">
