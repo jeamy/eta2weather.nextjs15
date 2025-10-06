@@ -240,7 +240,7 @@ export default function HomeHero() {
           </div>
           <div className="stat" title="Schieber Position">
             <div className="stat__label">Schaltzustand: {schaltzustand !== null ? (
-              <span className="badge badge--neutral ml-1">{schaltzustand}</span>
+              <span className="stat__value">{schaltzustand}</span>
             ) : "-"}</div>
             <div className="stat__label">Schieber</div>
             <div className="stat__value">{sliderPercent}%</div>
