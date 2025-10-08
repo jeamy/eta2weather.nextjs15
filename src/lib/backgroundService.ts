@@ -16,6 +16,7 @@ import { EtaPos, EtaButtons, EtaData } from '@/reader/functions/types-constants/
 import { logData } from '@/utils/logging';
 import { updateConfig } from '@/utils/cache';
 import { getWifiAf83Data } from '@/utils/cache';
+import { DatabaseService } from '@/lib/database/sqliteService';
 import * as fs from 'fs';
 import path from 'path';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
@@ -881,6 +882,16 @@ export class BackgroundService {
       this.isRunning = true;
       console.log(`${this.getTimestamp()} Starting background service...`);
 
+      // Initialize SQLite database
+      try {
+        const db = DatabaseService.getInstance();
+        await db.initialize();
+        console.log(`${this.getTimestamp()} SQLite database initialized`);
+      } catch (error) {
+        console.error(`${this.getTimestamp()} Failed to initialize SQLite database:`, error);
+        // Continue anyway - will fallback to file-based logging
+      }
+
       // Subscribe to Redux store for monitoring (optional, for debugging)
       this.storeUnsubscribe = store.subscribe(() => {
         // This runs on every state change - keep it lightweight
@@ -1033,7 +1044,7 @@ export class BackgroundService {
     console.log(`${this.getTimestamp()} ✓ Menu will be reused for all subsequent data fetches`);
   }
 
-  stop() {
+  async stop() {
     console.log(`${this.getTimestamp()} Stopping background service...`);
 
     // Unsubscribe from Redux store
@@ -1102,6 +1113,15 @@ export class BackgroundService {
         console.warn(`${this.getTimestamp()} Error disposing EtaApi:`, e);
       }
       this.etaApi = null;
+    }
+
+    // Close SQLite database connection
+    try {
+      const db = DatabaseService.getInstance();
+      await db.close();
+      console.log(`${this.getTimestamp()} SQLite database connection closed`);
+    } catch (error) {
+      console.error(`${this.getTimestamp()} Error closing SQLite connection:`, error);
     }
 
     // Clear caches to free memory

@@ -10,6 +10,8 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      - DATABASE_PATH=/db/eta2weather.db
     volumes:
+      - ./db:/db
       - ./public/log:/app/public/log
       - ./src/config:/app/src/config
