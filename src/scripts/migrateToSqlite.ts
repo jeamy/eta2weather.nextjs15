@@ -97,7 +97,8 @@ function parseXmlContent(xmlContent: string): any {
         });
         const doc = parser.parseFromString(sanitized, 'text/xml');
         
-        const dataNode = doc.getElementsByTagName('allData')[0];
+        // Try both 'data' (ecowitt) and 'allData' (legacy) tags
+        const dataNode = doc.getElementsByTagName('data')[0] || doc.getElementsByTagName('allData')[0];
         if (dataNode && dataNode.textContent) {
             try {
                 let jsonStr = dataNode.textContent.trim();
@@ -106,10 +107,10 @@ function parseXmlContent(xmlContent: string): any {
                 return JSON.parse(jsonStr);
             } catch (e) {
                 // Try to extract JSON manually if CDATA parsing fails
-                const cdataMatch = sanitized.match(/<allData>[\s\S]*?<!\[CDATA\[([\s\S]*?)\]\]>[\s\S]*?<\/allData>/);
-                if (cdataMatch && cdataMatch[1]) {
+                const cdataMatch = sanitized.match(/<(data|allData)>[\s\S]*?<!\[CDATA\[([\s\S]*?)\]\]>[\s\S]*?<\/(data|allData)>/);
+                if (cdataMatch && cdataMatch[2]) {
                     try {
-                        return JSON.parse(cdataMatch[1]);
+                        return JSON.parse(cdataMatch[2]);
                     } catch (e2) {
                         return null;
                     }
