@@ -620,6 +620,9 @@ export class BackgroundService {
               timestamp: Date.now(),
               diff: newDiffValue,
               sliderPosition: newSliderPosition,
+              t_soll: t_soll,
+              t_delta: t_delta,
+              indoor_temp: wifiData.indoorTemperature,
               indoor: wifiData.indoorTemperature,
               outdoor: wifiData.temperature
             });

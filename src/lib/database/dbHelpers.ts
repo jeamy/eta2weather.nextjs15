@@ -1,6 +1,6 @@
 import { DatabaseService } from './sqliteService';
 
-export type TimeRange = '24h' | '7d' | '30d' | '1m';
+export type TimeRange = '24h' | '7d' | '1m';
 
 export class DatabaseHelpers {
     private db: DatabaseService;
@@ -103,8 +103,13 @@ export class DatabaseHelpers {
         switch (range) {
             case '24h': return 24;
             case '7d': return 7 * 24;
-            case '30d':
-            case '1m': return 30 * 24;
+            case '1m': {
+                // Calculate actual month duration dynamically
+                const now = new Date();
+                const oneMonthAgo = new Date(now);
+                oneMonthAgo.setMonth(now.getMonth() - 1);
+                return Math.floor((now.getTime() - oneMonthAgo.getTime()) / (1000 * 60 * 60));
+            }
             default: return 24;
         }
     }
@@ -113,7 +118,6 @@ export class DatabaseHelpers {
         switch (range) {
             case '24h': return 1;
             case '7d': return 3;
-            case '30d':
             case '1m': return 6;
             default: return 1;
         }
