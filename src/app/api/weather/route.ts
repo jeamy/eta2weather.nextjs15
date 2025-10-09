@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     let weatherData: any[] = [];
     try {
       const helpers = new DatabaseHelpers();
-      weatherData = helpers.getWeatherData(range);
+      weatherData = await helpers.getWeatherData(range);
       console.log(`Weather data from SQLite: ${weatherData.length} records`);
     } catch (error) {
       console.error('Error getting weather data from SQLite:', error);

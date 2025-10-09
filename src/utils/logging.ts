@@ -130,7 +130,7 @@ export const getLogFiles = async (type: LogType) => {
     try {
         const { DatabaseHelpers } = await import('@/lib/database/dbHelpers');
         const helpers = new DatabaseHelpers();
-        const dbFiles = helpers.getLogsAsFilePaths(type);
+        const dbFiles = await helpers.getLogsAsFilePaths(type);
         if (dbFiles && dbFiles.length > 0) {
             return dbFiles;
         }

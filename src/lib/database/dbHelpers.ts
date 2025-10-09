@@ -4,12 +4,21 @@ export type TimeRange = '24h' | '7d' | '30d' | '1m';
 
 export class DatabaseHelpers {
     private db: DatabaseService;
+    private initPromise: Promise<void> | null = null;
 
     constructor() {
         this.db = DatabaseService.getInstance();
     }
 
-    getWeatherData(range: TimeRange): any[] {
+    private async ensureInitialized(): Promise<void> {
+        if (!this.initPromise) {
+            this.initPromise = this.db.initialize();
+        }
+        await this.initPromise;
+    }
+
+    async getWeatherData(range: TimeRange): Promise<any[]> {
+        await this.ensureInitialized();
         const hours = this.getRangeHours(range);
         const startDate = new Date(Date.now() - hours * 60 * 60 * 1000);
         const endDate = new Date();
@@ -103,7 +112,8 @@ export class DatabaseHelpers {
         }
     }
 
-    getLogsAsFilePaths(type: string): string[] {
+    async getLogsAsFilePaths(type: string): Promise<string[]> {
+        await this.ensureInitialized();
         const table = `${type}_logs`;
         const allRows: any[] = [];
         const years = this.db.getAllAvailableYears();
@@ -145,7 +155,8 @@ export class DatabaseHelpers {
         });
     }
 
-    count(table: string): number {
+    async count(table: string): Promise<number> {
+        await this.ensureInitialized();
         const years = this.db.getAllAvailableYears();
         let totalCount = 0;
         
@@ -163,7 +174,8 @@ export class DatabaseHelpers {
         return totalCount;
     }
 
-    getAllTimestamps(table: string): string[] {
+    async getAllTimestamps(table: string): Promise<string[]> {
+        await this.ensureInitialized();
         const years = this.db.getAllAvailableYears();
         const allTimestamps: string[] = [];
         
