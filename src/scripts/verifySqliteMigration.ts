@@ -30,7 +30,8 @@ async function countFiles(dir: string, extension: string): Promise<number> {
 async function verifyCount(type: string, table: string, extension: string, db: DatabaseService): Promise<boolean> {
     const dir = path.join(LOG_BASE_DIR, type);
     const fileCount = await countFiles(dir, extension);
-    const dbCount = db['db']!.prepare(`SELECT COUNT(*) as count FROM ${table}`).get() as any;
+    const database = db.getDatabase();
+    const dbCount = database.prepare(`SELECT COUNT(*) as count FROM ${table}`).get() as any;
     
     const match = fileCount === dbCount.count;
     const status = match ? '✓' : '✗';
@@ -81,7 +82,8 @@ async function verifyTimestampCoverage(type: string, table: string, extension: s
         const [time] = fileName.split('.');
         const [hour, minute] = time.split('-');
 
-        const result = db['db']!.prepare(`
+        const database = db.getDatabase();
+        const result = database.prepare(`
             SELECT COUNT(*) as count FROM ${table}
             WHERE year = ? AND month = ? AND day = ? AND hour = ? AND minute = ?
         `).get(parseInt(year), parseInt(month), parseInt(day), parseInt(hour), parseInt(minute)) as any;
@@ -104,8 +106,9 @@ async function verifyDataIntegrity(db: DatabaseService): Promise<void> {
     
     // Check for NULL data
     const tables = ['ecowitt_logs', 'eta_logs', 'config_logs'];
+    const database = db.getDatabase();
     for (const table of tables) {
-        const result = db['db']!.prepare(`
+        const result = database.prepare(`
             SELECT COUNT(*) as count FROM ${table} WHERE data IS NULL OR data = ''
         `).get() as any;
         
@@ -118,7 +121,7 @@ async function verifyDataIntegrity(db: DatabaseService): Promise<void> {
 
     // Check for duplicate timestamps
     for (const table of tables) {
-        const result = db['db']!.prepare(`
+        const result = database.prepare(`
             SELECT year, month, day, hour, minute, COUNT(*) as count
             FROM ${table}
             GROUP BY year, month, day, hour, minute
@@ -144,10 +147,11 @@ async function showDatabaseStats(db: DatabaseService): Promise<void> {
         { name: 'min_temp_status_logs', label: 'Min Temp' }
     ];
 
+    const database = db.getDatabase();
     for (const table of tables) {
-        const count = db['db']!.prepare(`SELECT COUNT(*) as count FROM ${table.name}`).get() as any;
-        const oldest = db['db']!.prepare(`SELECT MIN(timestamp) as ts FROM ${table.name}`).get() as any;
-        const newest = db['db']!.prepare(`SELECT MAX(timestamp) as ts FROM ${table.name}`).get() as any;
+        const count = database.prepare(`SELECT COUNT(*) as count FROM ${table.name}`).get() as any;
+        const oldest = database.prepare(`SELECT MIN(timestamp) as ts FROM ${table.name}`).get() as any;
+        const newest = database.prepare(`SELECT MAX(timestamp) as ts FROM ${table.name}`).get() as any;
         
         console.log(`${table.label.padEnd(12)}: ${count.count.toString().padStart(7)} records`);
         if (oldest.ts && newest.ts) {
@@ -164,7 +168,7 @@ async function showDatabaseStats(db: DatabaseService): Promise<void> {
     }
 
     // Get migration metadata
-    const migrationMeta = db['db']!.prepare(`
+    const migrationMeta = database.prepare(`
         SELECT value FROM migration_metadata WHERE key = 'last_migration'
     `).get() as any;
     
@@ -191,13 +195,14 @@ async function main() {
         // Note: temp_diff and min_temp_status don't use year/month/day structure
         const tempDiffDir = path.join(LOG_BASE_DIR, 'temp_diff');
         const tempDiffFileCount = await countFiles(tempDiffDir, '.xml');
-        const tempDiffDbCount = db['db']!.prepare(`SELECT COUNT(*) as count FROM temp_diff_logs`).get() as any;
+        const database = db.getDatabase();
+        const tempDiffDbCount = database.prepare(`SELECT COUNT(*) as count FROM temp_diff_logs`).get() as any;
         const tempDiffMatch = tempDiffFileCount === tempDiffDbCount.count;
         console.log(`${tempDiffMatch ? '✓' : '✗'} temp_diff      Files: ${tempDiffFileCount.toString().padStart(6)}, DB: ${tempDiffDbCount.count.toString().padStart(6)} ${tempDiffMatch ? 'MATCH' : 'MISMATCH'}`);
         
         const minTempDir = path.join(LOG_BASE_DIR, 'min_temp_status');
         const minTempFileCount = await countFiles(minTempDir, '.xml');
-        const minTempDbCount = db['db']!.prepare(`SELECT COUNT(*) as count FROM min_temp_status_logs`).get() as any;
+        const minTempDbCount = database.prepare(`SELECT COUNT(*) as count FROM min_temp_status_logs`).get() as any;
         const minTempMatch = minTempFileCount === minTempDbCount.count;
         console.log(`${minTempMatch ? '✓' : '✗'} min_temp_status Files: ${minTempFileCount.toString().padStart(6)}, DB: ${minTempDbCount.count.toString().padStart(6)} ${minTempMatch ? 'MATCH' : 'MISMATCH'}`);
 
