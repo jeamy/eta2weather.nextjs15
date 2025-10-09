@@ -45,7 +45,7 @@ export class DatabaseHelpers {
         for (const year of yearsToQuery) {
             try {
                 const yearDb = this.db.getDbForYear(year);
-                const alias = year === this.db['currentYear'] ? '' : `db_${year}.`;
+                const alias = year === this.db.getCurrentYear() ? '' : `db_${year}.`;
                 
                 const query = `
                     SELECT timestamp, data 
@@ -133,7 +133,7 @@ export class DatabaseHelpers {
         for (const year of years) {
             try {
                 const yearDb = this.db.getDbForYear(year);
-                const alias = year === this.db['currentYear'] ? '' : `db_${year}.`;
+                const alias = year === this.db.getCurrentYear() ? '' : `db_${year}.`;
                 
                 const query = `
                     SELECT year, month, day, hour, minute 
@@ -175,7 +175,7 @@ export class DatabaseHelpers {
         for (const year of years) {
             try {
                 const yearDb = this.db.getDbForYear(year);
-                const alias = year === this.db['currentYear'] ? '' : `db_${year}.`;
+                const alias = year === this.db.getCurrentYear() ? '' : `db_${year}.`;
                 const result = yearDb.prepare(`SELECT COUNT(*) as count FROM ${alias}${table}`).get() as any;
                 totalCount += result?.count || 0;
             } catch (error) {
@@ -194,7 +194,7 @@ export class DatabaseHelpers {
         for (const year of years) {
             try {
                 const yearDb = this.db.getDbForYear(year);
-                const alias = year === this.db['currentYear'] ? '' : `db_${year}.`;
+                const alias = year === this.db.getCurrentYear() ? '' : `db_${year}.`;
                 const rows = yearDb.prepare(`SELECT timestamp FROM ${alias}${table} ORDER BY timestamp`).all();
                 allTimestamps.push(...rows.map((row: any) => row.timestamp));
             } catch (error) {

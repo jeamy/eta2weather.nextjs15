@@ -228,6 +228,10 @@ export class DatabaseService {
         ).run(now.toISOString(), data.diff, data.status);
     }
 
+    getCurrentYear(): number | null {
+        return this.currentYear;
+    }
+
     getDbForYear(year: number): Database.Database {
         if (!this.currentDb) throw new Error('Database not initialized');
         if (this.currentYear === year) return this.currentDb;
