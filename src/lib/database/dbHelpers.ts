@@ -56,7 +56,10 @@ export class DatabaseHelpers {
                 `;
                 
                 const rows = yearDb.prepare(query).all(startDate.toISOString(), endDate.toISOString());
-                allRows.push(...rows);
+                // Avoid stack overflow with large arrays
+                for (const row of rows) {
+                    allRows.push(row);
+                }
             } catch (error) {
                 console.error(`Error querying year ${year}:`, error);
             }
@@ -142,7 +145,10 @@ export class DatabaseHelpers {
                 `;
                 
                 const rows = yearDb.prepare(query).all();
-                allRows.push(...rows);
+                // Avoid stack overflow with large arrays
+                for (const row of rows) {
+                    allRows.push(row);
+                }
             } catch (error) {
                 console.error(`Error querying logs for year ${year}:`, error);
             }
@@ -196,7 +202,10 @@ export class DatabaseHelpers {
                 const yearDb = this.db.getDbForYear(year);
                 const alias = year === this.db.getCurrentYear() ? '' : `db_${year}.`;
                 const rows = yearDb.prepare(`SELECT timestamp FROM ${alias}${table} ORDER BY timestamp`).all();
-                allTimestamps.push(...rows.map((row: any) => row.timestamp));
+                // Avoid stack overflow with large arrays
+                for (const row of rows) {
+                    allTimestamps.push((row as any).timestamp);
+                }
             } catch (error) {
                 console.error(`Error getting timestamps for year ${year}:`, error);
             }
