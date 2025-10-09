@@ -425,15 +425,31 @@ async function migrateTempDiff(db: DatabaseService, stats: MigrationStats): Prom
             const tDeltaNode = doc.getElementsByTagName('t_delta')[0];
             const indoorTempNode = doc.getElementsByTagName('indoor_temp')[0];
 
-            const diff = diffNode?.textContent ? parseFloat(diffNode.textContent) : 0;
-            const sliderPosition = sliderNode?.textContent ? parseInt(sliderNode.textContent) : null;
-            const tSoll = tSollNode?.textContent ? parseFloat(tSollNode.textContent) : null;
-            const tDelta = tDeltaNode?.textContent ? parseFloat(tDeltaNode.textContent) : null;
-            const indoorTemp = indoorTempNode?.textContent ? parseFloat(indoorTempNode.textContent) : null;
+            // Clean and parse diff (required field)
+            let diffText = diffNode?.textContent?.trim();
+            if (!diffText) {
+                console.warn(`Missing diff value in ${file}`);
+                stats.temp_diff.errors++;
+                continue;
+            }
+            diffText = diffText.replace(/^["']|["']$/g, '');
+            const diff = parseFloat(diffText);
+            
+            if (!isFinite(diff)) {
+                console.warn(`Invalid diff value in ${file}: ${diffNode?.textContent} -> ${diff}`);
+                stats.temp_diff.errors++;
+                continue;
+            }
+
+            // Parse optional fields
+            const sliderPosition = sliderNode?.textContent ? parseInt(sliderNode.textContent.replace(/^["']|["']$/g, '')) : null;
+            const tSoll = tSollNode?.textContent ? parseFloat(tSollNode.textContent.replace(/^["']|["']$/g, '')) : null;
+            const tDelta = tDeltaNode?.textContent ? parseFloat(tDeltaNode.textContent.replace(/^["']|["']$/g, '')) : null;
+            const indoorTemp = indoorTempNode?.textContent ? parseFloat(indoorTempNode.textContent.replace(/^["']|["']$/g, '')) : null;
 
             const database = db.getDatabase();
             database.prepare(`
-                INSERT INTO temp_diff_logs (timestamp, diff, slider_position, t_soll, t_delta, indoor_temp)
+                INSERT OR REPLACE INTO temp_diff_logs (timestamp, diff, slider_position, t_soll, t_delta, indoor_temp)
                 VALUES (?, ?, ?, ?, ?, ?)
             `).run(timestamp.toISOString(), diff, sliderPosition, tSoll, tDelta, indoorTemp);
 
@@ -472,14 +488,31 @@ async function migrateMinTempStatus(db: DatabaseService, stats: MigrationStats):
             const diffNode = doc.getElementsByTagName('diff')[0];
             const statusNode = doc.getElementsByTagName('isBelow')[0];
 
-            const diff = diffNode?.textContent ? parseFloat(diffNode.textContent) : 0;
-            const status = statusNode?.textContent || 'unknown';
+            // Clean text content by removing quotes and parsing
+            let diffText = diffNode?.textContent?.trim();
+            if (!diffText) {
+                console.warn(`Missing diff value in ${file}`);
+                stats.min_temp_status.errors++;
+                continue;
+            }
+            diffText = diffText.replace(/^["']|["']$/g, ''); // Remove surrounding quotes
+            const diff = parseFloat(diffText);
+            
+            // Skip if diff is not a valid number (isFinite checks for NaN and Infinity)
+            if (!isFinite(diff)) {
+                console.warn(`Invalid diff value in ${file}: ${diffNode?.textContent} -> ${diff}`);
+                stats.min_temp_status.errors++;
+                continue;
+            }
+
+            let statusText = statusNode?.textContent?.trim() || 'unknown';
+            statusText = statusText.replace(/^["']|["']$/g, ''); // Remove surrounding quotes
 
             const database = db.getDatabase();
             database.prepare(`
-                INSERT INTO min_temp_status_logs (timestamp, diff, status)
+                INSERT OR REPLACE INTO min_temp_status_logs (timestamp, diff, status)
                 VALUES (?, ?, ?)
-            `).run(timestamp.toISOString(), diff, status);
+            `).run(timestamp.toISOString(), diff, statusText);
 
             stats.min_temp_status.success++;
         } catch (error) {

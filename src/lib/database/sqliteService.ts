@@ -149,7 +149,7 @@ export class DatabaseService {
 
             CREATE TABLE IF NOT EXISTS temp_diff_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL,
+                timestamp TEXT NOT NULL UNIQUE,
                 diff REAL NOT NULL,
                 slider_position INTEGER,
                 t_soll REAL,
@@ -157,14 +157,16 @@ export class DatabaseService {
                 indoor_temp REAL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
+            CREATE INDEX IF NOT EXISTS idx_temp_diff_timestamp ON temp_diff_logs(timestamp);
 
             CREATE TABLE IF NOT EXISTS min_temp_status_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL,
+                timestamp TEXT NOT NULL UNIQUE,
                 diff REAL NOT NULL,
                 status TEXT NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
+            CREATE INDEX IF NOT EXISTS idx_min_temp_status_timestamp ON min_temp_status_logs(timestamp);
 
             CREATE TABLE IF NOT EXISTS migration_metadata (
                 key TEXT PRIMARY KEY,
