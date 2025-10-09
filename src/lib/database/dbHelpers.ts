@@ -4,17 +4,21 @@ export type TimeRange = '24h' | '7d' | '30d' | '1m';
 
 export class DatabaseHelpers {
     private db: DatabaseService;
-    private initPromise: Promise<void> | null = null;
+    private static initPromise: Promise<void> | null = null;
 
     constructor() {
         this.db = DatabaseService.getInstance();
     }
 
     private async ensureInitialized(): Promise<void> {
-        if (!this.initPromise) {
-            this.initPromise = this.db.initialize();
+        if (!DatabaseHelpers.initPromise) {
+            DatabaseHelpers.initPromise = this.db.initialize().catch(err => {
+                // Reset promise on error so it can be retried
+                DatabaseHelpers.initPromise = null;
+                throw err;
+            });
         }
-        await this.initPromise;
+        await DatabaseHelpers.initPromise;
     }
 
     async getWeatherData(range: TimeRange): Promise<any[]> {
@@ -114,6 +118,14 @@ export class DatabaseHelpers {
 
     async getLogsAsFilePaths(type: string): Promise<string[]> {
         await this.ensureInitialized();
+        
+        // Only ecowitt, eta, and config logs have year/month/day/hour/minute structure
+        const validTypes = ['ecowitt', 'eta', 'config'];
+        if (!validTypes.includes(type)) {
+            console.warn(`getLogsAsFilePaths not supported for type: ${type}`);
+            return [];
+        }
+        
         const table = `${type}_logs`;
         const allRows: any[] = [];
         const years = this.db.getAllAvailableYears();
