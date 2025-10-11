@@ -808,14 +808,16 @@ const ConfigData: React.FC = () => {
                             {(() => {
                                 // Use only server-computed value from config (keine Client-Neuberechnung)
                                 const recommendedPos = Math.round(parseFloat(sliderValue || '0'));
-                                const clamped = Math.max(0, Math.min(100, recommendedPos));
+                                // Map -100 to +100 range to 0-100% width
+                                const barWidth = Math.max(0, Math.min(100, (recommendedPos + 100) / 2));
+                                const barColor = recommendedPos < 0 ? 'progress__bar--primary' : recommendedPos > 0 ? 'progress__bar--ok' : '';
                                 return (
                                     <div className="flex flex-col items-end gap-1 w-40">
                                         <div className="progress">
-                                            <div className="progress__bar" style={{ width: `${clamped}%` }} />
+                                            <div className={`progress__bar ${barColor}`} style={{ width: `${barWidth}%` }} />
                                         </div>
                                         <span>
-                                            {clamped}
+                                            {recommendedPos}
                                             <span className="text-gray-600 ml-1">%</span>
                                         </span>
                                     </div>
