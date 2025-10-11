@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+.next
+.git
+.gitignore
+README.md
+.env
+.env.local
+dist
+build
+coverage
+*.log
+.DS_Store
+db/*.db
+db/*.db-shm
+db/*.db-wal

@@ -6,12 +6,15 @@
     "dev": "tsx watch server.ts",
     "build": "next build",
     "start": "cross-env NODE_ENV=production tsx server.ts",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate:to-sqlite": "tsx src/scripts/migrateToSqlite.ts",
+    "migrate:verify": "tsx src/scripts/verifySqliteMigration.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@reduxjs/toolkit": "^2.9.0",
     "@tailwindcss/postcss": "^4.1.13",
+    "better-sqlite3": "^11.0.0",
     "chart.js": "^4.5.0",
     "chartjs-adapter-date-fns": "^3.0.0",
     "chartjs-plugin-zoom": "^2.2.0",
@@ -27,6 +30,7 @@
     "@xmldom/xmldom": "^0.8.11"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
     "@types/node": "^24.5.2",
     "@types/react": "^19.1.15",
     "@types/react-dom": "^19.1.9",

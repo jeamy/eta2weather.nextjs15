@@ -39,7 +39,7 @@ export default function HomeHero() {
   const sliderPercent = useMemo(() => {
     const v = Number(config?.[ConfigKeys.T_SLIDER] ?? 0);
     if (!Number.isFinite(v)) return 0;
-    return Math.max(0, Math.min(100, Math.round(v)));
+    return Math.round(v);
   }, [config]);
 
   const diffIndoorSoll = useMemo(() => {
@@ -244,7 +244,10 @@ export default function HomeHero() {
             <div className="stat__label">Schieber</div>
             <div className="stat__value">{sliderPercent}%</div>
             <div className="progress mt-1" aria-label="Empfohlene Schieber Position">
-              <div className="progress__bar" style={{ width: `${sliderPercent}%` }} />
+              <div 
+                className={`progress__bar ${sliderPercent < 0 ? 'progress__bar--primary' : sliderPercent > 0 ? 'progress__bar--ok' : ''}`}
+                style={{ width: `${Math.max(0, Math.min(100, (sliderPercent + 100) / 2))}%` }} 
+              />
             </div>
           </div>
         </div>

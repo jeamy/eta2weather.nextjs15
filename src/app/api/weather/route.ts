@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { DOMParser } from '@xmldom/xmldom';
+import { DatabaseHelpers, TimeRange } from '@/lib/database/dbHelpers';
 
 // Simple in-memory cache per range to speed up repeated requests.
 // TTLs are conservative and per-range.
@@ -16,7 +17,7 @@ const CACHE_TTLS: Record<string, number> = {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const range = searchParams.get('range') || '24h';
+    const range = (searchParams.get('range') || '24h') as TimeRange;
     const ttl = CACHE_TTLS[range] ?? CACHE_TTLS.default;
     const cacheKey = `weather:${range}`;
     const nowMs = Date.now();
@@ -29,13 +30,23 @@ export async function GET(request: Request) {
       });
     }
     
-    const baseDir = path.join(process.cwd(), 'public/log/ecowitt');
-    const currentYear = new Date().getFullYear().toString();
-    const yearDir = path.join(baseDir, currentYear);
+    // Try to get data from SQLite first
+    let weatherData: any[] = [];
+    try {
+      const helpers = new DatabaseHelpers();
+      weatherData = await helpers.getWeatherData(range);
+      console.log(`Weather data from SQLite: ${weatherData.length} records`);
+    } catch (error) {
+      console.error('Error getting weather data from SQLite:', error);
+      // Fallback to file-system
+      const baseDir = path.join(process.cwd(), 'public/log/ecowitt');
+      const currentYear = new Date().getFullYear().toString();
+      const yearDir = path.join(baseDir, currentYear);
+      const files = await getXmlFiles(yearDir, range);
+      weatherData = await processXmlFiles(files, range);
+      console.log(`Weather data from file-system: ${weatherData.length} records`);
+    }
     
-    // Get XML files based on the requested time range
-    const files = await getXmlFiles(yearDir, range);
-    const weatherData = await processXmlFiles(files, range);
     cache.set(cacheKey, { t: nowMs, data: weatherData });
 
     return NextResponse.json(weatherData, {

@@ -1,9 +1,37 @@
 import fs from 'fs';
 import path from 'path';
+import { DatabaseService } from '@/lib/database/sqliteService';
 
 type LogType = 'ecowitt' | 'eta' | 'config' | 'temp_diff' | 'min_temp_status';
 
 export const logData = async (type: LogType, data: any) => {
+    // Write to SQLite database
+    try {
+        const db = DatabaseService.getInstance();
+        
+        switch(type) {
+            case 'ecowitt':
+                db.insertEcowittLog(data);
+                break;
+            case 'eta':
+                db.insertEtaLog(data);
+                break;
+            case 'config':
+                db.insertConfigLog(data);
+                break;
+            case 'temp_diff':
+                db.insertTempDiffLog(data);
+                break;
+            case 'min_temp_status':
+                db.insertMinTempStatusLog(data);
+                break;
+        }
+    } catch (error) {
+        console.error(`Error writing to SQLite (${type}):`, error);
+        // Continue to file-based logging as fallback
+    }
+
+    // Keep file-based logging as backup/fallback
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -98,6 +126,19 @@ export const logData = async (type: LogType, data: any) => {
 };
 
 export const getLogFiles = async (type: LogType) => {
+    // Try to get from SQLite first
+    try {
+        const { DatabaseHelpers } = await import('@/lib/database/dbHelpers');
+        const helpers = new DatabaseHelpers();
+        const dbFiles = await helpers.getLogsAsFilePaths(type);
+        if (dbFiles && dbFiles.length > 0) {
+            return dbFiles;
+        }
+    } catch (error) {
+        console.error(`Error getting logs from SQLite for ${type}:`, error);
+    }
+
+    // Fallback to file-system
     const baseDir = path.join(process.cwd(), 'public', 'log', type);
     const files: string[] = [];
 

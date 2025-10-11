@@ -2,13 +2,20 @@ FROM node:20-bookworm-slim
 
 WORKDIR /app
 
-# Debian-based image already has glibc; no extra runtime deps needed
+# Install build dependencies for native modules (better-sqlite3)
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package.json package-lock.json* ./
 
 # Install dependencies including dev dependencies
-RUN npm install --legacy-peer-deps
+# Rebuild native modules for the container architecture
+RUN npm install --legacy-peer-deps && \
+    npm rebuild better-sqlite3
 
 # Copy source code
 COPY . .
