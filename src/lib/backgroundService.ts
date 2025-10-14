@@ -720,7 +720,9 @@ export class BackgroundService {
       const isDiffNegative = numericDiff !== null && numericDiff < 0;
 
       const isBelow = indoorTemp < minTemp;
+      console.log(`${this.getTimestamp()} ========================================`);
       console.log(`${this.getTimestamp()} Temperature state: isBelow=${isBelow}, sliderPos=${sliderPos}, isSliderNegative=${isSliderNegative}, diff=${numericDiff}, isDiffNegative=${isDiffNegative}`);
+      console.log(`${this.getTimestamp()} Indoor: ${indoorTemp}°C, Min: ${minTemp}°C`);
 
       // Check for manual override FIRST
       // t_override is stored in milliseconds (fallback: 60 min)
@@ -777,7 +779,9 @@ export class BackgroundService {
       const stateChanged = (this.lastTempState.wasBelow !== isBelow) || (this.lastTempState.wasSliderNegative !== isSliderNegative);
       const buttonMismatch = currentActiveButton !== expectedButton;
       
-      console.log(`${this.getTimestamp()} stateChanged=${stateChanged}, buttonMismatch=${buttonMismatch} (current=${currentActiveButton}, expected=${expectedButton}), isManualOverride=${isManualOverride}`);
+      console.log(`${this.getTimestamp()} Decision: expected=${expectedButton}, current=${currentActiveButton}`);
+      console.log(`${this.getTimestamp()} Checks: stateChanged=${stateChanged}, buttonMismatch=${buttonMismatch}, isManualOverride=${isManualOverride}`);
+      console.log(`${this.getTimestamp()} Will update buttons: ${!isManualOverride && (stateChanged || buttonMismatch)}`);
 
       // Only proceed if not in manual override AND (state changed OR button doesn't match)
       if (!isManualOverride && (stateChanged || buttonMismatch)) {
@@ -905,7 +909,7 @@ export class BackgroundService {
             }
 
             // Special handling for AA button - turn it off BEFORE activating manual button
-            if (targetButtonName !== EtaButtons.AA && flags[EtaButtons.AA]) {
+            if (targetButtonName !== EtaButtons.AA) {
               console.log(`${this.getTimestamp()} Turning off AA button before activating manual button`);
               await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.AUS, "0", "0");
               await this.sleep(this.ETA_CALL_DELAY_MS);
@@ -914,6 +918,13 @@ export class BackgroundService {
             // Then activate target button
             console.log(`${this.getTimestamp()} Activating ${targetButtonName}`);
             await etaApi.setUserVar(targetButton, EtaPos.EIN, "0", "0");
+            await this.sleep(this.ETA_CALL_DELAY_MS);
+
+            // CRITICAL: Ensure AA is OFF after activating manual button (double-check)
+            if (targetButtonName !== EtaButtons.AA) {
+              console.log(`${this.getTimestamp()} Double-checking: AA is OFF after ${targetButtonName} activation`);
+              await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.AUS, "0", "0");
+            }
 
             // Update state
             this.lastTempState.wasBelow = isBelow;

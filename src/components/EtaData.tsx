@@ -113,42 +113,50 @@ const EtaData: React.FC = () => {
 
       const { data, config: updatedConfig } = await response.json() as ApiResponse;
 
-      // Find currently active manual button and AA status
+      // Find currently active button
       let activeButton: EtaButtons | null = null;
-      let aaActive = false;
-      Object.entries(data).forEach(([_, item]) => {
+      
+      // Priority: Manual buttons (HT, KT, GT, DT) > AA
+      for (const item of Object.values(data)) {
         if (Object.values(EtaButtons).includes(item.short as EtaButtons) && item.value === EtaPos.EIN) {
-          if (item.short === EtaButtons.AA) {
-            aaActive = true;
+          if (item.short !== EtaButtons.AA) {
+            // Manual button takes priority
+            activeButton = item.short as EtaButtons;
+            break;
+          }
+        }
+      }
+      
+      // If no manual button found, check if AA is active
+      if (!activeButton) {
+        for (const item of Object.values(data)) {
+          if (item.short === EtaButtons.AA && item.value === EtaPos.EIN) {
+            activeButton = EtaButtons.AA;
+            break;
+          }
+        }
+      }
+
+      console.log(`[EtaData] Active button from API: ${activeButton}`);
+
+      // Enforce button invariants: Only ONE button can be active
+      Object.entries(data).forEach(([uri, item]) => {
+        if (Object.values(EtaButtons).includes(item.short as EtaButtons)) {
+          if (item.short === activeButton) {
+            // This is the active button - ensure it's ON
+            data[uri] = {
+              ...item,
+              value: EtaPos.EIN
+            };
           } else {
-            activeButton = item.short as EtaButtons; // Prioritize non-AA buttons
+            // All other buttons must be OFF
+            data[uri] = {
+              ...item,
+              value: EtaPos.AUS
+            };
           }
         }
       });
-
-      // If a manual button is active, ensure AA is off in displayed data
-      if (activeButton && activeButton !== EtaButtons.AA) {
-        Object.entries(data).forEach(([uri, item]) => {
-          if (item.short === EtaButtons.AA) {
-            data[uri] = {
-              ...item,
-              value: EtaPos.AUS
-            };
-          }
-        });
-      }
-
-      // If AA is active, ensure all manual buttons are off in displayed data
-      if (aaActive) {
-        Object.entries(data).forEach(([uri, item]) => {
-          if (item.short && item.short !== EtaButtons.AA && Object.values(EtaButtons).includes(item.short as EtaButtons)) {
-            data[uri] = {
-              ...item,
-              value: EtaPos.AUS
-            };
-          }
-        });
-      }
 
       // Update the Redux store with the modified data
       dispatch(storeEtaData(data));
