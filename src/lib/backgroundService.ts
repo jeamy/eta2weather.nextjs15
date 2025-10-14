@@ -722,14 +722,21 @@ export class BackgroundService {
         console.log(`${this.getTimestamp()} State changed: wasBelow=${this.lastTempState.wasBelow}→${isBelow}, wasDiffNegative=${this.lastTempState.wasDiffNegative}→${isDiffNegative}, tempDiff=${tempDiff}`);
 
         // Log the temperature diff update
+        // Determine status based on state changes
+        let status = '';
+        if (this.lastTempState.wasDiffNegative !== isDiffNegative && isDiffNegative) {
+          status = 'diff_negative';
+        } else if (this.lastTempState.wasDiffNegative !== isDiffNegative && !isDiffNegative) {
+          status = 'diff_positive';
+        } else if (isBelow) {
+          status = 'dropped_below';
+        } else {
+          status = 'rose_above';
+        }
+        
         await logData('min_temp_status', {
-          timestamp: Date.now(),
-          diff: tempDiff.toString(),
-          isBelow: isBelow ? 'dropped below' : 'rose above',
-          isDiffNegative: isDiffNegative,
-          numericDiff: numericDiff,
-          indoor: indoorTemp,
-          minTemp: minTemp
+          diff: tempDiff,
+          status: status
         });
         // Get current state from Redux store
         const state = store.getState() as RootState;
