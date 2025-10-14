@@ -806,6 +806,15 @@ export class BackgroundService {
             }
           }
 
+          // Invariant 1b: If any manual button is ON, ensure AA is OFF
+          const anyManualOn = flags[EtaButtons.HT] || flags[EtaButtons.KT] || flags[EtaButtons.GT] || flags[EtaButtons.DT];
+          if (anyManualOn && flags[EtaButtons.AA] && buttonIds[EtaButtons.AA]) {
+            console.log(`${this.getTimestamp()} Invariant: Manual button active, turning off AA`);
+            await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.AUS, "0", "0");
+            await this.sleep(this.ETA_CALL_DELAY_MS);
+            flags[EtaButtons.AA] = false;
+          }
+
           // Invariant 2: If all buttons are OFF, turn AA ON (fallback)
           const allOff = !flags[EtaButtons.AA] && !flags[EtaButtons.HT] && !flags[EtaButtons.KT] && !flags[EtaButtons.GT] && !flags[EtaButtons.DT];
           if (allOff && buttonIds[EtaButtons.AA]) {
@@ -861,15 +870,16 @@ export class BackgroundService {
               }
             }
 
+            // Special handling for AA button - turn it off BEFORE activating manual button
+            if (targetButtonName !== EtaButtons.AA && flags[EtaButtons.AA]) {
+              console.log(`${this.getTimestamp()} Turning off AA button before activating manual button`);
+              await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.AUS, "0", "0");
+              await this.sleep(this.ETA_CALL_DELAY_MS);
+            }
+
             // Then activate target button
             console.log(`${this.getTimestamp()} Activating ${targetButtonName}`);
             await etaApi.setUserVar(targetButton, EtaPos.EIN, "0", "0");
-
-            // Special handling for AA button - turn it off if target is not AA
-            if (targetButtonName !== EtaButtons.AA) {
-              console.log(`${this.getTimestamp()} Turning off AA button as manual button will be active`);
-              await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.AUS, "0", "0");
-            }
 
             // Update state
             this.lastTempState.wasBelow = isBelow;
