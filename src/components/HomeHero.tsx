@@ -242,10 +242,14 @@ export default function HomeHero() {
             <div className="stat__label">Schaltzustand</div>
             <div className="stat__value">{schaltzustand !== null ? schaltzustand : "-"}</div>
             <div className="stat__label">Schieber</div>
-            <div className="stat__value">{sliderPercent}%</div>
+            <div className="stat__value">
+              <span className={`badge ${sliderPercent > 0 ? 'badge--ok' : sliderPercent < 0 ? 'badge--primary' : 'badge--neutral'}`}>
+                {sliderPercent}%
+              </span>
+            </div>
             <div className="progress mt-1" aria-label="Empfohlene Schieber Position">
               <div 
-                className={`progress__bar ${sliderPercent < 0 ? 'progress__bar--primary' : sliderPercent > 0 ? 'progress__bar--ok' : ''}`}
+                className={`progress__bar ${sliderPercent > 0 ? 'progress__bar--ok' : sliderPercent < 0 ? 'progress__bar--primary' : ''}`}
                 style={{ width: `${Math.max(0, Math.min(100, (sliderPercent + 100) / 2))}%` }} 
               />
             </div>

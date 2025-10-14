@@ -46,10 +46,12 @@ export class BackgroundService {
   private etaApi: EtaApi | null = null;
   private lastTempState: {
     wasBelow: boolean;
+    wasDiffNegative: boolean;
     manualOverride: boolean;
     manualOverrideTime: number | null;
   } = {
       wasBelow: false,
+      wasDiffNegative: false,
       manualOverride: false,
       manualOverrideTime: null
     };
@@ -701,19 +703,31 @@ export class BackgroundService {
         return;
       }
 
-      const isBelow = indoorTemp < minTemp;
-      console.log(`${this.getTimestamp()} Temperature state: isBelow=${isBelow}`);
+      // Calculate current diff to check if negative
+      const state = store.getState();
+      const config = state.config;
+      const { diff: numericDiff } = calculateTemperatureDiff(config, {
+        data: wifiData,
+        loadingState: { isLoading: false, error: null }
+      });
+      const isDiffNegative = numericDiff !== null && numericDiff < 0;
 
-      // Only act if temperature state has changed
-      if (this.lastTempState.wasBelow !== isBelow) {
+      const isBelow = indoorTemp < minTemp;
+      console.log(`${this.getTimestamp()} Temperature state: isBelow=${isBelow}, diff=${numericDiff}, isDiffNegative=${isDiffNegative}`);
+
+      // Act if temperature state OR diff state has changed
+      const stateChanged = (this.lastTempState.wasBelow !== isBelow) || (this.lastTempState.wasDiffNegative !== isDiffNegative);
+      if (stateChanged) {
         const tempDiff = Number((minTemp - indoorTemp).toFixed(1));
-        console.log(`${this.getTimestamp()} Temperature state changed: wasBelow=${this.lastTempState.wasBelow}, isBelow=${isBelow}, tempDiff=${tempDiff}`);
+        console.log(`${this.getTimestamp()} State changed: wasBelow=${this.lastTempState.wasBelow}→${isBelow}, wasDiffNegative=${this.lastTempState.wasDiffNegative}→${isDiffNegative}, tempDiff=${tempDiff}`);
 
         // Log the temperature diff update
         await logData('min_temp_status', {
           timestamp: Date.now(),
           diff: tempDiff.toString(),
           isBelow: isBelow ? 'dropped below' : 'rose above',
+          isDiffNegative: isDiffNegative,
+          numericDiff: numericDiff,
           indoor: indoorTemp,
           minTemp: minTemp
         });
@@ -805,7 +819,19 @@ export class BackgroundService {
 
         if (!isManualOverride) {
 
-          const targetButtonName = isBelow ? EtaButtons.KT : EtaButtons.AA;
+          // Determine target button based on diff and temperature
+          // Priority: diff < 0 → GT (Gehen), temp < t_min → KT (Kommen), else → AA (Auto)
+          let targetButtonName: EtaButtons;
+          if (isDiffNegative) {
+            targetButtonName = EtaButtons.GT; // Gehen when diff is negative
+            console.log(`${this.getTimestamp()} Diff is negative (${numericDiff}), activating Gehen (GT)`);
+          } else if (isBelow) {
+            targetButtonName = EtaButtons.KT; // Kommen when below min temp
+            console.log(`${this.getTimestamp()} Temperature below minimum, activating Kommen (KT)`);
+          } else {
+            targetButtonName = EtaButtons.AA; // Auto otherwise
+            console.log(`${this.getTimestamp()} Normal state, activating Auto (AA)`);
+          }
           const targetButton = buttonIds[targetButtonName];
 
           if (!targetButton) {
@@ -847,6 +873,7 @@ export class BackgroundService {
 
             // Update state
             this.lastTempState.wasBelow = isBelow;
+            this.lastTempState.wasDiffNegative = isDiffNegative;
 
           } catch (error) {
             console.error(`${this.getTimestamp()} Error updating temperature state:`, error);
