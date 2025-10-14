@@ -46,12 +46,12 @@ export class BackgroundService {
   private etaApi: EtaApi | null = null;
   private lastTempState: {
     wasBelow: boolean;
-    wasDiffNegative: boolean;
+    wasSliderNegative: boolean;
     manualOverride: boolean;
     manualOverrideTime: number | null;
   } = {
       wasBelow: false,
-      wasDiffNegative: false,
+      wasSliderNegative: false,
       manualOverride: false,
       manualOverrideTime: null
     };
@@ -703,9 +703,16 @@ export class BackgroundService {
         return;
       }
 
-      // Calculate current diff to check if negative
-      const state = store.getState();
+      // Get current state from Redux store
+      const state = store.getState() as RootState;
       const config = state.config;
+      const etaState = state.eta;
+      
+      // Get current slider position
+      const sliderPos = Number(config.data?.[ConfigKeys.T_SLIDER] ?? 0);
+      const isSliderNegative = sliderPos < 0;
+      
+      // Calculate current diff to check if negative
       const { diff: numericDiff } = calculateTemperatureDiff(config, {
         data: wifiData,
         loadingState: { isLoading: false, error: null }
@@ -713,70 +720,92 @@ export class BackgroundService {
       const isDiffNegative = numericDiff !== null && numericDiff < 0;
 
       const isBelow = indoorTemp < minTemp;
-      console.log(`${this.getTimestamp()} Temperature state: isBelow=${isBelow}, diff=${numericDiff}, isDiffNegative=${isDiffNegative}`);
+      console.log(`${this.getTimestamp()} Temperature state: isBelow=${isBelow}, sliderPos=${sliderPos}, isSliderNegative=${isSliderNegative}, diff=${numericDiff}, isDiffNegative=${isDiffNegative}`);
 
-      // Act if temperature state OR diff state has changed
-      const stateChanged = (this.lastTempState.wasBelow !== isBelow) || (this.lastTempState.wasDiffNegative !== isDiffNegative);
-      if (stateChanged) {
-        const tempDiff = Number((minTemp - indoorTemp).toFixed(1));
-        console.log(`${this.getTimestamp()} State changed: wasBelow=${this.lastTempState.wasBelow}→${isBelow}, wasDiffNegative=${this.lastTempState.wasDiffNegative}→${isDiffNegative}, tempDiff=${tempDiff}`);
+      // Check for manual override FIRST
+      // t_override is stored in milliseconds (fallback: 60 min)
+      const manualOverrideMs = parseInt(state.config.data?.t_override || String(60 * 60 * 1000));
+      const manualOverrideTime = manualOverrideMs;
+      let isManualOverride = false;
 
-        // Log the temperature diff update
-        // Determine status based on state changes
-        let status = '';
-        if (this.lastTempState.wasDiffNegative !== isDiffNegative && isDiffNegative) {
-          status = 'diff_negative';
-        } else if (this.lastTempState.wasDiffNegative !== isDiffNegative && !isDiffNegative) {
-          status = 'diff_positive';
-        } else if (isBelow) {
-          status = 'dropped_below';
+      // Find currently active button and check manual override
+      let activeButton: EtaButtons | null = null;
+      Object.entries(etaState.data).forEach(([_, item]) => {
+        if (Object.values(EtaButtons).includes(item.short as EtaButtons) &&
+          item.value === EtaPos.EIN &&
+          item.short !== EtaButtons.AA) {
+          activeButton = item.short as EtaButtons;
+          // If a manual button is active, set manual override
+          this.lastTempState.manualOverride = true;
+          this.lastTempState.manualOverrideTime = Date.now();
+          isManualOverride = true;
+        }
+      });
+
+      // Check if manual override is still active
+      if (this.lastTempState.manualOverride && this.lastTempState.manualOverrideTime) {
+        const timeSinceOverride = Date.now() - this.lastTempState.manualOverrideTime;
+        if (timeSinceOverride > manualOverrideTime) {
+          // Reset manual override if time has expired
+          this.lastTempState.manualOverride = false;
+          this.lastTempState.manualOverrideTime = null;
+          isManualOverride = false;
         } else {
-          status = 'rose_above';
+          isManualOverride = true;
         }
-        
-        await logData('min_temp_status', {
-          diff: tempDiff,
-          status: status
-        });
-        // Get current state from Redux store
-        const state = store.getState() as RootState;
-        const etaState = state.eta;
+      }
 
-        // Check for manual override
-        // t_override is stored in milliseconds (fallback: 60 min)
-        const manualOverrideMs = parseInt(state.config.data?.t_override || String(60 * 60 * 1000));
-        const manualOverrideTime = manualOverrideMs;
-        let isManualOverride = false;
+      // Determine expected button based on current state
+      let expectedButton: EtaButtons;
+      if (isSliderNegative) {
+        expectedButton = EtaButtons.GT; // Gehen when slider is negative
+      } else if (isBelow) {
+        expectedButton = EtaButtons.KT; // Kommen when below min temp
+      } else {
+        expectedButton = EtaButtons.AA; // Auto otherwise
+      }
 
-        // Find currently active button and check manual override
-        let activeButton: EtaButtons | null = null;
-        Object.entries(etaState.data).forEach(([_, item]) => {
-          if (Object.values(EtaButtons).includes(item.short as EtaButtons) &&
-            item.value === EtaPos.EIN &&
-            item.short !== EtaButtons.AA) {
-            activeButton = item.short as EtaButtons;
-            // If a manual button is active, set manual override
-            this.lastTempState.manualOverride = true;
-            this.lastTempState.manualOverrideTime = Date.now();
-            isManualOverride = true;
-          }
-        });
+      // Find currently active button
+      let currentActiveButton: EtaButtons = EtaButtons.AA;
+      Object.entries(etaState.data).forEach(([_, item]) => {
+        if (Object.values(EtaButtons).includes(item.short as EtaButtons) && item.value === EtaPos.EIN) {
+          currentActiveButton = item.short as EtaButtons;
+        }
+      });
 
-        // Check if manual override is still active
-        if (this.lastTempState.manualOverride && this.lastTempState.manualOverrideTime) {
-          const timeSinceOverride = Date.now() - this.lastTempState.manualOverrideTime;
-          if (timeSinceOverride > manualOverrideTime) {
-            // Reset manual override if time has expired
-            this.lastTempState.manualOverride = false;
-            this.lastTempState.manualOverrideTime = null;
-            isManualOverride = false;
+      // Act if: state changed OR current button doesn't match expected button
+      const stateChanged = (this.lastTempState.wasBelow !== isBelow) || (this.lastTempState.wasSliderNegative !== isSliderNegative);
+      const buttonMismatch = currentActiveButton !== expectedButton;
+      
+      console.log(`${this.getTimestamp()} stateChanged=${stateChanged}, buttonMismatch=${buttonMismatch} (current=${currentActiveButton}, expected=${expectedButton}), isManualOverride=${isManualOverride}`);
+
+      // Only proceed if not in manual override AND (state changed OR button doesn't match)
+      if (!isManualOverride && (stateChanged || buttonMismatch)) {
+        // Log state change if it occurred
+        if (stateChanged) {
+          const tempDiff = Number((minTemp - indoorTemp).toFixed(1));
+          console.log(`${this.getTimestamp()} State changed: wasBelow=${this.lastTempState.wasBelow}→${isBelow}, wasSliderNegative=${this.lastTempState.wasSliderNegative}→${isSliderNegative}, tempDiff=${tempDiff}`);
+
+          // Determine status based on state changes
+          let status = '';
+          if (this.lastTempState.wasSliderNegative !== isSliderNegative && isSliderNegative) {
+            status = 'slider_negative';
+          } else if (this.lastTempState.wasSliderNegative !== isSliderNegative && !isSliderNegative) {
+            status = 'slider_positive';
+          } else if (isBelow) {
+            status = 'dropped_below';
           } else {
-            isManualOverride = true;
+            status = 'rose_above';
           }
+          
+          await logData('min_temp_status', {
+            diff: tempDiff,
+            status: status
+          });
         }
 
-        // Build IDs mapping once for invariant enforcement and toggling
-        const buttonIds = {
+      // Build IDs mapping once for invariant enforcement and toggling
+      const buttonIds = {
           [EtaButtons.HT]: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
           [EtaButtons.KT]: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
           [EtaButtons.AA]: defaultNames2Id[EtaConstants.AUTOTASTE].id,
@@ -833,14 +862,12 @@ export class BackgroundService {
           console.warn(`${this.getTimestamp()} Invariant enforcement warning:`, e);
         }
 
-        if (!isManualOverride) {
-
-          // Determine target button based on diff and temperature
-          // Priority: diff < 0 → GT (Gehen), temp < t_min → KT (Kommen), else → AA (Auto)
+        // Determine target button based on slider position and temperature
+          // Priority: slider < 0 → GT (Gehen), temp < t_min → KT (Kommen), else → AA (Auto)
           let targetButtonName: EtaButtons;
-          if (isDiffNegative) {
-            targetButtonName = EtaButtons.GT; // Gehen when diff is negative
-            console.log(`${this.getTimestamp()} Diff is negative (${numericDiff}), activating Gehen (GT)`);
+          if (isSliderNegative) {
+            targetButtonName = EtaButtons.GT; // Gehen when slider is negative
+            console.log(`${this.getTimestamp()} Slider is negative (${sliderPos}%), activating Gehen (GT)`);
           } else if (isBelow) {
             targetButtonName = EtaButtons.KT; // Kommen when below min temp
             console.log(`${this.getTimestamp()} Temperature below minimum, activating Kommen (KT)`);
@@ -890,13 +917,12 @@ export class BackgroundService {
 
             // Update state
             this.lastTempState.wasBelow = isBelow;
-            this.lastTempState.wasDiffNegative = isDiffNegative;
+            this.lastTempState.wasSliderNegative = isSliderNegative;
 
           } catch (error) {
             console.error(`${this.getTimestamp()} Error updating temperature state:`, error);
             throw error;
           }
-        }
       }
     } catch (error) {
       console.error(`${this.getTimestamp()} Error in updateTemperatureDiff:`, error);
