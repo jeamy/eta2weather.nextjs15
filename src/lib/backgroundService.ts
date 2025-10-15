@@ -924,7 +924,13 @@ export class BackgroundService {
             if (targetButtonName !== EtaButtons.AA) {
               console.log(`${this.getTimestamp()} Double-checking: AA is OFF after ${targetButtonName} activation`);
               await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.AUS, "0", "0");
+              // Wait for heater to process the command
+              await this.sleep(this.ETA_CALL_DELAY_MS);
             }
+
+            // Final delay to allow heater to stabilize before any status reads
+            console.log(`${this.getTimestamp()} Button switching complete. Waiting for heater to stabilize...`);
+            await this.sleep(500); // 500ms stabilization period
 
             // Update state
             this.lastTempState.wasBelow = isBelow;
