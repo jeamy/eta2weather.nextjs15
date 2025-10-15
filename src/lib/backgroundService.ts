@@ -22,6 +22,7 @@ import path from 'path';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { calculateNewSliderPosition, calculateTemperatureDiff, updateSliderPosition } from '@/utils/Functions';
 import { parseXML } from '@/reader/functions/EtaData';
+import { parseNumOrZero } from '@/utils/numberParser';
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), process.env.CONFIG_PATH || 'src/config/f_etacfg.json');
 
@@ -579,6 +580,7 @@ export class BackgroundService {
       }
 
       console.log(`${this.getTimestamp()} Updating temperature diff...`);
+
       const { diff: numericDiff } = calculateTemperatureDiff(config, {
         data: wifiData,
         loadingState: { isLoading: false, error: null }
@@ -589,13 +591,32 @@ export class BackgroundService {
         const newDiffValue = numericDiff.toString();
         // Only update if the diff value has changed
         if (newDiffValue !== config.data[ConfigKeys.DIFF]) {
+
+          // Helper function to get ETA value with fallback
+          const getEtaValue = (constant: EtaConstants): string => {
+            // Try by ID first
+            const id = defaultNames2Id[constant]?.id;
+            if (id && etaState.data[id]?.strValue) {
+              return etaState.data[id].strValue;
+            }
+            
+            // Fallback: scan all entries for matching short code
+            for (const [, item] of Object.entries(etaState.data)) {
+              if (item.short === constant && item.strValue) {
+                return item.strValue;
+              }
+            }
+            
+            return '0';
+          };
+
           const etaValues = {
-            einaus: etaState.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id]?.strValue || '0',
-            schaltzustand: etaState.data[defaultNames2Id[EtaConstants.SCHALTZUSTAND].id]?.strValue || '0',
-            heizentaste: etaState.data[defaultNames2Id[EtaConstants.HEIZENTASTE].id]?.strValue || '0',
-            kommentaste: etaState.data[defaultNames2Id[EtaConstants.KOMMENTASTE].id]?.strValue || '0',
-            tes: Number(etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id]?.strValue || '0'),
-            tea: Number(etaState.data[defaultNames2Id[EtaConstants.AUSSENTEMP].id]?.strValue || '0'),
+            einaus: getEtaValue(EtaConstants.EIN_AUS_TASTE),
+            schaltzustand: getEtaValue(EtaConstants.SCHALTZUSTAND),
+            heizentaste: getEtaValue(EtaConstants.HEIZENTASTE),
+            kommentaste: getEtaValue(EtaConstants.KOMMENTASTE),
+            tes: parseNumOrZero(getEtaValue(EtaConstants.SCHIEBERPOS)),
+            tea: parseNumOrZero(getEtaValue(EtaConstants.AUSSENTEMP)),
           };
 
           console.log(`${this.getTimestamp()} Eta values: ${JSON.stringify(etaValues)}`);
@@ -632,7 +653,7 @@ export class BackgroundService {
             // Update the physical slider position if needed
             const recommendedPos = Math.round(parseFloat(newSliderPosition));
             const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
-            const currentPos = etaSP ? parseFloat(etaSP.strValue || '0') : recommendedPos;
+            const currentPos = etaSP ? parseNumOrZero(etaSP.strValue) : recommendedPos;
             console.log(`${this.getTimestamp()} Current slider position: ${currentPos}, Recommended slider position: ${recommendedPos}`);
             // Only update if the positions are different and values are valid
             if (etaSP &&

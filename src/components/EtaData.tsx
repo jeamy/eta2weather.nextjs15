@@ -15,16 +15,7 @@ import Image from 'next/image';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { API } from '@/constants/apiPaths';
 import { useToast } from '@/components/ToastProvider';
-
-// Constants
-
-// Robust parser: extracts first decimal number, handles comma decimals and units like "22,5 °C"
-const parseNum = (raw: any): number | null => {
-  if (raw == null) return null;
-  const s = String(raw).replace(',', '.');
-  const m = s.match(/-?\d+(?:\.\d+)?/);
-  return m ? parseFloat(m[0]) : null;
-};
+import { parseNum } from '@/utils/numberParser';
 
 interface DisplayEtaValue {
   short: string;

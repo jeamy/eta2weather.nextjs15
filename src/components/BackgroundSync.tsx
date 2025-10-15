@@ -42,10 +42,12 @@ const BackgroundSync: React.FC = () => {
         if (result.data.eta && Object.keys(result.data.eta).length > 0) {
           dispatch(storeEtaData(result.data.eta));
         }
+        
+        // Only update WiFi data if it exists (API sends undefined if not initialized)
         if (result.data.wifiAf83) {
-          // Ensure WiFi data has valid structure before dispatching
           const wifiData = result.data.wifiAf83;
-          if (wifiData.time && (wifiData.temperature !== undefined || wifiData.indoorTemperature !== undefined)) {
+          // Double-check validity (should already be valid from API)
+          if (wifiData.time > 0 && (wifiData.temperature !== undefined || wifiData.indoorTemperature !== undefined)) {
             dispatch(storeWifiAf83Data(wifiData));
           } else {
             console.warn('Received invalid WiFi data structure, skipping update:', wifiData);

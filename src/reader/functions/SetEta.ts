@@ -74,7 +74,7 @@ export class SetEta {
     return {
       einaus: getValue(EtaConstants.EIN_AUS_TASTE),
       schaltzustand: getValue(EtaConstants.SCHALTZUSTAND),
-      kommentaste: getValue(EtaConstants.HEIZENTASTE),
+      kommentaste: getValue(EtaConstants.KOMMENTASTE),
       heizentaste: getValue(EtaConstants.HEIZENTASTE),
       tes: Number(getValue(EtaConstants.SCHIEBERPOS)),
       tea: Number(getValue(EtaConstants.AUSSENTEMP))

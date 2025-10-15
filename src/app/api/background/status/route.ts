@@ -6,12 +6,17 @@ export async function GET() {
     const store = getServerStore();
     const state = store.getState();
 
+    // Only include WiFi data if it has been initialized (time > 0)
+    const wifiData = state.wifiAf83.data;
+    const hasValidWifiData = wifiData.time > 0;
+
     return NextResponse.json({
       success: true,
       data: {
         config: state.config.data,
         eta: state.eta.data,
-        wifiAf83: state.wifiAf83.data,
+        // Only send WiFi data if it's been initialized
+        wifiAf83: hasValidWifiData ? wifiData : undefined,
         names2Id: state.names2Id.data
       }
     });

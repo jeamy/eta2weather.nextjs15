@@ -8,6 +8,7 @@ import { ConfigKeys, TEMP_CALC_CONSTANTS } from "@/reader/functions/types-consta
 import { EtaButtons, EtaPos } from "@/reader/functions/types-constants/EtaConstants";
 import { EtaConstants as EtaConstKeys, defaultNames2Id } from "@/reader/functions/types-constants/Names2IDconstants";
 import { API } from "@/constants/apiPaths";
+import { parseNum } from "@/utils/numberParser";
 
 function formatTime(ts: number): string {
   if (!ts) return "-";
@@ -20,13 +21,6 @@ function formatTime(ts: number): string {
   } catch {
     return "-";
   }
-}
-
-function parseNum(raw: any): number | null {
-  if (raw == null) return null;
-  const s = String(raw).replace(',', '.');
-  const m = s.match(/-?\d+(?:\.\d+)?/);
-  return m ? parseFloat(m[0]) : null;
 }
 
 export default function HomeHero() {

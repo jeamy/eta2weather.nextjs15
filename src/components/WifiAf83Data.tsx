@@ -15,6 +15,7 @@ import Image from 'next/image';
 import { WifiAF83Data } from '@/reader/functions/types-constants/WifiAf83';
 import { API } from '@/constants/apiPaths';
 import { useToast } from '@/components/ToastProvider';
+import { parseNum } from '@/utils/numberParser';
 
 interface ApiResponse {
   data: WifiAF83Data & {
@@ -22,14 +23,6 @@ interface ApiResponse {
   };
   config?: ConfigState['data'];
 }
-
-// Robust parser for values like "14,5 °C" or "14.5°C"
-const parseNum = (raw: any): number | null => {
-  if (raw == null) return null;
-  const s = String(raw).replace(',', '.');
-  const m = s.match(/-?\d+(?:\.\d+)?/);
-  return m ? parseFloat(m[0]) : null;
-};
 
 const formatDateTime = (timestamp: number): string => {
   return new Date(timestamp).toLocaleString('de-DE', {
