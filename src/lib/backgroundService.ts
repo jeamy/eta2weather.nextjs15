@@ -749,32 +749,20 @@ export class BackgroundService {
       // t_override is stored in milliseconds (fallback: 60 min)
       const manualOverrideMs = parseInt(state.config.data?.t_override || String(60 * 60 * 1000));
       const manualOverrideTime = manualOverrideMs;
+      
+      // Check if manual override is still active (only from user clicks, not auto-activation)
       let isManualOverride = false;
-
-      // Find currently active button and check manual override
-      let activeButton: EtaButtons | null = null;
-      Object.entries(etaState.data).forEach(([_, item]) => {
-        if (Object.values(EtaButtons).includes(item.short as EtaButtons) &&
-          item.value === EtaPos.EIN &&
-          item.short !== EtaButtons.AA) {
-          activeButton = item.short as EtaButtons;
-          // If a manual button is active, set manual override
-          this.lastTempState.manualOverride = true;
-          this.lastTempState.manualOverrideTime = Date.now();
-          isManualOverride = true;
-        }
-      });
-
-      // Check if manual override is still active
       if (this.lastTempState.manualOverride && this.lastTempState.manualOverrideTime) {
         const timeSinceOverride = Date.now() - this.lastTempState.manualOverrideTime;
         if (timeSinceOverride > manualOverrideTime) {
           // Reset manual override if time has expired
+          console.log(`${this.getTimestamp()} Manual override timeout expired`);
           this.lastTempState.manualOverride = false;
           this.lastTempState.manualOverrideTime = null;
           isManualOverride = false;
         } else {
           isManualOverride = true;
+          console.log(`${this.getTimestamp()} Manual override still active (${Math.round(timeSinceOverride / 1000)}s / ${Math.round(manualOverrideTime / 1000)}s)`);
         }
       }
 
