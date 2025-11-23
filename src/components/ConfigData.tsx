@@ -32,10 +32,10 @@ const ConfigData: React.FC = () => {
     useEffect(() => {
         const loadConfigData = async () => {
             try {
-//                console.log('Fetching config data...');
+                //                console.log('Fetching config data...');
                 const response = await fetch(API.CONFIG_READ);
                 const result = await response.json();
-//                console.log('API Response:', result);
+                //                console.log('API Response:', result);
 
                 if (result.success && result.data) {
                     dispatch(storeData(result.data));
@@ -53,7 +53,7 @@ const ConfigData: React.FC = () => {
     }, [dispatch]);
 
     useEffect(() => {
-//        console.log('Current config state:', config);
+        //        console.log('Current config state:', config);
     }, [config]);
 
     // EtaApi instance no longer needed on client for slider updates
@@ -127,33 +127,33 @@ const ConfigData: React.FC = () => {
     const validateIpWithPort = (value: string): boolean => {
         // Split IP and port
         const [ip, port] = value.split(':');
-        
+
         // Validate IP
         const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
         if (!ipRegex.test(ip)) return false;
-        
+
         // Check IP octets
         const octets = ip.split('.');
         for (const octet of octets) {
             const num = parseInt(octet);
             if (num < 0 || num > 255) return false;
         }
-        
+
         // Validate port if present
         if (port !== undefined) {
             const portNum = parseInt(port);
             if (isNaN(portNum) || portNum < 1 || portNum > 65535) return false;
         }
-        
+
         return true;
     };
 
     const renderEditableValue = (
-        key: ConfigKeys, 
-        label: string, 
-        min: number, 
-        max: number, 
-        step: number, 
+        key: ConfigKeys,
+        label: string,
+        min: number,
+        max: number,
+        step: number,
         unit: string,
         valueConverter?: {
             fromStorage: (value: string) => string;
@@ -172,7 +172,7 @@ const ConfigData: React.FC = () => {
 
         const handleSaveValue = async () => {
             if (!isEditing) return;
-            
+
             try {
                 const valueToSave = valueConverter ? valueConverter.toStorage(editValue) : editValue;
                 const response = await fetch(API.CONFIG, {
@@ -199,13 +199,21 @@ const ConfigData: React.FC = () => {
                     const timeout = setTimeout(async () => {
                         pendingTimeouts.current.delete(timeout);
                         try {
-                            const r = await fetch(API.CONFIG_READ);
+                            // Poll background status to get the latest computed config (including slider position)
+                            const r = await fetch(API.BACKGROUND_STATUS);
                             const j = await r.json();
-                            if (j?.success && j?.data) {
-                                dispatch(storeData(j.data));
+                            if (j?.success && j?.data?.config) {
+                                dispatch(storeData(j.data.config));
+                            } else {
+                                // Fallback to reading config directly if background status fails
+                                const r2 = await fetch(API.CONFIG_READ);
+                                const j2 = await r2.json();
+                                if (j2?.success && j2?.data) {
+                                    dispatch(storeData(j2.data));
+                                }
                             }
                         } catch { /* ignore */ }
-                    }, 2300);
+                    }, 3000);
                     pendingTimeouts.current.add(timeout);
                 } else {
                     throw new Error('Invalid response format');
@@ -280,7 +288,7 @@ const ConfigData: React.FC = () => {
                             </button>
                         </div>
                     ) : (
-                        <div 
+                        <div
                             className="cursor-pointer hover:text-blue-600 flex items-center space-x-1"
                             onClick={handleEditStart}
                             role="button"
@@ -313,7 +321,7 @@ const ConfigData: React.FC = () => {
 
         const handleSaveValue = async () => {
             if (!isEditing) return;
-            
+
             if (validator && !validator(editValue)) {
                 alert('Ungültige IP-Adresse. Format: xxx.xxx.xxx.xxx oder xxx.xxx.xxx.xxx:port');
                 return;
@@ -386,7 +394,7 @@ const ConfigData: React.FC = () => {
                             </button>
                         </div>
                     ) : (
-                        <div 
+                        <div
                             className="cursor-pointer hover:text-blue-600"
                             onClick={handleEditStart}
                             role="button"
@@ -410,9 +418,9 @@ const ConfigData: React.FC = () => {
         const isEditingThis = isEditing === ConfigKeys.T_DELTA;
         const deltaOverrideEnabled = config.data[ConfigKeys.DELTA_OVERRIDE] === 'true';
         const rawDelta = parseFloat(config.data[ConfigKeys.T_DELTA] || '0');
-        
+
         // Display value: divided by dampening factor (unless manual override is active)
-        const displayValue = deltaOverrideEnabled 
+        const displayValue = deltaOverrideEnabled
             ? rawDelta.toFixed(1)
             : (rawDelta / TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR).toFixed(2);
 
@@ -424,7 +432,7 @@ const ConfigData: React.FC = () => {
 
         const handleSaveValue = async () => {
             if (!isEditing) return;
-            
+
             try {
                 const response = await fetch(API.CONFIG, {
                     method: 'POST',
@@ -450,10 +458,18 @@ const ConfigData: React.FC = () => {
                     const timeout = setTimeout(async () => {
                         pendingTimeouts.current.delete(timeout);
                         try {
-                            const r = await fetch(API.CONFIG_READ);
+                            // Poll background status to get the latest computed config (including slider position)
+                            const r = await fetch(API.BACKGROUND_STATUS);
                             const j = await r.json();
-                            if (j?.success && j?.data) {
-                                dispatch(storeData(j.data));
+                            if (j?.success && j?.data?.config) {
+                                dispatch(storeData(j.data.config));
+                            } else {
+                                // Fallback to reading config directly if background status fails
+                                const r2 = await fetch(API.CONFIG_READ);
+                                const j2 = await r2.json();
+                                if (j2?.success && j2?.data) {
+                                    dispatch(storeData(j2.data));
+                                }
                             }
                         } catch { /* ignore */ }
                     }, 2300);
@@ -473,8 +489,8 @@ const ConfigData: React.FC = () => {
                     <div className="flex flex-col">
                         <span className="font-medium">Deltatemperatur:</span>
                         <span className="text-xs text-gray-500">
-                            {deltaOverrideEnabled 
-                                ? `Roh: ${rawDelta.toFixed(1)}°C` 
+                            {deltaOverrideEnabled
+                                ? `Roh: ${rawDelta.toFixed(1)}°C`
                                 : `Roh: ${rawDelta.toFixed(1)}°C ÷ ${TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR}`
                             }
                         </span>
@@ -539,7 +555,7 @@ const ConfigData: React.FC = () => {
                             </button>
                         </div>
                     ) : (
-                        <div 
+                        <div
                             className="cursor-pointer hover:text-blue-600 flex items-center space-x-1"
                             onClick={handleEditStart}
                             role="button"
@@ -597,7 +613,7 @@ const ConfigData: React.FC = () => {
             <div className="flex flex-col space-y-1">
                 <div className="flex justify-between items-center">
                     <div className="flex flex-col">
-                        <span className="font-medium">Delta Override:</span>    
+                        <span className="font-medium">Delta Override:</span>
                         <span className="text-xs text-gray-500">
                             {isEnabled ? 'Manuelle Deltatemperatur' : 'Automatische Berechnung'}
                         </span>
@@ -635,7 +651,7 @@ const ConfigData: React.FC = () => {
 
         const handleSaveValue = async () => {
             if (!isEditing) return;
-            
+
             try {
                 const minutes = parseInt(editValue);
                 const valueToSave = String(minutes * 60000);
@@ -744,7 +760,7 @@ const ConfigData: React.FC = () => {
                             </button>
                         </div>
                     ) : (
-                        <div 
+                        <div
                             className="cursor-pointer hover:text-blue-600 flex items-center space-x-1"
                             onClick={handleEditStart}
                             role="button"

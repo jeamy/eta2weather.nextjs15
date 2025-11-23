@@ -128,3 +128,67 @@ export const batchFetchEtaDataInChunks = async (
 
   return results;
 };
+
+export const isTimeInWindow = (startStr: string, endStr: string, now: Date = new Date()): boolean => {
+  const [startH, startM] = startStr.split(':').map(Number);
+  const [endH, endM] = endStr.split(':').map(Number);
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const startMinutes = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+
+  // Handle 00:00 - 00:00 as inactive
+  if (startMinutes === 0 && endMinutes === 0) return false;
+
+  return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+};
+
+export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, ParsedXmlData>): boolean => {
+  // Find Heizzeiten node
+  let heizzeitenNode: MenuNode | undefined;
+  const findNode = (nodes: MenuNode[]) => {
+    for (const node of nodes) {
+      if (node.name === 'Heizzeiten' || node.uri?.endsWith('/12113/0/0')) {
+        heizzeitenNode = node;
+        return;
+      }
+      if (node.children) findNode(node.children);
+      if (heizzeitenNode) return;
+    }
+  };
+  findNode(menuNodes);
+
+  // If structure not found, assume heating is allowed (don't block)
+  if (!heizzeitenNode || !heizzeitenNode.children) return true;
+
+  const days = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+  const currentDayName = days[new Date().getDay()];
+
+  const dayNode = heizzeitenNode.children.find(n => n.name === currentDayName);
+  if (!dayNode || !dayNode.children) return false; // If day found but no children, assume no windows? Or default?
+
+  // Check all Zeitfenster
+  let isActive = false;
+  let hasWindows = false;
+
+  for (const windowNode of dayNode.children) {
+    if (/^Zeitfenster\s+[1-3]$/.test(windowNode.name) && windowNode.uri) {
+      hasWindows = true;
+      const data = values[windowNode.uri];
+      if (data && (data.strValue || data.value)) {
+        const raw = data.strValue || data.value;
+        const match = raw.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
+        if (match) {
+          const [, h1, m1, h2, m2] = match;
+          if (isTimeInWindow(`${h1}:${m1}`, `${h2}:${m2}`)) {
+            isActive = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // If we found windows, return the result. If no windows found (e.g. empty day), return false (no heating).
+  return hasWindows ? isActive : false;
+};

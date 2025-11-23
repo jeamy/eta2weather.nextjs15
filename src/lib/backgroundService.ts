@@ -23,6 +23,8 @@ import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { calculateNewSliderPosition, calculateTemperatureDiff, updateSliderPosition } from '@/utils/Functions';
 import { parseXML } from '@/reader/functions/EtaData';
 import { parseNumOrZero } from '@/utils/numberParser';
+import { determineControlAction, ControlInput } from './controlLogic';
+import { checkHeatingTime } from '@/utils/etaUtils';
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), process.env.CONFIG_PATH || 'src/config/f_etacfg.json');
 
@@ -218,7 +220,7 @@ export class BackgroundService {
             }
             this.etaApi = new EtaApi(newEtaEndpoint);
             console.log(`${this.getTimestamp()} EtaApi reinitialized due to endpoint change`);
-            
+
             // Clear menu cache and reload menu structure with new endpoint
             this.menuLoadedOnce = false;
             this.cachedMenuNodes = null;
@@ -292,6 +294,9 @@ export class BackgroundService {
     }
 
     this.isUpdating = true;
+    // Capture config at the start to avoid race conditions if config changes during execution
+    const currentConfig = { ...this.config };
+
     try {
       // Run cleanup before loading new data
       await this.cleanupOldData();
@@ -303,7 +308,7 @@ export class BackgroundService {
           if (this.etaApi && !this.etaApi.disposed) {
             this.etaApi.dispose();
           }
-          this.etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
+          this.etaApi = new EtaApi(currentConfig[ConfigKeys.S_ETA]);
         } catch (e) {
           console.error(`${this.getTimestamp()} Failed to create EtaApi instance:`, e);
           throw e;
@@ -342,12 +347,12 @@ export class BackgroundService {
             controller.abort();
           }, timeoutMs);
           this.activeTimeouts.add(timer);
-          
+
           try {
             const res = await this.etaApi!.getUserVar(id, controller.signal) as { result: string | null; error: string | null; uri?: string };
             clearTimeout(timer);
             this.activeTimeouts.delete(timer);
-            
+
             if (res?.result) return res.result;
             const error = new Error(res?.error || 'no result');
             (error as any).uri = id;
@@ -356,7 +361,7 @@ export class BackgroundService {
             // Always clean up timer
             clearTimeout(timer);
             this.activeTimeouts.delete(timer);
-            
+
             if (attempt < retries) {
               const backoff = 200 * Math.pow(2, attempt) + Math.floor(Math.random() * 100);
               await new Promise(r => {
@@ -432,43 +437,46 @@ export class BackgroundService {
       const outdoorTemp = parseFloat(outdoorTempRaw ?? '');
       const indoorTemp = parseFloat(indoorTempRaw ?? '');
 
+      let wifiData: WifiAF83Data | null = null;
+
       if (Number.isNaN(outdoorTemp) || Number.isNaN(indoorTemp)) {
-        throw new Error('Invalid temperature values');
+        console.warn(`${this.getTimestamp()} Invalid temperature values (outdoor: ${outdoorTempRaw}, indoor: ${indoorTempRaw}). Skipping temperature-dependent logic.`);
+        // We continue without wifiData, so temperature logic will be skipped, but ETA data is preserved
+      } else {
+        // Transform to match WifiAF83Data interface
+        wifiData = {
+          time: Date.now(),
+          datestring: new Date().toLocaleString('de-DE', {
+            hour: 'numeric',
+            minute: 'numeric',
+            second: 'numeric',
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          }),
+          temperature: outdoorTemp,
+          indoorTemperature: indoorTemp,
+          allData: allData
+        };
+
+        console.log(`${this.getTimestamp()} WiFi AF83 data updated`);
+        store.dispatch(storeWifiAf83Data(wifiData));
+        console.log(`${this.getTimestamp()} Logging ECOWITT data...`);
+        await logData('ecowitt', wifiData);
+        console.log(`${this.getTimestamp()} Logging ECOWITT data DONE!`);
+
+        // Update update IndoorTemperature Diff  after new data is loaded
+        await this.updateIndoorTemperatureDiff(wifiData);
+
+        // Update temperature diff after new data is loaded
+        await this.updateTemperatureDiffWithServerCheck(wifiData);
       }
-
-      // Transform to match WifiAF83Data interface
-      const transformedData = {
-        time: Date.now(),
-        datestring: new Date().toLocaleString('de-DE', {
-          hour: 'numeric',
-          minute: 'numeric',
-          second: 'numeric',
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        }),
-        temperature: outdoorTemp,
-        indoorTemperature: indoorTemp,
-        allData: allData
-      };
-
-      console.log(`${this.getTimestamp()} WiFi AF83 data updated`);
-      store.dispatch(storeWifiAf83Data(transformedData));
-      console.log(`${this.getTimestamp()} Logging ECOWITT data...`);
-      await logData('ecowitt', transformedData);
-      console.log(`${this.getTimestamp()} Logging ECOWITT data DONE!`);
-
-      // Update update IndoorTemperature Diff  after new data is loaded
-      await this.updateIndoorTemperatureDiff(transformedData);
-
-      // Update temperature diff after new data is loaded
-      await this.updateTemperatureDiffWithServerCheck(transformedData);
 
       // Update names2Id in store
       store.dispatch(storeNames2IdData(defaultNames2Id));
 
-      return { etaData: menuData, wifiData: transformedData };
+      return { etaData: menuData, wifiData: wifiData };
     } catch (error) {
       console.error(`${this.getTimestamp()} Error loading and storing data:`, error);
       throw error;
@@ -506,7 +514,7 @@ export class BackgroundService {
       this.cleanupOldData(true).catch(error => {
         console.error(`${this.getTimestamp()} Error during emergency cleanup:`, error);
       });
-      
+
       // Force garbage collection if available
       if (global.gc) {
         console.log(`${this.getTimestamp()} Forcing garbage collection...`);
@@ -581,10 +589,24 @@ export class BackgroundService {
 
       console.log(`${this.getTimestamp()} Updating temperature diff...`);
 
-      const { diff: numericDiff } = calculateTemperatureDiff(config, {
+      // Check heating times
+      let isHeating = true;
+      if (this.cachedMenuNodes && etaState.data) {
+        isHeating = checkHeatingTime(this.cachedMenuNodes, etaState.data);
+        if (!isHeating) {
+          console.log(`${this.getTimestamp()} Outside heating times. Forcing diff to 0.`);
+        }
+      }
+
+      let { diff: numericDiff } = calculateTemperatureDiff(config, {
         data: wifiData,
         loadingState: { isLoading: false, error: null }
       });
+
+      // Override diff if outside heating times
+      if (!isHeating) {
+        numericDiff = 0;
+      }
 
       if (numericDiff !== null) {
         console.log(`${this.getTimestamp()} Numeric diff: ${numericDiff}`);
@@ -599,14 +621,14 @@ export class BackgroundService {
             if (id && etaState.data[id]?.strValue) {
               return etaState.data[id].strValue;
             }
-            
+
             // Fallback: scan all entries for matching short code
             for (const [, item] of Object.entries(etaState.data)) {
               if (item.short === constant && item.strValue) {
                 return item.strValue;
               }
             }
-            
+
             return '0';
           };
 
@@ -728,53 +750,18 @@ export class BackgroundService {
       const state = store.getState() as RootState;
       const config = state.config;
       const etaState = state.eta;
-      
+
       // Get current slider position
       const sliderPos = Number(config.data?.[ConfigKeys.T_SLIDER] ?? 0);
-      const isSliderNegative = sliderPos < 0;
-      
+
       // Calculate current diff to check if negative
       const { diff: numericDiff } = calculateTemperatureDiff(config, {
         data: wifiData,
         loadingState: { isLoading: false, error: null }
       });
-      const isDiffNegative = numericDiff !== null && numericDiff < 0;
 
-      const isBelow = indoorTemp < minTemp;
       console.log(`${this.getTimestamp()} ========================================`);
-      console.log(`${this.getTimestamp()} Temperature state: isBelow=${isBelow}, sliderPos=${sliderPos}, isSliderNegative=${isSliderNegative}, diff=${numericDiff}, isDiffNegative=${isDiffNegative}`);
       console.log(`${this.getTimestamp()} Indoor: ${indoorTemp}°C, Min: ${minTemp}°C`);
-
-      // Check for manual override FIRST
-      // t_override is stored in milliseconds (fallback: 60 min)
-      const manualOverrideMs = parseInt(state.config.data?.t_override || String(60 * 60 * 1000));
-      const manualOverrideTime = manualOverrideMs;
-      
-      // Check if manual override is still active (only from user clicks, not auto-activation)
-      let isManualOverride = false;
-      if (this.lastTempState.manualOverride && this.lastTempState.manualOverrideTime) {
-        const timeSinceOverride = Date.now() - this.lastTempState.manualOverrideTime;
-        if (timeSinceOverride > manualOverrideTime) {
-          // Reset manual override if time has expired
-          console.log(`${this.getTimestamp()} Manual override timeout expired`);
-          this.lastTempState.manualOverride = false;
-          this.lastTempState.manualOverrideTime = null;
-          isManualOverride = false;
-        } else {
-          isManualOverride = true;
-          console.log(`${this.getTimestamp()} Manual override still active (${Math.round(timeSinceOverride / 1000)}s / ${Math.round(manualOverrideTime / 1000)}s)`);
-        }
-      }
-
-      // Determine expected button based on current state
-      let expectedButton: EtaButtons;
-      if (isSliderNegative) {
-        expectedButton = EtaButtons.GT; // Gehen when slider is negative
-      } else if (isBelow) {
-        expectedButton = EtaButtons.KT; // Kommen when below min temp
-      } else {
-        expectedButton = EtaButtons.AA; // Auto otherwise
-      }
 
       // Find currently active button
       let currentActiveButton: EtaButtons = EtaButtons.AA;
@@ -784,41 +771,44 @@ export class BackgroundService {
         }
       });
 
-      // Act if: state changed OR current button doesn't match expected button
-      const stateChanged = (this.lastTempState.wasBelow !== isBelow) || (this.lastTempState.wasSliderNegative !== isSliderNegative);
-      const buttonMismatch = currentActiveButton !== expectedButton;
-      
-      console.log(`${this.getTimestamp()} Decision: expected=${expectedButton}, current=${currentActiveButton}`);
-      console.log(`${this.getTimestamp()} Checks: stateChanged=${stateChanged}, buttonMismatch=${buttonMismatch}, isManualOverride=${isManualOverride}`);
-      console.log(`${this.getTimestamp()} Will update buttons: ${!isManualOverride && (stateChanged || buttonMismatch)}`);
+      // Prepare input for control logic
+      const manualOverrideMs = parseInt(state.config.data?.t_override || String(60 * 60 * 1000));
 
-      // Only proceed if not in manual override AND (state changed OR button doesn't match)
-      if (!isManualOverride && (stateChanged || buttonMismatch)) {
-        // Log state change if it occurred
-        if (stateChanged) {
-          const tempDiff = Number((minTemp - indoorTemp).toFixed(1));
-          console.log(`${this.getTimestamp()} State changed: wasBelow=${this.lastTempState.wasBelow}→${isBelow}, wasSliderNegative=${this.lastTempState.wasSliderNegative}→${isSliderNegative}, tempDiff=${tempDiff}`);
+      const input: ControlInput = {
+        indoorTemp,
+        minTemp,
+        sliderPos,
+        currentActiveButton,
+        lastTempState: this.lastTempState,
+        manualOverrideDurationMs: manualOverrideMs,
+        currentTime: Date.now()
+      };
 
-          // Determine status based on state changes
-          let status = '';
-          if (this.lastTempState.wasSliderNegative !== isSliderNegative && isSliderNegative) {
-            status = 'slider_negative';
-          } else if (this.lastTempState.wasSliderNegative !== isSliderNegative && !isSliderNegative) {
-            status = 'slider_positive';
-          } else if (isBelow) {
-            status = 'dropped_below';
-          } else {
-            status = 'rose_above';
-          }
-          
-          await logData('min_temp_status', {
-            diff: tempDiff,
-            status: status
-          });
-        }
+      // Execute pure control logic
+      const result = determineControlAction(input);
 
-      // Build IDs mapping once for invariant enforcement and toggling
-      const buttonIds = {
+      // Log decisions
+      result.logs.forEach(log => console.log(`${this.getTimestamp()} ${log}`));
+
+      // Update state
+      this.lastTempState = result.newState;
+
+      // Handle actions
+      if (result.action === 'ENTER_OVERRIDE') {
+        // Nothing to do physically, just updated state (already done above)
+        return;
+      }
+
+      if (result.action === 'SWITCH_BUTTON' && result.targetButton) {
+        const targetButtonName = result.targetButton;
+
+        // Log state change for analytics if needed (re-using existing logic structure)
+        // We can infer if state changed by checking if we are switching buttons
+        // or we can trust the logic's newState.wasBelow/wasSliderNegative changes
+        // But for simplicity, we just proceed to switching.
+
+        // Build IDs mapping
+        const buttonIds = {
           [EtaButtons.HT]: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
           [EtaButtons.KT]: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
           [EtaButtons.AA]: defaultNames2Id[EtaConstants.AUTOTASTE].id,
@@ -826,18 +816,14 @@ export class BackgroundService {
           [EtaButtons.DT]: defaultNames2Id[EtaConstants.ABSENKTASTE].id
         };
 
-        // Evaluate current button states by short code
-        const flags: Record<string, boolean> = { [EtaButtons.AA]: false, [EtaButtons.HT]: false, [EtaButtons.KT]: false, [EtaButtons.GT]: false, [EtaButtons.DT]: false };
-        Object.entries(etaState.data).forEach(([_, item]) => {
-          if (Object.values(EtaButtons).includes(item.short as EtaButtons)) {
-            flags[item.short as EtaButtons] = item.value === EtaPos.EIN;
-          }
-        });
+        const targetButtonId = buttonIds[targetButtonName];
+        if (!targetButtonId) {
+          throw new Error(`Button ID not found for ${targetButtonName}`);
+        }
 
         try {
           // Ensure EtaApi instance is available
           if (!this.etaApi || this.etaApi.disposed) {
-            // Dispose old instance if it exists and is not already disposed
             if (this.etaApi && !this.etaApi.disposed) {
               this.etaApi.dispose();
             }
@@ -845,110 +831,54 @@ export class BackgroundService {
           }
           const etaApi = this.etaApi;
 
-          // Invariant 1: If AA is ON, ensure all manual buttons are OFF
-          if (flags[EtaButtons.AA]) {
-            for (const manual of [EtaButtons.HT, EtaButtons.KT, EtaButtons.GT, EtaButtons.DT]) {
-              if (flags[manual] && buttonIds[manual]) {
-                await etaApi.setUserVar(buttonIds[manual], EtaPos.AUS, "0", "0");
+          // Get current flags to minimize API calls
+          const flags: Record<string, boolean> = { [EtaButtons.AA]: false, [EtaButtons.HT]: false, [EtaButtons.KT]: false, [EtaButtons.GT]: false, [EtaButtons.DT]: false };
+          Object.entries(etaState.data).forEach(([_, item]) => {
+            if (Object.values(EtaButtons).includes(item.short as EtaButtons)) {
+              flags[item.short as EtaButtons] = item.value === EtaPos.EIN;
+            }
+          });
+
+          // First turn off all buttons except AA and the target
+          console.log(`${this.getTimestamp()} Turning off all buttons (except AA) before activating ${targetButtonName}`);
+          for (const [name, id] of Object.entries(buttonIds)) {
+            if (name !== EtaButtons.AA && name !== targetButtonName) {
+              // Only send if currently ON (idempotent)
+              if (flags[name]) {
+                await etaApi.setUserVar(id, EtaPos.AUS, "0", "0");
                 await this.sleep(this.ETA_CALL_DELAY_MS);
               }
             }
           }
 
-          // Invariant 1b: If any manual button is ON, ensure AA is OFF
-          const anyManualOn = flags[EtaButtons.HT] || flags[EtaButtons.KT] || flags[EtaButtons.GT] || flags[EtaButtons.DT];
-          if (anyManualOn && flags[EtaButtons.AA] && buttonIds[EtaButtons.AA]) {
-            console.log(`${this.getTimestamp()} Invariant: Manual button active, turning off AA`);
+          // Special handling for AA button - turn it off BEFORE activating manual button
+          if (targetButtonName !== EtaButtons.AA) {
+            console.log(`${this.getTimestamp()} Turning off AA button before activating manual button`);
             await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.AUS, "0", "0");
             await this.sleep(this.ETA_CALL_DELAY_MS);
-            flags[EtaButtons.AA] = false;
           }
 
-          // Invariant 2: If all buttons are OFF, turn AA ON (fallback)
-          const allOff = !flags[EtaButtons.AA] && !flags[EtaButtons.HT] && !flags[EtaButtons.KT] && !flags[EtaButtons.GT] && !flags[EtaButtons.DT];
-          if (allOff && buttonIds[EtaButtons.AA]) {
-            await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.EIN, "0", "0");
-            // Update local flag to reflect change
-            flags[EtaButtons.AA] = true;
-          }
-        } catch (e) {
-          console.warn(`${this.getTimestamp()} Invariant enforcement warning:`, e);
-        }
+          // Then activate target button
+          console.log(`${this.getTimestamp()} Activating ${targetButtonName}`);
+          await etaApi.setUserVar(targetButtonId, EtaPos.EIN, "0", "0");
+          await this.sleep(this.ETA_CALL_DELAY_MS);
 
-        // Determine target button based on slider position and temperature
-          // Priority: slider < 0 → GT (Gehen), temp < t_min → KT (Kommen), else → AA (Auto)
-          let targetButtonName: EtaButtons;
-          if (isSliderNegative) {
-            targetButtonName = EtaButtons.GT; // Gehen when slider is negative
-            console.log(`${this.getTimestamp()} Slider is negative (${sliderPos}%), activating Gehen (GT)`);
-          } else if (isBelow) {
-            targetButtonName = EtaButtons.KT; // Kommen when below min temp
-            console.log(`${this.getTimestamp()} Temperature below minimum, activating Kommen (KT)`);
-          } else {
-            targetButtonName = EtaButtons.AA; // Auto otherwise
-            console.log(`${this.getTimestamp()} Normal state, activating Auto (AA)`);
-          }
-          const targetButton = buttonIds[targetButtonName];
-
-          if (!targetButton) {
-            throw new Error(`Button ID not found for ${targetButtonName}`);
-          }
-
-          try {
-            // Ensure EtaApi instance is available
-            if (!this.etaApi || this.etaApi.disposed) {
-              // Dispose old instance if it exists and is not already disposed
-              if (this.etaApi && !this.etaApi.disposed) {
-                this.etaApi.dispose();
-              }
-              this.etaApi = new EtaApi(this.config[ConfigKeys.S_ETA]);
-            }
-            const etaApi = this.etaApi;
-
-            // First turn off all buttons except AA and the target, sequentially
-            console.log(`${this.getTimestamp()} Turning off all buttons (except AA) before activating ${targetButtonName}`);
-            for (const [name, id] of Object.entries(buttonIds)) {
-              if (name !== EtaButtons.AA && name !== targetButtonName) {
-                // Only send if currently ON (idempotent)
-                if (flags[name]) {
-                  await etaApi.setUserVar(id, EtaPos.AUS, "0", "0");
-                  await this.sleep(this.ETA_CALL_DELAY_MS);
-                }
-              }
-            }
-
-            // Special handling for AA button - turn it off BEFORE activating manual button
-            if (targetButtonName !== EtaButtons.AA) {
-              console.log(`${this.getTimestamp()} Turning off AA button before activating manual button`);
-              await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.AUS, "0", "0");
-              await this.sleep(this.ETA_CALL_DELAY_MS);
-            }
-
-            // Then activate target button
-            console.log(`${this.getTimestamp()} Activating ${targetButtonName}`);
-            await etaApi.setUserVar(targetButton, EtaPos.EIN, "0", "0");
+          // CRITICAL: Ensure AA is OFF after activating manual button (double-check)
+          if (targetButtonName !== EtaButtons.AA) {
+            console.log(`${this.getTimestamp()} Double-checking: AA is OFF after ${targetButtonName} activation`);
+            await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.AUS, "0", "0");
+            // Wait for heater to process the command
             await this.sleep(this.ETA_CALL_DELAY_MS);
-
-            // CRITICAL: Ensure AA is OFF after activating manual button (double-check)
-            if (targetButtonName !== EtaButtons.AA) {
-              console.log(`${this.getTimestamp()} Double-checking: AA is OFF after ${targetButtonName} activation`);
-              await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.AUS, "0", "0");
-              // Wait for heater to process the command
-              await this.sleep(this.ETA_CALL_DELAY_MS);
-            }
-
-            // Final delay to allow heater to stabilize before any status reads
-            console.log(`${this.getTimestamp()} Button switching complete. Waiting for heater to stabilize...`);
-            await this.sleep(500); // 500ms stabilization period
-
-            // Update state
-            this.lastTempState.wasBelow = isBelow;
-            this.lastTempState.wasSliderNegative = isSliderNegative;
-
-          } catch (error) {
-            console.error(`${this.getTimestamp()} Error updating temperature state:`, error);
-            throw error;
           }
+
+          // Final delay to allow heater to stabilize before any status reads
+          console.log(`${this.getTimestamp()} Button switching complete. Waiting for heater to stabilize...`);
+          await this.sleep(500); // 500ms stabilization period
+
+        } catch (error) {
+          console.error(`${this.getTimestamp()} Error updating temperature state:`, error);
+          throw error;
+        }
       }
     } catch (error) {
       console.error(`${this.getTimestamp()} Error in updateTemperatureDiff:`, error);
@@ -1038,7 +968,7 @@ export class BackgroundService {
    */
   private async loadMenuStructure(): Promise<void> {
     console.log(`${this.getTimestamp()} Loading ETA menu structure (one-time operation)...`);
-    
+
     if (!this.etaApi) {
       throw new Error('EtaApi not initialized');
     }
@@ -1050,7 +980,7 @@ export class BackgroundService {
       menuController.abort();
     }, 8000);
     this.activeTimeouts.add(menuTimeout);
-    
+
     let menuResponse: any;
     try {
       menuResponse = await this.etaApi.getMenu(menuController.signal);
@@ -1058,7 +988,7 @@ export class BackgroundService {
       clearTimeout(menuTimeout);
       this.activeTimeouts.delete(menuTimeout);
     }
-    
+
     if (menuResponse.error || !menuResponse.result) {
       throw new Error(menuResponse.error || 'No ETA menu data received');
     }
@@ -1117,13 +1047,13 @@ export class BackgroundService {
     };
 
     const menuXml = menuResponse.result as string;
-    
+
     parseMenuXML(menuXml);
     this.cachedMenuNodes = menuNodes;
 
     // Get all URIs from the menu tree
     console.log(`${this.getTimestamp()} Extracting URIs from menu tree...`);
-    
+
     // Count all nodes before filtering
     const countAllUris = (nodes: MenuNode[]): number => {
       let count = 0;
@@ -1134,11 +1064,11 @@ export class BackgroundService {
       nodes.forEach(countNode);
       return count;
     };
-    
+
     const totalUris = countAllUris(menuNodes);
     const uris = getAllUris(menuNodes);
     this.cachedUris = uris;
-    
+
     console.log(`${this.getTimestamp()} ✓ Menu structure loaded: ${uris.length} endpoint URIs (filtered out ${totalUris - uris.length} category URIs)`);
     console.log(`${this.getTimestamp()} ✓ Menu will be reused for all subsequent data fetches`);
   }
