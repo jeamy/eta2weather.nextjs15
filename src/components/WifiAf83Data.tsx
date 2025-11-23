@@ -68,7 +68,7 @@ const WifiAf83Data: React.FC = () => {
       }
 
       const result = await response.json();
-//      console.log('Saved config value:', result);
+      //      console.log('Saved config value:', result);
       showToast(`Konfiguration gespeichert: ${key}`, 'success');
     } catch (error) {
       console.error('Error saving config value:', error);
@@ -124,12 +124,12 @@ const WifiAf83Data: React.FC = () => {
   useEffect(() => {
     const tSollChanged = config.data.t_soll !== lastTSoll.current;
     const tDeltaChanged = config.data.t_delta !== lastTDelta.current;
-    
+
     if (tSollChanged || tDeltaChanged) {
       // Update refs
       lastTSoll.current = config.data.t_soll;
       lastTDelta.current = config.data.t_delta;
-      
+
       // Save to config file
       if (tSollChanged) {
         saveConfigValue(ConfigKeys.T_SOLL, config.data.t_soll);
@@ -137,7 +137,7 @@ const WifiAf83Data: React.FC = () => {
       if (tDeltaChanged) {
         saveConfigValue(ConfigKeys.T_DELTA, config.data.t_delta);
       }
-      
+
       // Trigger recalculation of temperature difference and slider position
       loadAndStoreWifi();
     }
@@ -154,7 +154,7 @@ const WifiAf83Data: React.FC = () => {
       parseInt(config.data.t_update_timer) || DEFAULT_UPDATE_TIMER,
       MIN_API_INTERVAL
     );
-    
+
     const interval = setInterval(loadAndStoreWifi, updateTimer);
     return () => clearInterval(interval);
   }, [loadAndStoreWifi, config.data.t_update_timer]);
@@ -173,27 +173,7 @@ const WifiAf83Data: React.FC = () => {
   }, [loadAndStoreWifi]);
 
   // Client-side Diff/Slider-Update deaktiviert (Server steuert Sync)
-
-  const loadAndStoreEta = useCallback(async () => {
-    try {
-      const response = await fetch(API.ETA_READ);
-      if (!response.ok) {
-        throw new Error('Failed to fetch ETA data');
-      }
-      const { data } = await response.json();
-      dispatch({ type: 'eta/storeData', payload: data });
-      return data;
-    } catch (error) {
-      console.error('Error fetching ETA data:', error);
-      return null;
-    }
-  }, [dispatch]);
-
-  // Load ETA data only once on mount to avoid circular dependency
-  useEffect(() => {
-    loadAndStoreEta();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array = only on mount
+  // ETA data is now loaded centrally by EtaDataProvider - no need to fetch here
 
   if (isLoading || !wifiData) {
     return (
@@ -247,11 +227,11 @@ const WifiAf83Data: React.FC = () => {
                 const tSoll = Number(config.data[ConfigKeys.T_SOLL] ?? NaN);
                 const tDelta = Number(config.data[ConfigKeys.T_DELTA] ?? NaN);
                 const indoor = Number(wifiData.indoorTemperature ?? NaN);
-                
+
                 if (!Number.isFinite(tSoll) || !Number.isFinite(tDelta) || !Number.isFinite(indoor)) {
                   return <span className="badge badge--warn">--</span>;
                 }
-                
+
                 const diff = (tSoll + tDelta / TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR) - indoor;
                 const roundedDiff = Math.round(diff * 100) / 100;
                 // Positive diff => kälter als Soll (blau), Negative => wärmer als Soll (grün)
@@ -260,14 +240,14 @@ const WifiAf83Data: React.FC = () => {
               })()}
             </div>
             {config.data[ConfigKeys.T_MIN] && (
-            <div className="flex justify-between items-center">
-              <span className="font-medium">Diff Min/Indoor:</span>
-              {(() => {
-                const d = calculateMinTempDiff(wifiData.indoorTemperature, config.data[ConfigKeys.T_MIN]);
-                const cls = d > 0 ? 'badge--ok' : d < 0 ? 'badge--warn' : 'badge--neutral';
-                return <span className={`badge ${cls}`}>{d}°C</span>;
-              })()}
-            </div>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Diff Min/Indoor:</span>
+                {(() => {
+                  const d = calculateMinTempDiff(wifiData.indoorTemperature, config.data[ConfigKeys.T_MIN]);
+                  const cls = d > 0 ? 'badge--ok' : d < 0 ? 'badge--warn' : 'badge--neutral';
+                  return <span className={`badge ${cls}`}>{d}°C</span>;
+                })()}
+              </div>
             )}
           </div>
         </div>

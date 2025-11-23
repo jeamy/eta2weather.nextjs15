@@ -4,98 +4,170 @@ import { EtaConstants, Names2Id } from './types-constants/Names2IDconstants';
 import { Config, ConfigKeys } from './types-constants/ConfigConstants';
 import { EtaData, ParsedXmlData } from './types-constants/EtaConstants';
 
-export const fetchEtaData = async (
-    config: Config, 
-    names2id: Names2Id
-): Promise<EtaData> => {
-    const etaApi = new EtaApi(config[ConfigKeys.S_ETA]);
-    const shortkeys = Object.values(EtaConstants);
-    const data: EtaData = {};
-//    console.log("Fetching all ETA data", names2id);
-    await Promise.all(shortkeys.map(shortkey => prepareAndFetchGetUserVar(shortkey, data, names2id, etaApi)));
+const DEBUG = process.env.NODE_ENV === 'development';
 
-    return data;
-};
-
+/**
+ * Parse XML response from ETA API
+ */
 export const parseXML = (content: string, shortkey: string, names2id: Names2Id | null): ParsedXmlData => {
-//    console.log(`Parsing XML for ${shortkey}:`, content);
-    
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(content, 'text/xml');
-    
+
     // Get the value element
     const valueElement = xmlDoc.getElementsByTagName('value')[0];
-    
-    let longName = ""; 
-    if (names2id != null) {
-        longName = names2id[shortkey]?.['name'] ?? 'N/A';
+
+    if (!valueElement) {
+        throw new Error(`No value element found in XML for ${shortkey}`);
     }
 
-    const textValue = valueElement?.textContent ?? 'N/A';
-    const strValue = valueElement?.getAttribute('strValue') ?? 'N/A';
-/*    
-    console.log(`XML Parse Result for ${shortkey}:`, {
-        textValue,
-        strValue,
-        uri: valueElement?.getAttribute('uri'),
-    });
-*/
-    const result: ParsedXmlData = {
-        id: valueElement?.getAttribute('uri') ?? '',
-        parentId: null,
-        value: textValue,
-        long: longName,
-        short: shortkey,
-        strValue: strValue,
-        unit: valueElement?.getAttribute('unit') ?? '',
-        uri: valueElement?.getAttribute('uri') ?? '',
-        scaleFactor: valueElement?.getAttribute('scaleFactor') ?? '1',
-        decPlaces: valueElement?.getAttribute('decPlaces') ?? '0',
-        advTextOffset: valueElement?.getAttribute('advTextOffset') ?? '0'
+    // Get long name from names2id mapping
+    const longName = names2id?.[shortkey]?.['name'] ?? 'N/A';
+
+    // Extract attributes with defaults
+    const getAttribute = (name: string, defaultValue: string = ''): string => {
+        return valueElement.getAttribute(name) ?? defaultValue;
     };
 
-    // Add root element attributes
+    const result: ParsedXmlData = {
+        id: getAttribute('uri'),
+        parentId: null,
+        value: valueElement.textContent ?? 'N/A',
+        long: longName,
+        short: shortkey,
+        strValue: getAttribute('strValue', 'N/A'),
+        unit: getAttribute('unit'),
+        uri: getAttribute('uri'),
+        scaleFactor: getAttribute('scaleFactor', '1'),
+        decPlaces: getAttribute('decPlaces', '0'),
+        advTextOffset: getAttribute('advTextOffset', '0')
+    };
+
+    // Add root element attributes with 'eta_' prefix
     Array.from(xmlDoc.documentElement.attributes).forEach((attr: Attr) => {
         result[`eta_${attr.nodeName}`] = attr.nodeValue ?? 'N/A';
     });
 
-    // Add value element attributes if not already added
-    if (valueElement) {
-        Array.from(valueElement.attributes).forEach((attr: Attr) => {
-            if (!result[attr.nodeName]) {
-                result[attr.nodeName] = attr.nodeValue ?? 'N/A';
-            }
-        });
-    }
+    // Add value element attributes (skip duplicates)
+    Array.from(valueElement.attributes).forEach((attr: Attr) => {
+        if (!(attr.nodeName in result)) {
+            result[attr.nodeName] = attr.nodeValue ?? 'N/A';
+        }
+    });
 
-    // console.log(`Parsed ${shortkey} data:`, result);
     return result;
 };
 
-export const prepareAndFetchGetUserVar = async (shortkey: string, data: EtaData, names2id: Names2Id, etaApi: EtaApi): Promise<void> => {
-    try {
-//        console.log(`Fetching data for ${shortkey}`);
-        const id = names2id[shortkey]?.['id'];
+/**
+ * Fetch single user variable from ETA API
+ */
+const fetchUserVar = async (
+    shortkey: string,
+    names2id: Names2Id,
+    etaApi: EtaApi
+): Promise<ParsedXmlData | null> => {
+    const id = names2id[shortkey]?.['id'];
 
-        if (!id) {
-            throw new Error(`Keine ID gefunden für shortkey: ${shortkey}`);
+    if (!id) {
+        if (DEBUG) {
+            console.warn(`[EtaData] No ID found for shortkey: ${shortkey}`);
+        }
+        return null;
+    }
+
+    try {
+        const response = await etaApi.getUserVar(id);
+
+        if (response.error) {
+            if (DEBUG) {
+                console.error(`[EtaData] Error fetching ${shortkey}:`, response.error);
+            }
+            return null;
         }
 
-        await etaApi.getUserVar(id)
-            .then(res => {
-                if (res.result) {
-                    data[id] = parseXML(res.result, shortkey, names2id);
-                } else if (res.error) {
-                    console.error(`Fehler beim Abrufen der Daten für ${shortkey} (URI: ${res.uri || 'unknown'})`, res.error);
-                }
-            })
-            .catch(error => {
-                console.error(`Fehler beim Abrufen der Daten für ${shortkey}:`, error);
-            })
-            .finally(() => {
-                // console.log(`Fetched data for ${shortkey}`);
-            });
+        if (!response.result) {
+            if (DEBUG) {
+                console.warn(`[EtaData] Empty result for ${shortkey}`);
+            }
+            return null;
+        }
+
+        return parseXML(response.result, shortkey, names2id);
+
     } catch (error) {
-        console.error(`Fehler beim Abrufen der Daten für ${shortkey}:`, error);
+        if (DEBUG) {
+            console.error(`[EtaData] Exception fetching ${shortkey}:`, error);
+        }
+        return null;
+    }
+};
+
+/**
+ * Fetch all ETA data in parallel
+ */
+export const fetchEtaData = async (
+    config: Config,
+    names2id: Names2Id
+): Promise<EtaData> => {
+    const etaApi = new EtaApi(config[ConfigKeys.S_ETA]);
+    const shortkeys = Object.values(EtaConstants);
+
+    try {
+        // Fetch all data in parallel
+        const results = await Promise.allSettled(
+            shortkeys.map(shortkey => fetchUserVar(shortkey, names2id, etaApi))
+        );
+
+        // Build data object from successful results
+        const data: EtaData = {};
+
+        results.forEach((result, index) => {
+            if (result.status === 'fulfilled' && result.value) {
+                const parsedData = result.value;
+                // Use URI as key, fallback to ID if URI is empty
+                const key = parsedData.uri || parsedData.id;
+                if (key) {
+                    data[key] = parsedData;
+                } else if (DEBUG) {
+                    console.warn(`[EtaData] No URI or ID for ${shortkeys[index]}, skipping`);
+                }
+            } else if (result.status === 'rejected' && DEBUG) {
+                console.error(`[EtaData] Failed to fetch ${shortkeys[index]}:`, result.reason);
+            }
+        });
+
+        if (DEBUG) {
+            const successCount = Object.keys(data).length;
+            const totalCount = shortkeys.length;
+            console.log(`[EtaData] Fetched ${successCount}/${totalCount} variables`);
+        }
+
+        return data;
+
+    } finally {
+        // Always dispose the API instance
+        etaApi.dispose();
+    }
+};
+
+/**
+ * Legacy function for backward compatibility
+ * @deprecated Use fetchUserVar directly instead
+ */
+export const prepareAndFetchGetUserVar = async (
+    shortkey: string,
+    data: EtaData,
+    names2id: Names2Id,
+    etaApi: EtaApi
+): Promise<void> => {
+    const result = await fetchUserVar(shortkey, names2id, etaApi);
+
+    if (result) {
+        // Use URI as key, fallback to ID if URI is empty
+        const key = result.uri || result.id;
+        if (key) {
+            data[key] = result;
+        } else if (DEBUG) {
+            console.warn(`[EtaData] No URI or ID for ${shortkey}, skipping`);
+        }
     }
 };

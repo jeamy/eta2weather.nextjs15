@@ -1,8 +1,9 @@
 import { env } from 'process';
 
 const DEFAULT_SERVER = `${env.DEFAULT_SERVER || '192.168.8.100:8080'}`;
+const DEBUG = process.env.NODE_ENV === 'development';
 
-// Neuer Typ für die Rückgabe
+// Response type
 type ApiResponse = {
     result: string | null;
     error: string | null;
@@ -15,31 +16,54 @@ export class EtaApi {
     private isDisposed: boolean = false;
 
     constructor(server: string = DEFAULT_SERVER) {
-        this.server = server;
+        this.server = this.normalizeServer(server);
     }
 
     setServer(server: string): void {
-        this.server = server;
+        this.server = this.normalizeServer(server);
     }
 
-    private async fetchApi(endpoint: string, method: 'GET' | 'POST', body?: Record<string, string>, signal?: AbortSignal): Promise<ApiResponse> {
+    /**
+     * Normalize server address by removing protocol prefix
+     */
+    private normalizeServer(server: string): string {
+        return server.replace(/^https?:\/\//, '');
+    }
+
+    /**
+     * Build full URL from endpoint
+     */
+    private buildUrl(endpoint: string): string {
+        const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+        return `http://${this.server}${formattedEndpoint}`;
+    }
+
+    private async fetchApi(
+        endpoint: string,
+        method: 'GET' | 'POST',
+        body?: Record<string, string>,
+        signal?: AbortSignal
+    ): Promise<ApiResponse> {
         if (this.isDisposed) {
             return { result: null, error: 'EtaApi instance has been disposed', uri: endpoint };
         }
-        
+
+        const url = this.buildUrl(endpoint);
+
+        // Create internal abort controller for tracking
+        const internalController = new AbortController();
+        this.abortControllers.add(internalController);
+
+        // Link external signal to internal controller
+        if (signal) {
+            signal.addEventListener('abort', () => {
+                internalController.abort();
+            }, { once: true });
+        }
+
         try {
-            // Ensure server doesn't start with http:// or https://
-            const serverAddress = this.server.replace(/^https?:\/\//, '');
-            
-            // Ensure endpoint starts with a slash
-            const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-            
-            // Construct the full URL
-            const url = `http://${serverAddress}${formattedEndpoint}`;
-            
-            // console.log(`Sending ${method} request to ${url}`);
-            if (body) {
-                console.log(`Body: ${JSON.stringify(body)}`);
+            if (DEBUG && body) {
+                console.log(`[EtaApi] ${method} ${url}`, body);
             }
 
             const fetchOptions: RequestInit = {
@@ -48,61 +72,45 @@ export class EtaApi {
                     "Content-Type": "application/x-www-form-urlencoded",
                 },
                 body: body ? new URLSearchParams(body).toString() : undefined,
-                signal,
+                signal: internalController.signal,
             };
-            
-            try {
-                // Track external abort controller if provided
-                if (signal && signal instanceof AbortSignal) {
-                    const controller = new AbortController();
-                    this.abortControllers.add(controller);
-                    // Clean up when signal aborts
-                    signal.addEventListener('abort', () => {
-                        this.abortControllers.delete(controller);
-                    });
-                }
-                
-                const response = await fetch(url, fetchOptions);
-                
-                if (!response.ok) {
-                    return { 
-                        result: null, 
-                        error: `HTTP error! Status: ${response.status}`,
-                        uri: url
-                    };
-                }
-                
-                const result = await response.text();
-                
-                // Clean up abort controller tracking
-                if (signal) {
-                    this.abortControllers.forEach(controller => {
-                        if (controller.signal === signal) {
-                            this.abortControllers.delete(controller);
-                        }
-                    });
-                }
-                
-                return { result, error: null };
-            } catch (fetchError) {
-                // Handle network errors silently
-                return { 
-                    result: null, 
-                    error: 'Network error - request will be retried automatically',
+
+            const response = await fetch(url, fetchOptions);
+
+            if (!response.ok) {
+                return {
+                    result: null,
+                    error: `HTTP error! Status: ${response.status}`,
                     uri: url
                 };
             }
+
+            const result = await response.text();
+            return { result, error: null };
+
         } catch (error) {
-            // Log but don't throw
-            console.warn(`API Error for ${endpoint}:`, error);
-            const serverAddress = this.server.replace(/^https?:\/\//, '');
-            const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-            const url = `http://${serverAddress}${formattedEndpoint}`;
-            return { 
-                result: null, 
-                error: error instanceof Error ? error.message : String(error),
+            // Check if it was an abort
+            if (error instanceof Error && error.name === 'AbortError') {
+                return {
+                    result: null,
+                    error: 'Request aborted',
+                    uri: url
+                };
+            }
+
+            // Network or other errors
+            if (DEBUG) {
+                console.warn(`[EtaApi] Error for ${url}:`, error);
+            }
+
+            return {
+                result: null,
+                error: error instanceof Error ? error.message : 'Unknown error',
                 uri: url
             };
+        } finally {
+            // Always cleanup
+            this.abortControllers.delete(internalController);
         }
     }
 
@@ -110,12 +118,21 @@ export class EtaApi {
         return this.fetchApi(`user/var/${id}`, 'GET', undefined, signal);
     }
 
-    public async setUserVar(id: string, value: string, begin: string, end: string, signal?: AbortSignal): Promise<ApiResponse> {
-        console.log(`Setting user var for ID: ${id} with value: ${value}, begin: ${begin}, end: ${end}`);
+    public async setUserVar(
+        id: string,
+        value: string,
+        begin: string,
+        end: string,
+        signal?: AbortSignal
+    ): Promise<ApiResponse> {
+        if (DEBUG) {
+            console.log(`[EtaApi] Setting var ${id}: value=${value}, begin=${begin}, end=${end}`);
+        }
+
         return this.fetchApi(`user/var/${id}`, 'POST', {
-            value: value,
-            begin: begin,
-            end: end
+            value,
+            begin,
+            end
         }, signal);
     }
 
@@ -130,22 +147,28 @@ export class EtaApi {
         if (this.isDisposed) {
             return;
         }
-        
-        console.log(`[EtaApi] Disposing instance, aborting ${this.abortControllers.size} pending requests`);
-        
+
+        const pendingCount = this.abortControllers.size;
+
+        if (DEBUG && pendingCount > 0) {
+            console.log(`[EtaApi] Disposing instance, aborting ${pendingCount} pending requests`);
+        }
+
         // Abort all pending requests
         this.abortControllers.forEach(controller => {
             try {
                 controller.abort();
-            } catch (e) {
+            } catch {
                 // Ignore abort errors
             }
         });
-        
+
         this.abortControllers.clear();
         this.isDisposed = true;
-        
-        console.log('[EtaApi] Instance disposed successfully');
+
+        if (DEBUG) {
+            console.log('[EtaApi] Instance disposed successfully');
+        }
     }
 
     /**
@@ -153,5 +176,12 @@ export class EtaApi {
      */
     public get disposed(): boolean {
         return this.isDisposed;
+    }
+
+    /**
+     * Get number of pending requests
+     */
+    public get pendingRequests(): number {
+        return this.abortControllers.size;
     }
 }

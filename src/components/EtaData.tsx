@@ -38,10 +38,7 @@ const EtaData: React.FC = () => {
   const config = useSelector((state: RootState) => state.config.data);
   const etaState = useSelector((state: RootState) => state.eta);
   const wifiState = useSelector((state: RootState) => state.wifiAf83);
-  const [loadingState, setLoadingState] = useState({ isLoading: true, error: '' });
-  const isFirstLoad = useRef(true);
-  const intervalId = useRef<NodeJS.Timeout | null>(null);
-  const lastApiCall = useRef<number>(0);
+  const [loadingState, setLoadingState] = useState({ isLoading: false, error: '' });
   const etaApiRef = useRef<EtaApi | null>(null);
   // Prevent overlapping update operations
   const updateBusyRef = useRef<boolean>(false);
@@ -81,63 +78,8 @@ const EtaData: React.FC = () => {
     };
   }, [config?.s_eta]);
 
-  const loadAndStoreEta = useCallback(async (force: boolean = false, background: boolean = false) => {
-    const now = Date.now();
-    if (!force && now - lastApiCall.current < MIN_API_INTERVAL) {
-      console.log('Skipping API call - too frequent');
-      return;
-    }
-
-    try {
-      if (!background) {
-        setLoadingState({ isLoading: true, error: '' });
-      }
-      lastApiCall.current = now;
-
-      const response = await fetch(API.ETA_READ, {
-        method: 'GET'
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch ETA data: ${response.statusText}`);
-      }
-
-      const { data, config: updatedConfig } = await response.json() as ApiResponse;
-
-      // Data is already cleaned by the API endpoint
-      // Just log the active button for debugging
-      const activeButton = Object.values(data).find(item => 
-        Object.values(EtaButtons).includes(item.short as EtaButtons) && 
-        item.value === EtaPos.EIN
-      )?.short;
-      
-      console.log(`[EtaData] Loaded data with active button: ${activeButton || 'none'}`);
-
-      // Update the Redux store with the API data (already cleaned)
-      dispatch(storeEtaData(data));
-
-      if (updatedConfig) {
-        dispatch(storeConfigData(updatedConfig));
-      }
-    } catch (error) {
-      console.error('Error fetching ETA data:', error);
-      if (!background) {
-        setLoadingState({ isLoading: false, error: (error as Error).message });
-      }
-    } finally {
-      if (!background) {
-        setLoadingState(prev => ({ ...prev, isLoading: false }));
-      }
-    }
-  }, [dispatch]);
-
-  // Initial load effect
-  useEffect(() => {
-    if (isFirstLoad.current) {
-      loadAndStoreEta(true);
-      isFirstLoad.current = false;
-    }
-  }, [loadAndStoreEta]);
+  // ETA data is now loaded centrally by EtaDataProvider
+  // This component only reads from Redux store
 
   const updateButtonStates = useCallback(async (activeButton: EtaButtons, isManual: boolean = false) => {
     try {
@@ -253,8 +195,7 @@ const EtaData: React.FC = () => {
         }
       }
 
-      // Trigger a refresh of the data to get the updated state
-      await loadAndStoreEta(true, true);
+      // Data will be refreshed automatically by EtaDataProvider
     } catch (error) {
       console.error('Error updating button states:', error);
       setLoadingState(prev => ({ ...prev, error: (error as Error).message }));
@@ -262,7 +203,7 @@ const EtaData: React.FC = () => {
       updateBusyRef.current = false;
       setIsUpdating(false);
     }
-  }, [etaState.data, loadAndStoreEta, buttonIds]);
+  }, [etaState.data, buttonIds]);
 
   // Get the currently active button from etaState
   const getActiveButton = useCallback(() => {
@@ -456,28 +397,7 @@ const EtaData: React.FC = () => {
     }
   }, [config.t_override]); // Re-run when override timeout changes
 
-  useEffect(() => {
-    const updateTimer = parseInt(config.t_update_timer) || DEFAULT_UPDATE_TIMER;
-    if (updateTimer > 0) {
-      // Ensure timer is not less than minimum interval
-      const safeTimer = Math.max(updateTimer, MIN_API_INTERVAL);
-
-      // Clear existing interval if any
-      if (intervalId.current) {
-        clearInterval(intervalId.current);
-      }
-
-      // Set new interval with safe timer value
-      intervalId.current = setInterval(() => loadAndStoreEta(false, true), safeTimer);
-    }
-    // Cleanup function
-    return () => {
-      if (intervalId.current) {
-        clearInterval(intervalId.current);
-        intervalId.current = null;
-      }
-    };
-  }, [loadAndStoreEta, config.t_update_timer]);
+  // Periodic refresh is now handled by EtaDataProvider - no need for interval here
 
   const lastTempState = useRef<{
     wasBelow: boolean | null;
@@ -640,9 +560,9 @@ const EtaData: React.FC = () => {
                 const text = (value.strValue && value.strValue.trim() !== '')
                   ? value.strValue
                   : (() => {
-                      const raw: any = (value as any).value;
-                      return raw !== undefined && raw !== null ? String(raw) : '--';
-                    })();
+                    const raw: any = (value as any).value;
+                    return raw !== undefined && raw !== null ? String(raw) : '--';
+                  })();
                 return (
                   <div key={key} className="flex flex-col">
                     <div className="flex items-center justify-between gap-2">
