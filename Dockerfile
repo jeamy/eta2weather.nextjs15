@@ -1,5 +1,5 @@
 # Build stage
-FROM node:trixie-slim AS builder
+FROM node:lts-trixie-slim AS builder
 
 WORKDIR /app
 
@@ -26,7 +26,7 @@ ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN npm run build
 
 # Production stage
-FROM node:trixie-slim
+FROM node:lts-trixie-slim
 
 WORKDIR /app
 
