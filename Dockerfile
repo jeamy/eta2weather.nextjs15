@@ -1,4 +1,5 @@
-FROM node:trixie-slim
+# Build stage
+FROM node:trixie-slim AS builder
 
 WORKDIR /app
 
@@ -20,13 +21,39 @@ RUN npm install --legacy-peer-deps && \
 # Copy source code
 COPY . .
 
-# Build the application with specific Next.js output
+# Build the application with increased memory limit
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN npm run build
+
+# Production stage
+FROM node:trixie-slim
+
+WORKDIR /app
+
+# Install runtime dependencies for native modules
+RUN apt-get update && apt-get install -y \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy package files
+COPY package.json package-lock.json* ./
+
+# Install only production dependencies
+RUN npm install --legacy-peer-deps --omit=dev && \
+    npm rebuild better-sqlite3
+
+# Copy built application from builder
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/server.ts ./server.ts
+COPY --from=builder /app/eco.ts ./eco.ts
+COPY --from=builder /app/next.config.mjs ./next.config.mjs
 
 # Set environment variables
 EXPOSE 3000
 ENV PORT=3000
 ENV NODE_ENV=production
 
-# Start the server using direct tsx execution to avoid npm script indirection
+# Start the server using direct tsx execution
 CMD ["npx", "tsx", "server.ts"]
