@@ -31,11 +31,12 @@ COPY src ./src
 COPY server.ts ./server.ts
 COPY eco.ts ./eco.ts
 COPY next.config.mjs ./next.config.mjs
+COPY tsconfig.json ./tsconfig.json
 
 # Set environment variables
 EXPOSE 3000
 ENV PORT=3000
 ENV NODE_ENV=production
 
-# Start the server
-CMD ["npx", "tsx", "server.ts"]
+# Start the server with tsconfig-paths for @ alias resolution
+CMD ["npx", "tsx", "--tsconfig", "tsconfig.json", "server.ts"]
