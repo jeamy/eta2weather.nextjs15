@@ -1,0 +1,23 @@
+services:
+  app:
+    image: eta2weather
+    build:
+      context: .
+      dockerfile: Dockerfile.prebuilt
+    container_name: eta2weather
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_PATH=/db/eta2weather.db
+    volumes:
+      - ./db:/db
+      - ./public/log:/app/public/log
+      - ./src/config:/app/src/config
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

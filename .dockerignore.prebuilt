@@ -1,0 +1,19 @@
+# .dockerignore for pre-built Dockerfile
+# This is used when building with Dockerfile.prebuilt
+# The .next directory is INCLUDED (not ignored)
+
+node_modules
+npm-debug.log
+.git
+.gitignore
+README.md
+.env
+.env.local
+dist
+build
+coverage
+*.log
+.DS_Store
+db/*.db
+db/*.db-shm
+db/*.db-wal
