@@ -1,34 +1,28 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // Optimize build performance
-    experimental: {
-        // Reduce memory usage during build
-        workerThreads: false,
-        cpus: 1,
-    },
-
     // Disable source maps in production to save memory
     productionBrowserSourceMaps: false,
 
-    // Optimize webpack
+    // Enable Turbopack with empty config (silences the warning)
+    turbopack: {},
+
+    // Keep webpack config for backward compatibility
+    // (will be ignored when using Turbopack)
     webpack: (config, { isServer }) => {
-        // Reduce memory usage
+        // This is only used if explicitly running with --webpack flag
         config.optimization = {
             ...config.optimization,
             minimize: true,
-            // Use single thread for terser to reduce memory
-            minimizer: config.optimization.minimizer?.map((plugin) => {
-                if (plugin.constructor.name === 'TerserPlugin') {
-                    return {
-                        ...plugin,
-                        options: {
-                            ...plugin.options,
-                            parallel: false, // Disable parallel processing to save memory
-                        },
-                    };
-                }
-                return plugin;
-            }),
+            splitChunks: {
+                ...config.optimization.splitChunks,
+                maxAsyncRequests: 5,
+                maxInitialRequests: 3,
+            },
+        };
+
+        config.performance = {
+            ...config.performance,
+            hints: false,
         };
 
         return config;
