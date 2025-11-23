@@ -1,0 +1,41 @@
+# Dockerfile for pre-built application
+# Use this if Docker build runs out of memory
+# 
+# Build locally first:
+#   npm install
+#   npm run build
+# 
+# Then build Docker image:
+#   docker build -f Dockerfile.prebuilt -t eta2weather .
+
+FROM node:lts-trixie-slim
+
+WORKDIR /app
+
+# Install runtime dependencies for native modules
+RUN apt-get update && apt-get install -y \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy package files
+COPY package.json package-lock.json* ./
+
+# Install only production dependencies
+RUN npm install --legacy-peer-deps --omit=dev && \
+    npm rebuild better-sqlite3
+
+# Copy pre-built application
+COPY .next ./.next
+COPY public ./public
+COPY src ./src
+COPY server.ts ./server.ts
+COPY eco.ts ./eco.ts
+COPY next.config.mjs ./next.config.mjs
+
+# Set environment variables
+EXPOSE 3000
+ENV PORT=3000
+ENV NODE_ENV=production
+
+# Start the server
+CMD ["npx", "tsx", "server.ts"]

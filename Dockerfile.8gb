@@ -1,3 +1,4 @@
+# Alternative Dockerfile with local build approach
 # Build stage
 FROM node:lts-trixie-slim AS builder
 
@@ -14,7 +15,6 @@ RUN apt-get update && apt-get install -y \
 COPY package.json package-lock.json* ./
 
 # Install dependencies including dev dependencies
-# Rebuild native modules for the container architecture
 RUN npm install --legacy-peer-deps && \
     npm rebuild better-sqlite3
 
@@ -24,8 +24,9 @@ RUN npm install --legacy-peer-deps
 # Copy source code
 COPY . .
 
-# Build the application with increased memory limit (6GB for Next.js 16 + Turbopack)
-ENV NODE_OPTIONS="--max-old-space-size=6144"
+# Build the application with maximum memory limit (8GB for Next.js 16 + Turbopack)
+# If this still fails, build locally and use Dockerfile.prebuilt instead
+ENV NODE_OPTIONS="--max-old-space-size=8192"
 RUN npm run build
 
 # Production stage
