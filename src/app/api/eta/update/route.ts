@@ -6,6 +6,7 @@ export async function POST(request: NextRequest) {
   try {
     // Get config from cache
     const config = await getConfig();
+    console.log(`[API] Loaded config s_eta: ${config.s_eta}`);
 
     const body = await request.json();
     const { id, value, begin = "0", end = "0" } = body;
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     const result = await etaApi.setUserVar(id, value, begin, end);
 
     if (result.error) {
-      console.error('ETA API error:', result.error);
+      console.error('ETA API error result:', result);
       return NextResponse.json(
         { error: `ETA API error: ${result.error}` },
         { status: 500 }

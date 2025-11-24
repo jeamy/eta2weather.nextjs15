@@ -39,7 +39,9 @@ export async function GET(request: Request) {
     } catch (error) {
       console.error('Error getting weather data from SQLite:', error);
       // Fallback to file-system
-      const baseDir = path.resolve(process.cwd(), 'public/log/ecowitt');
+      // Helper to get runtime root
+      const getRuntimeRoot = () => process.cwd();
+      const baseDir = path.resolve(getRuntimeRoot(), 'public/log/ecowitt');
       const currentYear = new Date().getFullYear().toString();
       const yearDir = path.join(baseDir, currentYear);
       const files = await getXmlFiles(yearDir, range);

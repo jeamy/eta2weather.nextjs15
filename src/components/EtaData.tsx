@@ -131,7 +131,12 @@ const EtaData: React.FC = () => {
           });
 
           if (!response.ok) {
-            throw new Error(`Failed to turn off button ${name}: ${response.statusText}`);
+            let errorMessage = response.statusText;
+            try {
+              const errorData = await response.json();
+              if (errorData.error) errorMessage = errorData.error;
+            } catch { /* ignore */ }
+            throw new Error(`Failed to turn off button ${name}: ${errorMessage}`);
           }
         }
       }
@@ -152,7 +157,12 @@ const EtaData: React.FC = () => {
             })
           });
           if (!resp.ok) {
-            throw new Error(`Failed to turn on button ${EtaButtons.AA}: ${resp.statusText}`);
+            let errorMessage = resp.statusText;
+            try {
+              const errorData = await resp.json();
+              if (errorData.error) errorMessage = errorData.error;
+            } catch { /* ignore */ }
+            throw new Error(`Failed to turn on button ${EtaButtons.AA}: ${errorMessage}`);
           }
         } else {
           console.warn('AA button ID not found; turned off manual buttons only.');
@@ -172,7 +182,12 @@ const EtaData: React.FC = () => {
           })
         });
         if (!respOn.ok) {
-          throw new Error(`Failed to turn on button ${activeButton}: ${respOn.statusText}`);
+          let errorMessage = respOn.statusText;
+          try {
+            const errorData = await respOn.json();
+            if (errorData.error) errorMessage = errorData.error;
+          } catch { /* ignore json parse error */ }
+          throw new Error(`Failed to turn on button ${activeButton}: ${errorMessage}`);
         }
 
         // Ensure AA is off if we turned on a manual button and AA exists
@@ -190,7 +205,12 @@ const EtaData: React.FC = () => {
             })
           });
           if (!respOffAA.ok) {
-            throw new Error(`Failed to turn off button ${EtaButtons.AA}: ${respOffAA.statusText}`);
+            let errorMessage = respOffAA.statusText;
+            try {
+              const errorData = await respOffAA.json();
+              if (errorData.error) errorMessage = errorData.error;
+            } catch { /* ignore */ }
+            throw new Error(`Failed to turn off button ${EtaButtons.AA}: ${errorMessage}`);
           }
         }
       }

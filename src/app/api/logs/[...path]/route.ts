@@ -9,14 +9,16 @@ export async function GET(
   const { path: pathSegments } = await params;
 
   try {
-    // Reconstruct the file path using spread operator
+    // Helper to get runtime root
+    const getRuntimeRoot = () => process.cwd();
+
     // Reconstruct the file path using spread operator
     // Use 'public/log' as a single segment to avoid broad globbing
-    const filePath = path.join(process.cwd(), 'public/log', ...pathSegments);
+    const filePath = path.join(getRuntimeRoot(), 'public/log', ...pathSegments);
 
     // Verify the path is within the logs directory
     const normalizedPath = path.normalize(filePath);
-    const logsDir = path.join(process.cwd(), 'public/log');
+    const logsDir = path.join(getRuntimeRoot(), 'public/log');
     if (!normalizedPath.startsWith(logsDir)) {
       return NextResponse.json(
         { error: 'Invalid file path' },

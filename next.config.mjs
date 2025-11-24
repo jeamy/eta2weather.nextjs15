@@ -1,10 +1,16 @@
+import path from 'path';
+
+const projectRoot = path.dirname(new URL(import.meta.url).pathname);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     // Disable source maps in production to save memory
     productionBrowserSourceMaps: false,
 
-    // Enable Turbopack with empty config (silences the warning)
-    turbopack: {},
+    // Enable Turbopack and set explicit root to avoid workspace root mis-detection
+    turbopack: {
+        root: projectRoot,
+    },
 
     // Keep webpack config for backward compatibility
     // (will be ignored when using Turbopack)

@@ -12,11 +12,24 @@ if [ ! -d "node_modules" ]; then
     npm install --legacy-peer-deps
 fi
 
+# Temporarily move log directory to prevent build tools from scanning it
+if [ -d "public/log" ]; then
+    echo "📦 Temporarily moving public/log to avoid build scanning..."
+    mv public/log public/log_temp
+fi
+
 # Build Next.js
 echo "⚙️  Running Next.js build..."
 # Increase memory limit to avoid OOM (Killed) errors
 export NODE_OPTIONS="--max-old-space-size=4096"
 npx next build --webpack
+
+# Restore log directory
+if [ -d "public/log_temp" ]; then
+    echo "📦 Restoring public/log..."
+    rm -rf public/log # Remove any empty dir created by build
+    mv public/log_temp public/log
+fi
 
 # Check if build was successful
 if [ ! -d ".next" ]; then

@@ -151,7 +151,6 @@ export const isTimeInWindow = (startStr: string, endStr: string, now: Date = new
 
   // Handle 00:00 - 00:00 as inactive
   if (startMinutes === 0 && endMinutes === 0) {
-    console.log('[checkHeatingTime] isTimeInWindow: window disabled (00:00 - 00:00)', { startStr, endStr });
     return false;
   }
 
@@ -164,23 +163,10 @@ export const isTimeInWindow = (startStr: string, endStr: string, now: Date = new
     inWindow = currentMinutes >= startMinutes && currentMinutes < endMinutes;
   }
 
-  console.log('[checkHeatingTime] isTimeInWindow result', {
-    startStr,
-    endStr,
-    currentH,
-    currentM,
-    currentMinutes,
-    startMinutes,
-    endMinutes,
-    inWindow,
-  });
-
   return inWindow;
 };
 
 export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, ParsedXmlData>): boolean => {
-  console.log('[checkHeatingTime] --- start ---');
-
   // Find Heizzeiten node
   let heizzeitenNode: MenuNode | undefined;
   const findNode = (nodes: MenuNode[]) => {
@@ -196,14 +182,10 @@ export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, P
   findNode(menuNodes);
 
   if (!heizzeitenNode) {
-    console.log('[checkHeatingTime] Heizzeiten node not found in menu tree. Allowing heating by default.');
     return true;
   }
 
   if (!heizzeitenNode.children || heizzeitenNode.children.length === 0) {
-    console.log('[checkHeatingTime] Heizzeiten node has no children. Allowing heating by default.', {
-      uri: heizzeitenNode.uri,
-    });
     return true;
   }
 
@@ -225,23 +207,13 @@ export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, P
   collectDayNodes(heizzeitenNode);
 
   const availableDays = allDayNodes.map(n => n.name);
-  console.log('[checkHeatingTime] Current day and available day nodes', {
-    currentDayName,
-    availableDays,
-  });
 
   const dayNode = allDayNodes.find(n => n.name === currentDayName);
   if (!dayNode) {
-    console.log('[checkHeatingTime] No day node found for current day. Blocking heating.', {
-      currentDayName,
-    });
     return false;
   }
 
   if (!dayNode.children || dayNode.children.length === 0) {
-    console.log('[checkHeatingTime] Day node has no children (no Zeitfenster). Blocking heating.', {
-      dayName: dayNode.name,
-    });
     return false;
   }
 
@@ -264,29 +236,16 @@ export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, P
       hasWindows = true;
       const data = values[windowNode.uri];
       if (!data) {
-        console.log('[checkHeatingTime] No data found for Zeitfenster URI', {
-          uri: windowNode.uri,
-          name: windowNode.name,
-        });
         continue;
       }
 
       const raw = (data.strValue || data.value || '').toString();
       if (!raw) {
-        console.log('[checkHeatingTime] Zeitfenster has empty value/strValue', {
-          uri: windowNode.uri,
-          name: windowNode.name,
-        });
         continue;
       }
 
       const match = raw.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
       if (!match) {
-        console.log('[checkHeatingTime] Zeitfenster value does not match expected pattern HH:MM - HH:MM', {
-          uri: windowNode.uri,
-          name: windowNode.name,
-          raw,
-        });
         continue;
       }
 
@@ -295,14 +254,6 @@ export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, P
       const end = `${h2}:${m2}`;
 
       const inWindow = isTimeInWindow(start, end);
-      console.log('[checkHeatingTime] Evaluated Zeitfenster', {
-        uri: windowNode.uri,
-        name: windowNode.name,
-        raw,
-        start,
-        end,
-        inWindow,
-      });
 
       if (inWindow) {
         isActive = true;
@@ -314,12 +265,6 @@ export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, P
   }
 
   const result = hasWindows ? isActive : false;
-  console.log('[checkHeatingTime] Result', {
-    hasWindows,
-    isActive,
-    currentDayName,
-    finalResult: result,
-  });
 
   // If we found windows, return the result. If no windows found (e.g. empty day), return false (no heating).
   return result;

@@ -25,8 +25,9 @@ import { parseXML } from '@/reader/functions/EtaData';
 import { parseNumOrZero } from '@/utils/numberParser';
 import { determineControlAction, ControlInput } from './controlLogic';
 import { checkHeatingTime } from '@/utils/etaUtils';
+const getRuntimeRoot = () => process.cwd();
 
-const CONFIG_FILE_PATH = path.resolve(process.cwd(), process.env.CONFIG_PATH || 'src/config/f_etacfg.json');
+const CONFIG_FILE_PATH = path.resolve(getRuntimeRoot(), process.env.CONFIG_PATH || 'src/config/f_etacfg.json');
 
 // Export the store getter for API routes
 export function getServerStore() {
