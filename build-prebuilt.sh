@@ -14,6 +14,8 @@ fi
 
 # Build Next.js
 echo "⚙️  Running Next.js build..."
+# Increase memory limit to avoid OOM (Killed) errors
+export NODE_OPTIONS="--max-old-space-size=4096"
 npm run build
 
 # Check if build was successful

@@ -26,27 +26,27 @@ export class DatabaseHelpers {
         const hours = this.getRangeHours(range);
         const startDate = new Date(Date.now() - hours * 60 * 60 * 1000);
         const endDate = new Date();
-        
+
         // Determine which years we need to query
         const startYear = startDate.getFullYear();
         const endYear = endDate.getFullYear();
         const yearsToQuery: number[] = [];
-        
+
         for (let year = startYear; year <= endYear; year++) {
             yearsToQuery.push(year);
         }
-        
+
         // Sample data for larger ranges to keep response size manageable
         const sampleRate = this.getSampleRate(range);
-        
+
         const allRows: any[] = [];
-        
+
         // Query each year's DB
         for (const year of yearsToQuery) {
             try {
                 const yearDb = this.db.getDbForYear(year);
                 const alias = year === this.db.getCurrentYear() ? '' : `db_${year}.`;
-                
+
                 const query = `
                     SELECT timestamp, data 
                     FROM ${alias}ecowitt_logs 
@@ -54,7 +54,7 @@ export class DatabaseHelpers {
                     ${sampleRate > 1 ? `AND id % ${sampleRate} = 0` : ''}
                     ORDER BY timestamp
                 `;
-                
+
                 const rows = yearDb.prepare(query).all(startDate.toISOString(), endDate.toISOString());
                 // Avoid stack overflow with large arrays
                 for (const row of rows) {
@@ -64,10 +64,10 @@ export class DatabaseHelpers {
                 console.error(`Error querying year ${year}:`, error);
             }
         }
-        
+
         // Sort combined results
         allRows.sort((a: any, b: any) => a.timestamp.localeCompare(b.timestamp));
-        
+
         return allRows.map((row: any) => {
             const data = JSON.parse(row.data);
             return {
@@ -125,29 +125,48 @@ export class DatabaseHelpers {
 
     async getLogsAsFilePaths(type: string): Promise<string[]> {
         await this.ensureInitialized();
-        
-        // Only ecowitt, eta, and config logs have year/month/day/hour/minute structure
-        const validTypes = ['ecowitt', 'eta', 'config'];
+
+        // Supported types
+        const validTypes = ['ecowitt', 'eta', 'config', 'temp_diff', 'min_temp_status'];
         if (!validTypes.includes(type)) {
             console.warn(`getLogsAsFilePaths not supported for type: ${type}`);
             return [];
         }
-        
+
         const table = `${type}_logs`;
         const allRows: any[] = [];
         const years = this.db.getAllAvailableYears();
-        
+
+        // Check if this is a table with explicit date columns or just timestamp
+        const hasExplicitDateColumns = ['ecowitt', 'eta', 'config'].includes(type);
+
         for (const year of years) {
             try {
                 const yearDb = this.db.getDbForYear(year);
                 const alias = year === this.db.getCurrentYear() ? '' : `db_${year}.`;
-                
-                const query = `
-                    SELECT year, month, day, hour, minute 
-                    FROM ${alias}${table} 
-                    ORDER BY year DESC, month DESC, day DESC, hour DESC, minute DESC
-                `;
-                
+
+                let query = '';
+                if (hasExplicitDateColumns) {
+                    query = `
+                        SELECT year, month, day, hour, minute 
+                        FROM ${alias}${table} 
+                        ORDER BY year DESC, month DESC, day DESC, hour DESC, minute DESC
+                    `;
+                } else {
+                    // Extract date components from timestamp for tables that don't have them explicitly
+                    // SQLite strftime returns strings, so we cast to integer for consistency
+                    query = `
+                        SELECT 
+                            CAST(strftime('%Y', timestamp) AS INTEGER) as year,
+                            CAST(strftime('%m', timestamp) AS INTEGER) as month,
+                            CAST(strftime('%d', timestamp) AS INTEGER) as day,
+                            CAST(strftime('%H', timestamp) AS INTEGER) as hour,
+                            CAST(strftime('%M', timestamp) AS INTEGER) as minute
+                        FROM ${alias}${table}
+                        ORDER BY timestamp DESC
+                    `;
+                }
+
                 const rows = yearDb.prepare(query).all();
                 // Avoid stack overflow with large arrays
                 for (const row of rows) {
@@ -157,7 +176,7 @@ export class DatabaseHelpers {
                 console.error(`Error querying logs for year ${year}:`, error);
             }
         }
-        
+
         // Sort combined results
         allRows.sort((a: any, b: any) => {
             if (a.year !== b.year) return b.year - a.year;
@@ -166,7 +185,7 @@ export class DatabaseHelpers {
             if (a.hour !== b.hour) return b.hour - a.hour;
             return b.minute - a.minute;
         });
-        
+
         return allRows.map((row: any) => {
             const ext = type === 'config' ? 'json' : 'xml';
             const month = String(row.month).padStart(2, '0');
@@ -181,7 +200,7 @@ export class DatabaseHelpers {
         await this.ensureInitialized();
         const years = this.db.getAllAvailableYears();
         let totalCount = 0;
-        
+
         for (const year of years) {
             try {
                 const yearDb = this.db.getDbForYear(year);
@@ -192,7 +211,7 @@ export class DatabaseHelpers {
                 console.error(`Error counting for year ${year}:`, error);
             }
         }
-        
+
         return totalCount;
     }
 
@@ -200,7 +219,7 @@ export class DatabaseHelpers {
         await this.ensureInitialized();
         const years = this.db.getAllAvailableYears();
         const allTimestamps: string[] = [];
-        
+
         for (const year of years) {
             try {
                 const yearDb = this.db.getDbForYear(year);
@@ -214,7 +233,7 @@ export class DatabaseHelpers {
                 console.error(`Error getting timestamps for year ${year}:`, error);
             }
         }
-        
+
         return allTimestamps.sort();
     }
 }
