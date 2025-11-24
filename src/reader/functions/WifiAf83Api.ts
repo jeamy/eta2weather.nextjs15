@@ -207,10 +207,6 @@ export class WifiAf83Api {
 
     this.abortControllers.clear();
     this.isDisposed = true;
-
-    if (DEBUG) {
-      console.log('[WifiAf83Api] Instance disposed successfully');
-    }
   }
 
   /**

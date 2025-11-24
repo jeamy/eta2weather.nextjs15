@@ -165,10 +165,6 @@ export class EtaApi {
 
         this.abortControllers.clear();
         this.isDisposed = true;
-
-        if (DEBUG) {
-            console.log('[EtaApi] Instance disposed successfully');
-        }
     }
 
     /**
