@@ -16,7 +16,7 @@ fi
 echo "⚙️  Running Next.js build..."
 # Increase memory limit to avoid OOM (Killed) errors
 export NODE_OPTIONS="--max-old-space-size=4096"
-npm run build
+npx next build --webpack
 
 # Check if build was successful
 if [ ! -d ".next" ]; then
