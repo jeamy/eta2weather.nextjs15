@@ -214,13 +214,23 @@ export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, P
   });
   const currentDayName = dayFormatter.format(new Date());
 
-  const availableDays = heizzeitenNode.children.map(n => n.name);
+  const dayNames = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+  const allDayNodes: MenuNode[] = [];
+  const collectDayNodes = (node: MenuNode) => {
+    if (dayNames.includes(node.name)) {
+      allDayNodes.push(node);
+    }
+    node.children?.forEach(collectDayNodes);
+  };
+  collectDayNodes(heizzeitenNode);
+
+  const availableDays = allDayNodes.map(n => n.name);
   console.log('[checkHeatingTime] Current day and available day nodes', {
     currentDayName,
     availableDays,
   });
 
-  const dayNode = heizzeitenNode.children.find(n => n.name === currentDayName);
+  const dayNode = allDayNodes.find(n => n.name === currentDayName);
   if (!dayNode) {
     console.log('[checkHeatingTime] No day node found for current day. Blocking heating.', {
       currentDayName,
@@ -239,7 +249,16 @@ export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, P
   let isActive = false;
   let hasWindows = false;
 
-  for (const windowNode of dayNode.children) {
+  const timeWindowNodes: MenuNode[] = [];
+  const collectWindows = (node: MenuNode) => {
+    if (/Zeitfenster\s+\d+/.test(node.name) && node.uri) {
+      timeWindowNodes.push(node);
+    }
+    node.children?.forEach(collectWindows);
+  };
+  collectWindows(dayNode);
+
+  for (const windowNode of timeWindowNodes) {
     // Relaxed regex: check if name contains "Zeitfenster" followed by a number
     if (/Zeitfenster\s+\d+/.test(windowNode.name) && windowNode.uri) {
       hasWindows = true;
