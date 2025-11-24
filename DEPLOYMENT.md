@@ -1,4 +1,11 @@
-# 🚀 Deployment Guide - eta2weather
+# Deployment Guide
+
+## Recent Updates (Build & Error Handling)
+- **OOM Fixes**: The build process now excludes `public/log` to prevent Out-Of-Memory errors. `build-prebuilt.sh` temporarily moves this directory.
+- **Turbopack**: Dynamic paths have been refactored to avoid "overly broad pattern" warnings.
+- **Error Handling**: The UI now displays detailed error messages for ETA updates.
+
+## Build Instructions
 
 ## Quick Start (Recommended)
 
