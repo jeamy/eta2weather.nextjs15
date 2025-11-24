@@ -39,4 +39,5 @@ ENV PORT=3000
 ENV NODE_ENV=production
 
 # Start the server with tsconfig-paths for @ alias resolution
-CMD ["npx", "tsx", "--tsconfig", "tsconfig.json", "server.ts"]
+#CMD ["npx", "tsx", "--tsconfig", "tsconfig.json", "server.ts"]
+CMD ["npx", "tsx", "server.ts"]
