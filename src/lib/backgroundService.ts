@@ -592,10 +592,19 @@ export class BackgroundService {
       // Check heating times
       let isHeating = true;
       if (this.cachedMenuNodes && etaState.data) {
+        console.log(`${this.getTimestamp()} Checking heating times using cached menu and ETA data...`);
         isHeating = checkHeatingTime(this.cachedMenuNodes, etaState.data);
+        console.log(`${this.getTimestamp()} Heating time check result:`, {
+          isHeating,
+        });
         if (!isHeating) {
           console.log(`${this.getTimestamp()} Outside heating times. Forcing diff to 0.`);
         }
+      } else {
+        console.log(`${this.getTimestamp()} Heating time check skipped because cachedMenuNodes or etaState.data are missing. Treating as heating allowed.`, {
+          hasCachedMenuNodes: !!this.cachedMenuNodes,
+          hasEtaData: !!etaState.data,
+        });
       }
 
       let { diff: numericDiff } = calculateTemperatureDiff(config, {
