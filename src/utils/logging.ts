@@ -8,8 +8,8 @@ export const logData = async (type: LogType, data: any) => {
     // Write to SQLite database
     try {
         const db = DatabaseService.getInstance();
-        
-        switch(type) {
+
+        switch (type) {
             case 'ecowitt':
                 db.insertEcowittLog(data);
                 break;
@@ -39,7 +39,7 @@ export const logData = async (type: LogType, data: any) => {
     const hour = String(now.getHours()).padStart(2, '0');
     const minute = String(now.getMinutes()).padStart(2, '0');
 
-    const baseDir = path.join(process.cwd(), 'public', 'log', type, String(year), month, day);
+    const baseDir = path.join(process.cwd(), 'public/log', type, String(year), month, day);
     const fileName = `${hour}-${minute}.${type === 'config' ? 'json' : 'xml'}`;
     const filePath = path.join(baseDir, fileName);
 
@@ -139,7 +139,7 @@ export const getLogFiles = async (type: LogType) => {
     }
 
     // Fallback to file-system
-    const baseDir = path.join(process.cwd(), 'public', 'log', type);
+    const baseDir = path.join(process.cwd(), 'public/log', type);
     const files: string[] = [];
 
     try {
@@ -158,7 +158,7 @@ export const getLogFiles = async (type: LogType) => {
                     await processDir(fullPath);
                 } else {
                     // Get path relative to the base log directory
-                    const relativePath = path.relative(path.join(process.cwd(), 'public', 'log'), fullPath);
+                    const relativePath = path.relative(path.join(process.cwd(), 'public/log'), fullPath);
                     files.push(relativePath);
                 }
             }

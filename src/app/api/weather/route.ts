@@ -29,7 +29,7 @@ export async function GET(request: Request) {
         },
       });
     }
-    
+
     // Try to get data from SQLite first
     let weatherData: any[] = [];
     try {
@@ -39,14 +39,14 @@ export async function GET(request: Request) {
     } catch (error) {
       console.error('Error getting weather data from SQLite:', error);
       // Fallback to file-system
-      const baseDir = path.join(process.cwd(), 'public/log/ecowitt');
+      const baseDir = path.resolve(process.cwd(), 'public/log/ecowitt');
       const currentYear = new Date().getFullYear().toString();
       const yearDir = path.join(baseDir, currentYear);
       const files = await getXmlFiles(yearDir, range);
       weatherData = await processXmlFiles(files, range);
       console.log(`Weather data from file-system: ${weatherData.length} records`);
     }
-    
+
     cache.set(cacheKey, { t: nowMs, data: weatherData });
 
     return NextResponse.json(weatherData, {
@@ -125,7 +125,7 @@ async function processXmlFiles(files: string[], range: string): Promise<any[]> {
       }
 
       const doc = parser.parseFromString(xmlContent, 'text/xml');
-      
+
       // Check if parsing was successful
       if (!doc || !doc.documentElement) {
         console.error(`Failed to parse XML document from file: ${file}`);
@@ -164,11 +164,11 @@ async function processXmlFiles(files: string[], range: string): Promise<any[]> {
       }
 
       // Validate required data exists before adding
-      if (!data?.outdoor?.temperature?.value || 
-          !data?.pressure?.relative?.value || 
-          !data?.outdoor?.humidity?.value ||
-          !data?.indoor?.temperature?.value ||
-          !data?.indoor?.humidity?.value) {
+      if (!data?.outdoor?.temperature?.value ||
+        !data?.pressure?.relative?.value ||
+        !data?.outdoor?.humidity?.value ||
+        !data?.indoor?.temperature?.value ||
+        !data?.indoor?.humidity?.value) {
         console.error(`Missing required data fields in file: ${file}`);
         continue;
       }
@@ -204,7 +204,7 @@ async function processXmlFiles(files: string[], range: string): Promise<any[]> {
   }
 
   // Sort by timestamp and reduce data points for longer time ranges
-  const sortedData = weatherData.sort((a, b) => 
+  const sortedData = weatherData.sort((a, b) =>
     new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
   );
 

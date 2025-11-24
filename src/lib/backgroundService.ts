@@ -26,7 +26,7 @@ import { parseNumOrZero } from '@/utils/numberParser';
 import { determineControlAction, ControlInput } from './controlLogic';
 import { checkHeatingTime } from '@/utils/etaUtils';
 
-const CONFIG_FILE_PATH = path.join(process.cwd(), process.env.CONFIG_PATH || 'src/config/f_etacfg.json');
+const CONFIG_FILE_PATH = path.resolve(process.cwd(), process.env.CONFIG_PATH || 'src/config/f_etacfg.json');
 
 // Export the store getter for API routes
 export function getServerStore() {
