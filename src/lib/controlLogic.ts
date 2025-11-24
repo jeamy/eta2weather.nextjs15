@@ -38,7 +38,16 @@ export function determineControlAction(input: ControlInput): ControlResult {
     const logs: string[] = [];
     const newState = { ...lastTempState };
 
-    const isBelow = indoorTemp < minTemp;
+    const HYSTERESIS = 0.2;
+    let isBelow = false;
+
+    if (lastTempState.wasBelow) {
+        // We were heating, so we keep heating until we are safely above minTemp + hysteresis
+        isBelow = indoorTemp <= (minTemp + HYSTERESIS);
+    } else {
+        // We were NOT heating, so we only start if we drop below minTemp
+        isBelow = indoorTemp < minTemp;
+    }
     const isSliderNegative = sliderPos < 0;
 
     // Check if manual override is still active

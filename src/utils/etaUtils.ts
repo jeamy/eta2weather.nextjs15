@@ -172,7 +172,8 @@ export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, P
   let hasWindows = false;
 
   for (const windowNode of dayNode.children) {
-    if (/^Zeitfenster\s+[1-3]$/.test(windowNode.name) && windowNode.uri) {
+    // Relaxed regex: check if name contains "Zeitfenster" followed by a number
+    if (/Zeitfenster\s+\d+/.test(windowNode.name) && windowNode.uri) {
       hasWindows = true;
       const data = values[windowNode.uri];
       if (data && (data.strValue || data.value)) {
@@ -182,6 +183,8 @@ export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, P
           const [, h1, m1, h2, m2] = match;
           if (isTimeInWindow(`${h1}:${m1}`, `${h2}:${m2}`)) {
             isActive = true;
+            // We found an active window, so heating is ON.
+            // We can break here because if ANY window is active, the result is true.
             break;
           }
         }

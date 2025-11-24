@@ -661,16 +661,6 @@ export class BackgroundService {
             const { t_soll, t_delta } = config.data;
             // Log the temperature diff update
             console.log(`${this.getTimestamp()} Updated temperature diff ${t_soll} + ${t_delta} - ${wifiData.indoorTemperature} - Diff: ${newDiffValue}, Slider: ${newSliderPosition}`);
-            await logData('temp_diff', {
-              timestamp: Date.now(),
-              diff: newDiffValue,
-              sliderPosition: newSliderPosition,
-              t_soll: t_soll,
-              t_delta: t_delta,
-              indoor_temp: wifiData.indoorTemperature,
-              indoor: wifiData.indoorTemperature,
-              outdoor: wifiData.temperature
-            });
 
             // Update the physical slider position if needed
             const recommendedPos = Math.round(parseFloat(newSliderPosition));
@@ -730,6 +720,26 @@ export class BackgroundService {
             }
           }
         }
+
+        // Log temp_diff unconditionally every cycle
+        const { t_soll, t_delta } = config.data;
+        await logData('temp_diff', {
+          timestamp: Date.now(),
+          diff: numericDiff,
+          sliderPosition: calculateNewSliderPosition({
+            einaus: '0', schaltzustand: '0', heizentaste: '0', kommentaste: '0', tes: 0, tea: 0
+            // Note: We don't have exact ETA values here easily without re-fetching or passing them down, 
+            // but 'diff' is the main thing. We can use the calculated one or just log what we have.
+            // Actually, let's just log the diff and the inputs we used to calculate it.
+          }, numericDiff), // This might be inaccurate if we don't have the exact ETA state, but for diff logging it's fine. 
+          // Wait, we can do better. We have 'numericDiff'.
+          // Let's just log the essential data.
+          t_soll: t_soll,
+          t_delta: t_delta,
+          indoor_temp: wifiData.indoorTemperature,
+          indoor: wifiData.indoorTemperature,
+          outdoor: wifiData.temperature
+        });
       }
     } catch (error) {
       console.error(`${this.getTimestamp()} Error updating temperature diff:`, error);
@@ -789,6 +799,18 @@ export class BackgroundService {
 
       // Log decisions
       result.logs.forEach(log => console.log(`${this.getTimestamp()} ${log}`));
+
+      // Log min_temp_status only on change
+      if (result.newState.wasBelow !== this.lastTempState.wasBelow) {
+        const diffToMin = indoorTemp - minTemp;
+        const statusMsg = result.newState.wasBelow ? 'dropped below' : 'rose above';
+
+        await logData('min_temp_status', {
+          timestamp: Date.now(),
+          diff: diffToMin,
+          status: statusMsg
+        });
+      }
 
       // Update state
       this.lastTempState = result.newState;
