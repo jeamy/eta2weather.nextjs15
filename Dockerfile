@@ -52,6 +52,7 @@ COPY --from=builder /app/src ./src
 COPY --from=builder /app/server.ts ./server.ts
 COPY --from=builder /app/eco.ts ./eco.ts
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 # Set environment variables
 EXPOSE 3000

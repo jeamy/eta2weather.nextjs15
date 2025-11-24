@@ -115,7 +115,8 @@ export class EtaApi {
     }
 
     public async getUserVar(id: string, signal?: AbortSignal): Promise<ApiResponse> {
-        return this.fetchApi(`user/var/${id}`, 'GET', undefined, signal);
+        const cleanId = id.startsWith('/') ? id.substring(1) : id;
+        return this.fetchApi(`user/var/${cleanId}`, 'GET', undefined, signal);
     }
 
     public async setUserVar(
@@ -125,11 +126,12 @@ export class EtaApi {
         end: string,
         signal?: AbortSignal
     ): Promise<ApiResponse> {
+        const cleanId = id.startsWith('/') ? id.substring(1) : id;
         if (DEBUG) {
-            console.log(`[EtaApi] Setting var ${id}: value=${value}, begin=${begin}, end=${end}`);
+            console.log(`[EtaApi] Setting var ${cleanId}: value=${value}, begin=${begin}, end=${end}`);
         }
 
-        return this.fetchApi(`user/var/${id}`, 'POST', {
+        return this.fetchApi(`user/var/${cleanId}`, 'POST', {
             value,
             begin,
             end
