@@ -59,4 +59,5 @@ ENV PORT=3000
 ENV NODE_ENV=production
 
 # Start the server using direct tsx execution
-CMD ["npx", "tsx", "server.ts"]
+#CMD ["npx", "tsx", "server.ts"]
+CMD ["npx", "tsx", "--tsconfig", "tsconfig.json", "server.ts"]
