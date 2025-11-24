@@ -133,12 +133,29 @@ export const isTimeInWindow = (startStr: string, endStr: string, now: Date = new
   const [startH, startM] = startStr.split(':').map(Number);
   const [endH, endM] = endStr.split(':').map(Number);
 
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  // Get current time in Europe/Vienna
+  const timeFormatter = new Intl.DateTimeFormat('de-DE', {
+    timeZone: 'Europe/Vienna',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false
+  });
+
+  const parts = timeFormatter.formatToParts(now);
+  const currentH = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+  const currentM = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+
+  const currentMinutes = currentH * 60 + currentM;
   const startMinutes = startH * 60 + startM;
   const endMinutes = endH * 60 + endM;
 
   // Handle 00:00 - 00:00 as inactive
   if (startMinutes === 0 && endMinutes === 0) return false;
+
+  // Handle overnight windows (e.g. 22:00 - 06:00)
+  if (endMinutes < startMinutes) {
+    return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+  }
 
   return currentMinutes >= startMinutes && currentMinutes < endMinutes;
 };
@@ -161,8 +178,12 @@ export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, P
   // If structure not found, assume heating is allowed (don't block)
   if (!heizzeitenNode || !heizzeitenNode.children) return true;
 
-  const days = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-  const currentDayName = days[new Date().getDay()];
+  // Get current day in Europe/Vienna
+  const dayFormatter = new Intl.DateTimeFormat('de-DE', {
+    timeZone: 'Europe/Vienna',
+    weekday: 'long'
+  });
+  const currentDayName = dayFormatter.format(new Date());
 
   const dayNode = heizzeitenNode.children.find(n => n.name === currentDayName);
   if (!dayNode || !dayNode.children) return false; // If day found but no children, assume no windows? Or default?
