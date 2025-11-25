@@ -51,8 +51,8 @@ const WIFIAF83_PATH = path.join(process.cwd(), 'src', 'config', 'f_wifiaf89.json
 
 // Create singleton cache instances with 3 seconds TTL
 export const configCache = new Cache<any>(1000*60);
-export const wifiaf83Cache = new Cache<any>(1000*60*3);
-export const names2idCache = new Cache<Names2Id>(3000);
+export const wifiaf83Cache = new Cache<any>(1000*60*5);
+export const names2idCache = new Cache<Names2Id>(1000*60*60);
 
 export async function getConfig() {
     // Try to get config from cache first
