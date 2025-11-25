@@ -26,7 +26,7 @@ COPY . .
 
 # Build the application with increased memory limit (6GB for Next.js 16 + Turbopack)
 # ENV NODE_OPTIONS="--max-old-space-size=6144"
-RUN npm run build
+RUN npm run build --webpack
 
 # Production stage
 FROM node:lts-trixie-slim

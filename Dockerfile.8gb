@@ -27,7 +27,7 @@ COPY . .
 # Build the application with maximum memory limit (8GB for Next.js 16 + Turbopack)
 # If this still fails, build locally and use Dockerfile.prebuilt instead
 ENV NODE_OPTIONS="--max-old-space-size=8192"
-RUN npm run build
+RUN npm run build --webpack
 
 # Production stage
 FROM node:lts-trixie-slim
