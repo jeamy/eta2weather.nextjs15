@@ -81,6 +81,18 @@ const EtaData: React.FC = () => {
   // ETA data is now loaded centrally by EtaDataProvider
   // This component only reads from Redux store
 
+  const updateLocalState = useCallback((uri: string, value: EtaPos) => {
+    if (!etaState.data?.[uri]) return;
+
+    dispatch(storeEtaData({
+      ...etaState.data,
+      [uri]: {
+        ...etaState.data[uri],
+        value
+      }
+    }));
+  }, [dispatch, etaState.data]);
+
   const updateButtonStates = useCallback(async (activeButton: EtaButtons, isManual: boolean = false) => {
     try {
       // Debounce concurrent operations
@@ -138,6 +150,8 @@ const EtaData: React.FC = () => {
             } catch { /* ignore */ }
             throw new Error(`Failed to turn off button ${name}: ${errorMessage}`);
           }
+
+          updateLocalState(uri, EtaPos.AUS);
         }
       }
 
@@ -164,6 +178,8 @@ const EtaData: React.FC = () => {
             } catch { /* ignore */ }
             throw new Error(`Failed to turn on button ${EtaButtons.AA}: ${errorMessage}`);
           }
+
+          updateLocalState(aaId, EtaPos.EIN);
         } else {
           console.warn('AA button ID not found; turned off manual buttons only.');
         }
@@ -190,6 +206,10 @@ const EtaData: React.FC = () => {
           throw new Error(`Failed to turn on button ${activeButton}: ${errorMessage}`);
         }
 
+        if (activeId) {
+          updateLocalState(activeId, EtaPos.EIN);
+        }
+
         // Ensure AA is off if we turned on a manual button and AA exists
         if (aaId) {
           const respOffAA = await fetch(API.ETA_UPDATE, {
@@ -212,6 +232,8 @@ const EtaData: React.FC = () => {
             } catch { /* ignore */ }
             throw new Error(`Failed to turn off button ${EtaButtons.AA}: ${errorMessage}`);
           }
+
+          updateLocalState(aaId, EtaPos.AUS);
         }
       }
 
@@ -223,7 +245,7 @@ const EtaData: React.FC = () => {
       updateBusyRef.current = false;
       setIsUpdating(false);
     }
-  }, [etaState.data, buttonIds]);
+  }, [etaState.data, buttonIds, updateLocalState]);
 
   // Get the currently active button from etaState
   const getActiveButton = useCallback(() => {
@@ -270,19 +292,6 @@ const EtaData: React.FC = () => {
       return hasChanges ? newDisplayData : prevData;
     });
   }, [etaState.data]);
-
-  // Create a local update function to keep UI in sync
-  const updateLocalState = useCallback((uri: string, value: EtaPos) => {
-    if (!etaState.data?.[uri]) return;
-
-    dispatch(storeEtaData({
-      ...etaState.data,
-      [uri]: {
-        ...etaState.data[uri],
-        value
-      }
-    }));
-  }, [dispatch, etaState.data]);
 
   const handleButtonClick = useCallback(async (clickedButton: EtaButtons) => {
     // Set manual override when a button is clicked, except for AA
