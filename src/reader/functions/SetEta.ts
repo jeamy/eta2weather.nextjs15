@@ -96,7 +96,9 @@ export class SetEta {
   }
 
   private calculateNewSliderPosition({ einaus, schaltzustand, kommentaste, heizentaste }: EtaValues, diff: number): string {
-    return (einaus === "Aus" || (schaltzustand === "Aus" && (kommentaste === "Aus" || heizentaste === "Aus")))
+    const overridesActive = heizentaste === "Ein" || kommentaste === "Ein";
+    const heatingDisabled = einaus === "Aus" || (schaltzustand === "Aus" && !overridesActive);
+    return heatingDisabled
       ? "0.0"
       : new Diff().getDiff(diff, 1.25, 5.0, 0.0, 100.0).toString();
   }

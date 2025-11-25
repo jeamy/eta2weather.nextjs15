@@ -613,8 +613,37 @@ export class BackgroundService {
         loadingState: { isLoading: false, error: null }
       });
 
-      // Override diff if outside heating times
-      if (!isHeating) {
+      let hasManualOverride = false;
+
+      // Helper function to get ETA value with fallback
+      const getEtaValue = (constant: EtaConstants): string => {
+        if (!etaState.data) {
+          return '0';
+        }
+        // Try by ID first
+        const id = defaultNames2Id[constant]?.id;
+        if (id && etaState.data[id]?.strValue) {
+          return etaState.data[id].strValue;
+        }
+
+        // Fallback: scan all entries for matching short code
+        for (const [, item] of Object.entries(etaState.data)) {
+          if (item.short === constant && item.strValue) {
+            return item.strValue;
+          }
+        }
+
+        return '0';
+      };
+
+      if (etaState.data) {
+        const heizentasteValue = getEtaValue(EtaConstants.HEIZENTASTE);
+        const kommentasteValue = getEtaValue(EtaConstants.KOMMENTASTE);
+        hasManualOverride = heizentasteValue === 'Ein' || kommentasteValue === 'Ein';
+      }
+
+      // Override diff if outside heating times and no manual override
+      if (!isHeating && !hasManualOverride) {
         numericDiff = 0;
       }
 
@@ -623,24 +652,6 @@ export class BackgroundService {
         const newDiffValue = numericDiff.toString();
         // Only update if the diff value has changed
         if (newDiffValue !== config.data[ConfigKeys.DIFF]) {
-
-          // Helper function to get ETA value with fallback
-          const getEtaValue = (constant: EtaConstants): string => {
-            // Try by ID first
-            const id = defaultNames2Id[constant]?.id;
-            if (id && etaState.data[id]?.strValue) {
-              return etaState.data[id].strValue;
-            }
-
-            // Fallback: scan all entries for matching short code
-            for (const [, item] of Object.entries(etaState.data)) {
-              if (item.short === constant && item.strValue) {
-                return item.strValue;
-              }
-            }
-
-            return '0';
-          };
 
           const etaValues = {
             einaus: getEtaValue(EtaConstants.EIN_AUS_TASTE),
