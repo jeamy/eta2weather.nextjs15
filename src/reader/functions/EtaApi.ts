@@ -38,6 +38,44 @@ export class EtaApi {
         return `http://${this.server}${formattedEndpoint}`;
     }
 
+    /**
+     * Normalize various ID formats to a proper /user/var/... endpoint path.
+     *
+     * Supported inputs:
+     * - "120/10101/0/0/12125" → "/user/var/120/10101/0/0/12125"
+     * - "/120/10101/0/0/12125" → "/user/var/120/10101/0/0/12125"
+     * - "/user/var/120/10101/0/0/12125" → "/user/var/120/10101/0/0/12125"
+     * - "user/var/120/10101/0/0/12125" → "/user/var/120/10101/0/0/12125"
+     */
+    private normalizeVarEndpoint(id: string): string {
+        let path = id.trim();
+
+        // If a full URL was accidentally passed, extract just the path part
+        if (path.startsWith('http://') || path.startsWith('https://')) {
+            try {
+                const url = new URL(path);
+                path = url.pathname;
+            } catch {
+                // Fallback to raw path
+            }
+        }
+
+        // Already a /user/var/... path
+        if (path.startsWith('/user/var/')) {
+            return path;
+        }
+        if (path.startsWith('user/var/')) {
+            return `/${path}`;
+        }
+
+        // Otherwise treat as pure numeric path, optionally starting with '/'
+        if (path.startsWith('/')) {
+            path = path.substring(1);
+        }
+
+        return `/user/var/${path}`;
+    }
+
     private async fetchApi(
         endpoint: string,
         method: 'GET' | 'POST',
@@ -115,8 +153,8 @@ export class EtaApi {
     }
 
     public async getUserVar(id: string, signal?: AbortSignal): Promise<ApiResponse> {
-        const cleanId = id.startsWith('/') ? id.substring(1) : id;
-        return this.fetchApi(`user/var/${cleanId}`, 'GET', undefined, signal);
+        const endpoint = this.normalizeVarEndpoint(id);
+        return this.fetchApi(endpoint, 'GET', undefined, signal);
     }
 
     public async setUserVar(
@@ -126,12 +164,12 @@ export class EtaApi {
         end: string,
         signal?: AbortSignal
     ): Promise<ApiResponse> {
-        const cleanId = id.startsWith('/') ? id.substring(1) : id;
+        const endpoint = this.normalizeVarEndpoint(id);
         if (DEBUG) {
-            console.log(`[EtaApi] Setting var ${cleanId}: value=${value}, begin=${begin}, end=${end}`);
+            console.log(`[EtaApi] Setting var ${endpoint}: value=${value}, begin=${begin}, end=${end}`);
         }
 
-        return this.fetchApi(`user/var/${cleanId}`, 'POST', {
+        return this.fetchApi(endpoint, 'POST', {
             value,
             begin,
             end
