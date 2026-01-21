@@ -29,28 +29,31 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
   const renderValue = useCallback((data: any, itemName?: string) => {
-    const { text, color } = formatValue(data);
-    
-    // Spezialbehandlung für Schieberposition: Zeige beide Werte wenn unterschiedlich
+    // Spezialbehandlung für Schieberposition: Verwende Config-Werte statt ETA-Daten
     if (itemName && itemName.toLowerCase().includes('schieber')) {
       const basePos = config?.[ConfigKeys.T_SLIDER_BASE];
       const finalPos = config?.[ConfigKeys.T_SLIDER];
       
-      if (basePos && finalPos && basePos !== finalPos) {
+      if (basePos && finalPos) {
         const baseNum = parseFloat(basePos);
         const finalNum = parseFloat(finalPos);
         
-        // Nur anzeigen wenn tatsächlich unterschiedlich (nicht nur Rundungsdifferenz)
+        // Zeige beide Werte wenn tatsächlich unterschiedlich (nicht nur Rundungsdifferenz)
         if (Math.abs(baseNum - finalNum) > 0.1) {
           return (
-            <span className={color}>
+            <span className="text-gray-900">
               {Math.round(baseNum)} % <span className="text-gray-400">→</span> {Math.round(finalNum)} %
             </span>
           );
         }
+        
+        // Wenn gleich, zeige nur einen Wert
+        return <span className="text-gray-900">{Math.round(finalNum)} %</span>;
       }
     }
     
+    // Für alle anderen Werte: normale Formatierung
+    const { text, color } = formatValue(data);
     return <span className={color}>{text}</span>;
   }, [config]);
 
