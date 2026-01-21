@@ -20,5 +20,6 @@
     "CH5": "Bad",
     "CH8": "Schlafzimmer"
   },
-  "delta_override": "false"
+  "delta_override": "false",
+  "t_slider_base": "0.0"
 }

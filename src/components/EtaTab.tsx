@@ -34,22 +34,34 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
       const basePos = config?.[ConfigKeys.T_SLIDER_BASE];
       const finalPos = config?.[ConfigKeys.T_SLIDER];
       
-      if (basePos && finalPos) {
+      // Wenn Config-Werte vorhanden sind, verwende diese
+      if (basePos !== undefined && finalPos !== undefined && basePos !== null && finalPos !== null) {
         const baseNum = parseFloat(basePos);
         const finalNum = parseFloat(finalPos);
         
-        // Zeige beide Werte wenn tatsächlich unterschiedlich (nicht nur Rundungsdifferenz)
-        if (Math.abs(baseNum - finalNum) > 0.1) {
-          return (
-            <span className="text-gray-900">
-              {Math.round(baseNum)} % <span className="text-gray-400">→</span> {Math.round(finalNum)} %
-            </span>
-          );
+        // Prüfe ob Werte gültig sind
+        if (!isNaN(baseNum) && !isNaN(finalNum)) {
+          // Zeige beide Werte wenn tatsächlich unterschiedlich (nicht nur Rundungsdifferenz)
+          if (Math.abs(baseNum - finalNum) > 0.1) {
+            return (
+              <span className="text-gray-900">
+                {Math.round(baseNum)} % <span className="text-gray-400">→</span> {Math.round(finalNum)} %
+              </span>
+            );
+          }
+          
+          // Wenn gleich, zeige nur einen Wert
+          return <span className="text-gray-900">{Math.round(finalNum)} %</span>;
         }
-        
-        // Wenn gleich, zeige nur einen Wert
-        return <span className="text-gray-900">{Math.round(finalNum)} %</span>;
       }
+      
+      // Fallback: Wenn Config-Werte fehlen, zeige ETA-Daten
+      const { text, color } = formatValue(data);
+      return (
+        <span className={color}>
+          {text} <span className="text-xs text-gray-400">(ETA)</span>
+        </span>
+      );
     }
     
     // Für alle anderen Werte: normale Formatierung
