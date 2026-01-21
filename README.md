@@ -244,6 +244,212 @@ diff = (t_soll + t_delta / DELTA_DAMPENING_FACTOR) - indoorTemperature
 
 This calculation directly influences the **slider position** (0-100%) which controls the ETA heating valve position.
 
+### Slider Position Calculation
+
+The system calculates the ETA heating valve position (slider position) in two stages: **base calculation** from temperature differential and **scaling** based on flow temperature.
+
+#### Stage 1: Base Position Calculation
+
+The base slider position is calculated from the temperature differential using a linear mapping:
+
+```
+basePosition = map(diff, 1.25, 5.0, 0.0, 100.0)
+```
+
+**Mapping Function:**
+- **Input Range**: `diff` from 1.25°C to 5.0°C
+- **Output Range**: 0% to 100%
+- **Linear Interpolation**: 
+  - `diff ≤ 1.25°C` → 0% (no heating needed)
+  - `diff ≥ 5.0°C` → 100% (maximum heating)
+  - `1.25°C < diff < 5.0°C` → proportional value
+
+**Example:**
+- `diff = 1.25°C` → `basePosition = 0%`
+- `diff = 3.125°C` → `basePosition = 50%` (midpoint)
+- `diff = 5.0°C` → `basePosition = 100%`
+
+**Special Cases:**
+- **Heating Disabled**: If `einaus = "Aus"` OR (`schaltzustand = "Aus"` AND no manual override active), slider position is forced to `0%`
+- **Negative Differential**: If `diff < 0` (room warmer than target), base position can be negative (e.g., `-5%`). These values are **not scaled** in Stage 2.
+
+#### Stage 2: Flow Temperature Scaling
+
+The base position is scaled based on the **Vorlauftemperatur** (flow temperature) to prevent overheating:
+
+```
+vorlaufFactor = {
+  1.0           if vorlauftemp ≤ 38°C  (no reduction)
+  0.0           if vorlauftemp ≥ 50°C  (heating off)
+  (50 - vorlauftemp) / 12   if 38°C < vorlauftemp < 50°C  (linear reduction)
+}
+
+finalPosition = basePosition × vorlaufFactor
+```
+
+**Flow Temperature Thresholds:**
+- **≤ 38°C**: Full base position (100% adoption, factor = 1.0)
+- **38-50°C**: Linear reduction based on flow temperature
+- **≥ 50°C**: Slider position forced to 0% (factor = 0.0)
+
+**Example Calculation:**
+```
+Given Values:
+- Indoor: 21.6°C
+- Target (t_soll): 22°C
+- Delta (t_delta): 2.9°C  ← This is NOT the temperature difference!
+- Flow Temp: 48°C
+
+Important: t_delta is a CORRECTION FACTOR, not the actual temperature difference.
+It's calculated from outdoor temperature differences (ETA vs WiFi) and used to 
+fine-tune the heating behavior.
+
+Step 1: Calculate diff (the actual heating requirement)
+diff = (t_soll + t_delta / DELTA_DAMPENING_FACTOR) - indoorTemperature
+diff = (22 + 2.9/5.0) - 21.6
+diff = (22 + 0.58) - 21.6
+diff = 22.58 - 21.6
+diff = 0.98°C
+
+Explanation:
+- Target - Indoor = 22 - 21.6 = 0.4°C (simple difference)
+- But t_delta adds a correction: +2.9°C / 5.0 = +0.58°C
+- This increases the effective target to 22.58°C
+- Final diff = 22.58 - 21.6 = 0.98°C
+
+Step 2: Calculate base position
+basePosition = map(0.98, 1.25, 5.0, 0.0, 100.0)
+Since 0.98 < 1.25 (minimum threshold), basePosition would be 0% or negative.
+
+Let's use a more realistic example where heating is actually needed:
+diff = 3.2°C → basePosition = map(3.2, 1.25, 5.0, 0, 100) = 52%
+
+Step 3: Calculate flow temperature factor
+vorlauftemp = 48°C
+vorlaufFactor = (50 - 48) / 12 = 0.167
+
+Step 4: Calculate final position
+finalPosition = 52% × 0.167 = 8.7% → rounded to 9%
+
+Display: "Schieberposition: 52 % → 9 %"
+```
+
+**Why is t_delta 2.9°C when target - indoor = 0.4°C?**
+
+`t_delta` is **NOT** the temperature difference between target and indoor. Instead:
+
+1. **t_delta** is calculated from **outdoor temperature sensors**:
+   - `t_delta = ETA_outdoor - WiFi_outdoor` (in automatic mode)
+   - Example: ETA reads -5°C, WiFi reads -10°C → t_delta = 5°C
+   - This compensates for sensor placement differences or calibration offsets
+
+2. **t_delta is dampened** before use:
+   - Applied as: `t_delta / DELTA_DAMPENING_FACTOR` (default: 5.0)
+   - Example: `2.9°C / 5.0 = 0.58°C` actual correction
+   - This prevents aggressive over-corrections
+
+3. **Purpose of t_delta**:
+   - Adjusts heating based on outdoor conditions
+   - Compensates for sensor differences
+   - Provides fine-tuning capability
+   - Can be manually set for comfort preferences
+
+**Protection for Negative Values:**
+- Negative base positions (when room is warmer than target) are **NOT scaled** by flow temperature
+- Example: `basePosition = -5%` → `finalPosition = -5%` (regardless of flow temperature)
+
+#### Minimum Temperature Protection
+
+When the indoor temperature falls below the configured minimum temperature (`t_min`), the system activates protection mode:
+
+**Behavior:**
+1. **Temperature Check**: `indoorTemp < t_min`
+2. **Override Activation**: System automatically enables manual override mode
+3. **Override Duration**: Controlled by `t_override` (default: 10 minutes = 600000ms)
+4. **Heating Forced On**: Slider position is calculated normally, but heating buttons are activated
+5. **Automatic Deactivation**: After override duration expires, system returns to normal mode
+
+**Example:**
+```
+Configuration:
+- t_min = 18.5°C
+- t_override = 600000ms (10 minutes)
+
+Scenario:
+- Indoor temperature drops to 18.2°C
+- System detects: 18.2 < 18.5
+- Override activated for 10 minutes
+- Heating forced on regardless of other conditions
+- After 10 minutes: Override expires, normal operation resumes
+```
+
+**Purpose:**
+- Prevents room temperature from dropping too low
+- Provides emergency heating in cold conditions
+- Automatically recovers without user intervention
+
+#### Delta Temperature (`t_delta`)
+
+The delta temperature is a fine-tuning offset that adjusts the target temperature calculation. It can operate in two modes:
+
+**Mode 1: Automatic (Delta Override = OFF)**
+- `t_delta` is **automatically calculated** from the difference between ETA outdoor temperature and WiFi outdoor temperature
+- Formula: `t_delta = (ETA_outdoor - WiFi_outdoor)` with dampening
+- **Dampening Factor**: Divided by `DELTA_DAMPENING_FACTOR` (default: 5.0) to prevent aggressive corrections
+- **Safety Limit**: `MAX_DELTA_VALUE` (default: 5.0°C) prevents extreme values
+- **Update Throttling**: Only updates when difference is significant (> 0.1°C change)
+
+**Mode 2: Manual (Delta Override = ON)**
+- `t_delta` is **manually set** by the user
+- System uses this fixed value exclusively
+- No automatic updates from outdoor temperature differences
+- Useful for fine-tuning comfort zones or testing
+
+**Effect on Calculation:**
+```
+diff = (t_soll + t_delta / DELTA_DAMPENING_FACTOR) - indoorTemperature
+```
+
+**Example:**
+```
+Automatic Mode (Override OFF):
+- ETA outdoor: -3°C
+- WiFi outdoor: -5°C
+- Calculated delta: (-3) - (-5) = 2°C
+- Applied delta: 2 / 5.0 = 0.4°C
+- Effect: Slightly increases target temperature
+
+Manual Mode (Override ON):
+- User sets t_delta = 1.5°C
+- Applied delta: 1.5 / 5.0 = 0.3°C
+- Effect: Fixed offset regardless of outdoor conditions
+```
+
+**Override Duration (`t_override`):**
+- Controls how long manual heating button presses remain active
+- Default: 600000ms (10 minutes)
+- After expiration: System returns to automatic mode
+- Also used for minimum temperature protection duration
+
+#### Implementation Locations
+
+**Slider Calculation:**
+- `src/utils/Functions.ts` - `calculateNewSliderPosition()` (lines 26-67)
+- `src/reader/functions/SetEta.ts` - `calculateNewSliderPosition()` (lines 100-130)
+- `src/lib/backgroundService.ts` - Automatic updates (lines 656-746)
+
+**Flow Temperature Scaling:**
+- Uses `EtaConstants.VORLAUFTEMP` (ID: `/120/10101/0/0/12241`)
+- Scaling thresholds: 38°C (full), 50°C (off)
+
+**Display:**
+- `src/components/EtaTab.tsx` - Shows both base and final values (lines 31-70)
+- Format: "Schieberposition: 52 % → 9 %" (base → final)
+
+**Configuration Storage:**
+- `ConfigKeys.T_SLIDER_BASE` - Calculated base position before scaling
+- `ConfigKeys.T_SLIDER` - Final position after flow temperature scaling
+
 ## Project Structure
 
 ```
