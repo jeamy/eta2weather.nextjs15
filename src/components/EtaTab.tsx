@@ -1,8 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/redux/index';
 import { MenuNode } from '@/types/menu';
 import { formatValue } from '@/utils/formatters';
 import { getUrisForNode } from '@/utils/etaUtils';
 import { useEtaData } from '@/hooks/useEtaData';
+import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 import { 
   ClockIcon, 
   CalendarIcon, 
@@ -20,14 +23,36 @@ interface EtaTabProps {
 
 export default function EtaTab({ menuItems = [] }: EtaTabProps) {
   const { values, loading, error, fetchValues, cleanupAllAbortControllers } = useEtaData();
+  const config = useSelector((state: RootState) => state.config.data);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
-  const renderValue = useCallback((data: any) => {
+  const renderValue = useCallback((data: any, itemName?: string) => {
     const { text, color } = formatValue(data);
+    
+    // Spezialbehandlung für Schieberposition: Zeige beide Werte wenn unterschiedlich
+    if (itemName && itemName.toLowerCase().includes('schieber')) {
+      const basePos = config?.[ConfigKeys.T_SLIDER_BASE];
+      const finalPos = config?.[ConfigKeys.T_SLIDER];
+      
+      if (basePos && finalPos && basePos !== finalPos) {
+        const baseNum = parseFloat(basePos);
+        const finalNum = parseFloat(finalPos);
+        
+        // Nur anzeigen wenn tatsächlich unterschiedlich (nicht nur Rundungsdifferenz)
+        if (Math.abs(baseNum - finalNum) > 0.1) {
+          return (
+            <span className={color}>
+              {Math.round(baseNum)} % <span className="text-gray-400">→</span> {Math.round(finalNum)} %
+            </span>
+          );
+        }
+      }
+    }
+    
     return <span className={color}>{text}</span>;
-  }, []);
+  }, [config]);
 
   const getTabIcon = (categoryName: string) => {
     const name = categoryName.toLowerCase();
@@ -136,7 +161,7 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
                             ) : error[item.uri] ? (
                               <span className="text-red-500">{error[item.uri]}</span>
                             ) : values[item.uri] ? (
-                              renderValue(values[item.uri])
+                              renderValue(values[item.uri], item.name)
                             ) : null}
                           </div>
                         )}
@@ -156,7 +181,7 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
                                 ) : error[subItem.uri] ? (
                                   <span className="text-red-500">{error[subItem.uri]}</span>
                                 ) : values[subItem.uri] ? (
-                                  renderValue(values[subItem.uri])
+                                  renderValue(values[subItem.uri], subItem.name)
                                 ) : null}
                               </div>
                             </div>

@@ -16,6 +16,7 @@ type EtaValues = {
   heizentaste: string;
   tes: number;
   tea: number;
+  kesseltemp?: number;
 };
 
 type TempDiff = {
@@ -77,7 +78,8 @@ export class SetEta {
       kommentaste: getValue(EtaConstants.KOMMENTASTE),
       heizentaste: getValue(EtaConstants.HEIZENTASTE),
       tes: Number(getValue(EtaConstants.SCHIEBERPOS)),
-      tea: Number(getValue(EtaConstants.AUSSENTEMP))
+      tea: Number(getValue(EtaConstants.AUSSENTEMP)),
+      kesseltemp: Number(getValue(EtaConstants.KESSELTEMP)),
     };
   }
 
@@ -95,12 +97,36 @@ export class SetEta {
     return { diff: Number(diff.toFixed(1)), twa, twi };
   }
 
-  private calculateNewSliderPosition({ einaus, schaltzustand, kommentaste, heizentaste }: EtaValues, diff: number): string {
+  private calculateNewSliderPosition({ einaus, schaltzustand, kommentaste, heizentaste, kesseltemp }: EtaValues, diff: number): string {
     const overridesActive = heizentaste === "Ein" || kommentaste === "Ein";
     const heatingDisabled = einaus === "Aus" || (schaltzustand === "Aus" && !overridesActive);
-    return heatingDisabled
-      ? "0.0"
-      : new Diff().getDiff(diff, 1.25, 5.0, 0.0, 100.0).toString();
+
+    if (heatingDisabled) {
+      return "0.0";
+    }
+
+    const basePosition = new Diff().getDiff(diff, 1.25, 5.0, 0.0, 100.0);
+
+    // Negative Sliderpositionen dürfen nicht durch kesselFactor verändert werden
+    if (basePosition < 0) {
+      return basePosition.toFixed(1);
+    }
+
+    const kesselFactor = (() => {
+      if (kesseltemp === undefined || kesseltemp === null || isNaN(kesseltemp)) {
+        return 1;
+      }
+      if (kesseltemp <= 38) {
+        return 1;
+      }
+      if (kesseltemp >= 50) {
+        return 0;
+      }
+      return (50 - kesseltemp) / (50 - 38);
+    })();
+
+    const scaledPosition = Math.max(0, Math.min(100, basePosition * kesselFactor));
+    return scaledPosition.toFixed(1);
   }
 
   private async updateData(etaData: Record<string, any>, wifiAf83Data: any, newPosition: string, diff: number): Promise<void> {

@@ -3,6 +3,7 @@ export type Config = {
     [ConfigKeys.T_SOLL]: string;
     [ConfigKeys.T_DELTA]: string;
     [ConfigKeys.T_SLIDER]: string;
+    [ConfigKeys.T_SLIDER_BASE]: string;
     [ConfigKeys.F_ETA]: string;
     [ConfigKeys.S_ETA]: string;
     [ConfigKeys.F_WIFIAF83]: string;
@@ -23,6 +24,7 @@ export enum ConfigKeys {
     T_SOLL = 't_soll',
     T_DELTA = 't_delta',
     T_SLIDER = 't_slider',
+    T_SLIDER_BASE = 't_slider_base',
     F_ETA = 'f_eta',
     S_ETA = 's_eta',
     F_WIFIAF83 = 'f_wifiaf83',
@@ -40,6 +42,7 @@ export const defaultConfig: Config = {
     [ConfigKeys.T_SOLL]: '22',
     [ConfigKeys.T_DELTA]: '0',
     [ConfigKeys.T_SLIDER]: '0.0',
+    [ConfigKeys.T_SLIDER_BASE]: '0.0',
     [ConfigKeys.F_ETA]: 'f_eta.json',
     [ConfigKeys.S_ETA]: '192.168.8.100:8080',
     [ConfigKeys.F_WIFIAF83]: 'f_wifiaf89.json',

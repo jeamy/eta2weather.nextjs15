@@ -660,17 +660,19 @@ export class BackgroundService {
             kommentaste: getEtaValue(EtaConstants.KOMMENTASTE),
             tes: parseNumOrZero(getEtaValue(EtaConstants.SCHIEBERPOS)),
             tea: parseNumOrZero(getEtaValue(EtaConstants.AUSSENTEMP)),
+            kesseltemp: parseNumOrZero(getEtaValue(EtaConstants.KESSELTEMP)),
           };
 
           console.log(`${this.getTimestamp()} Eta values: ${JSON.stringify(etaValues)}`);
-          const newSliderPosition = calculateNewSliderPosition(etaValues, numericDiff);
-          console.log(`${this.getTimestamp()} New slider position: ${newSliderPosition}`);
-          if (newSliderPosition !== config.data[ConfigKeys.T_SLIDER] || newDiffValue !== config.data[ConfigKeys.DIFF]) {
+          const sliderPositions = calculateNewSliderPosition(etaValues, numericDiff);
+          console.log(`${this.getTimestamp()} New slider position: base=${sliderPositions.base}, final=${sliderPositions.final}`);
+          if (sliderPositions.final !== config.data[ConfigKeys.T_SLIDER] || newDiffValue !== config.data[ConfigKeys.DIFF]) {
             console.log(`${this.getTimestamp()} Updating temperature diff...`);
             const updatedConfigData = {
               ...config.data,
               [ConfigKeys.DIFF]: newDiffValue,
-              [ConfigKeys.T_SLIDER]: newSliderPosition
+              [ConfigKeys.T_SLIDER]: sliderPositions.final,
+              [ConfigKeys.T_SLIDER_BASE]: sliderPositions.base
             } as Config;
             store.dispatch(storeConfigData(updatedConfigData));
             try {
@@ -681,10 +683,10 @@ export class BackgroundService {
 
             const { t_soll, t_delta } = config.data;
             // Log the temperature diff update
-            console.log(`${this.getTimestamp()} Updated temperature diff ${t_soll} + ${t_delta} - ${wifiData.indoorTemperature} - Diff: ${newDiffValue}, Slider: ${newSliderPosition}`);
+            console.log(`${this.getTimestamp()} Updated temperature diff ${t_soll} + ${t_delta} - ${wifiData.indoorTemperature} - Diff: ${newDiffValue}, Slider: ${sliderPositions.base} -> ${sliderPositions.final}`);
 
             // Update the physical slider position if needed
-            const recommendedPos = Math.round(parseFloat(newSliderPosition));
+            const recommendedPos = Math.round(parseFloat(sliderPositions.final));
             const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
             const currentPos = etaSP ? parseNumOrZero(etaSP.strValue) : recommendedPos;
             console.log(`${this.getTimestamp()} Current slider position: ${currentPos}, Recommended slider position: ${recommendedPos}`);
@@ -725,7 +727,8 @@ export class BackgroundService {
                   try {
                     const appliedConfig = {
                       ...store.getState().config.data,
-                      [ConfigKeys.T_SLIDER]: newSliderPosition
+                      [ConfigKeys.T_SLIDER]: sliderPositions.final,
+                      [ConfigKeys.T_SLIDER_BASE]: sliderPositions.base
                     } as Config;
                     store.dispatch(storeConfigData(appliedConfig));
                     await updateConfig(appliedConfig);
@@ -748,13 +751,8 @@ export class BackgroundService {
           timestamp: Date.now(),
           diff: numericDiff,
           sliderPosition: calculateNewSliderPosition({
-            einaus: '0', schaltzustand: '0', heizentaste: '0', kommentaste: '0', tes: 0, tea: 0
-            // Note: We don't have exact ETA values here easily without re-fetching or passing them down, 
-            // but 'diff' is the main thing. We can use the calculated one or just log what we have.
-            // Actually, let's just log the diff and the inputs we used to calculate it.
-          }, numericDiff), // This might be inaccurate if we don't have the exact ETA state, but for diff logging it's fine. 
-          // Wait, we can do better. We have 'numericDiff'.
-          // Let's just log the essential data.
+            einaus: '0', schaltzustand: '0', heizentaste: '0', kommentaste: '0', tes: 0, tea: 0, kesseltemp: 0
+          }, numericDiff).final,
           t_soll: t_soll,
           t_delta: t_delta,
           indoor_temp: wifiData.indoorTemperature,
