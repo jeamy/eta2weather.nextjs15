@@ -16,7 +16,7 @@ type EtaValues = {
   heizentaste: string;
   tes: number;
   tea: number;
-  kesseltemp?: number;
+  vorlauftemp?: number;
 };
 
 type TempDiff = {
@@ -79,7 +79,7 @@ export class SetEta {
       heizentaste: getValue(EtaConstants.HEIZENTASTE),
       tes: Number(getValue(EtaConstants.SCHIEBERPOS)),
       tea: Number(getValue(EtaConstants.AUSSENTEMP)),
-      kesseltemp: Number(getValue(EtaConstants.KESSELTEMP)),
+      vorlauftemp: Number(getValue(EtaConstants.VORLAUFTEMP)),
     };
   }
 
@@ -97,7 +97,7 @@ export class SetEta {
     return { diff: Number(diff.toFixed(1)), twa, twi };
   }
 
-  private calculateNewSliderPosition({ einaus, schaltzustand, kommentaste, heizentaste, kesseltemp }: EtaValues, diff: number): string {
+  private calculateNewSliderPosition({ einaus, schaltzustand, kommentaste, heizentaste, vorlauftemp }: EtaValues, diff: number): string {
     const overridesActive = heizentaste === "Ein" || kommentaste === "Ein";
     const heatingDisabled = einaus === "Aus" || (schaltzustand === "Aus" && !overridesActive);
 
@@ -107,25 +107,25 @@ export class SetEta {
 
     const basePosition = new Diff().getDiff(diff, 1.25, 5.0, 0.0, 100.0);
 
-    // Negative Sliderpositionen dürfen nicht durch kesselFactor verändert werden
+    // Negative Sliderpositionen dürfen nicht durch vorlaufFactor verändert werden
     if (basePosition < 0) {
       return basePosition.toFixed(1);
     }
 
-    const kesselFactor = (() => {
-      if (kesseltemp === undefined || kesseltemp === null || isNaN(kesseltemp)) {
+    const vorlaufFactor = (() => {
+      if (vorlauftemp === undefined || vorlauftemp === null || isNaN(vorlauftemp)) {
         return 1;
       }
-      if (kesseltemp <= 38) {
+      if (vorlauftemp <= 38) {
         return 1;
       }
-      if (kesseltemp >= 50) {
+      if (vorlauftemp >= 50) {
         return 0;
       }
-      return (50 - kesseltemp) / (50 - 38);
+      return (50 - vorlauftemp) / (50 - 38);
     })();
 
-    const scaledPosition = Math.max(0, Math.min(100, basePosition * kesselFactor));
+    const scaledPosition = Math.max(0, Math.min(100, basePosition * vorlaufFactor));
     return scaledPosition.toFixed(1);
   }
 

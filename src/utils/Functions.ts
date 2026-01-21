@@ -14,7 +14,7 @@ type EtaValues = {
     kommentaste: string;
     tes: number;
     tea: number;
-    kesseltemp?: number;
+    vorlauftemp?: number;
 };
 
 type TempDiff = {
@@ -23,7 +23,7 @@ type TempDiff = {
     twi: number;
 };
 
-export function calculateNewSliderPosition({ einaus, schaltzustand, heizentaste, kommentaste, kesseltemp }: EtaValues, diff: number): { base: string; final: string } {
+export function calculateNewSliderPosition({ einaus, schaltzustand, heizentaste, kommentaste, vorlauftemp }: EtaValues, diff: number): { base: string; final: string } {
 
     //    console.log(`
     //      Einaus: ${einaus}
@@ -40,26 +40,26 @@ export function calculateNewSliderPosition({ einaus, schaltzustand, heizentaste,
 
     const basePosition = new Diff().getDiff(diff, 1.25, 5.0, 0.0, 100.0);
 
-    // Negative Sliderpositionen dürfen nicht durch kesselFactor verändert werden
+    // Negative Sliderpositionen dürfen nicht durch vorlaufFactor verändert werden
     if (basePosition < 0) {
         const negValue = basePosition.toFixed(1);
         return { base: negValue, final: negValue };
     }
 
-    const kesselFactor = (() => {
-        if (kesseltemp === undefined || kesseltemp === null || isNaN(kesseltemp)) {
+    const vorlaufFactor = (() => {
+        if (vorlauftemp === undefined || vorlauftemp === null || isNaN(vorlauftemp)) {
             return 1;
         }
-        if (kesseltemp <= 38) {
+        if (vorlauftemp <= 38) {
             return 1;
         }
-        if (kesseltemp >= 50) {
+        if (vorlauftemp >= 50) {
             return 0;
         }
-        return (50 - kesseltemp) / (50 - 38);
+        return (50 - vorlauftemp) / (50 - 38);
     })();
 
-    const scaledPosition = Math.max(0, Math.min(100, basePosition * kesselFactor));
+    const scaledPosition = Math.max(0, Math.min(100, basePosition * vorlaufFactor));
     return {
         base: basePosition.toFixed(1),
         final: scaledPosition.toFixed(1)

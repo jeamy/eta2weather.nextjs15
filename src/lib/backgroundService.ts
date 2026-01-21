@@ -660,7 +660,7 @@ export class BackgroundService {
             kommentaste: getEtaValue(EtaConstants.KOMMENTASTE),
             tes: parseNumOrZero(getEtaValue(EtaConstants.SCHIEBERPOS)),
             tea: parseNumOrZero(getEtaValue(EtaConstants.AUSSENTEMP)),
-            kesseltemp: parseNumOrZero(getEtaValue(EtaConstants.KESSELTEMP)),
+            vorlauftemp: parseNumOrZero(getEtaValue(EtaConstants.VORLAUFTEMP)),
           };
 
           console.log(`${this.getTimestamp()} Eta values: ${JSON.stringify(etaValues)}`);
@@ -751,7 +751,7 @@ export class BackgroundService {
           timestamp: Date.now(),
           diff: numericDiff,
           sliderPosition: calculateNewSliderPosition({
-            einaus: '0', schaltzustand: '0', heizentaste: '0', kommentaste: '0', tes: 0, tea: 0, kesseltemp: 0
+            einaus: '0', schaltzustand: '0', heizentaste: '0', kommentaste: '0', tes: 0, tea: 0, vorlauftemp: 0
           }, numericDiff).final,
           t_soll: t_soll,
           t_delta: t_delta,
