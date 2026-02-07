@@ -1,7 +1,7 @@
 import Diff from './Diff';
 import { EtaApi } from './EtaApi';
 import * as fs from 'fs';
-import { Config, ConfigKeys } from './types-constants/ConfigConstants';
+import { Config, ConfigKeys, TEMP_CALC_CONSTANTS } from './types-constants/ConfigConstants';
 import { EtaConstants, Names2Id } from './types-constants/Names2IDconstants';
 import { fetchEtaData } from './EtaData';
 import { fetchWifiAf83Data } from './WifiAf83Data';
@@ -113,16 +113,17 @@ export class SetEta {
     }
 
     const vorlaufFactor = (() => {
+      const maxTemp = TEMP_CALC_CONSTANTS.VORLAUF_FACTOR_MAX_TEMP;
       if (vorlauftemp === undefined || vorlauftemp === null || isNaN(vorlauftemp)) {
         return 1;
       }
       if (vorlauftemp <= 38) {
         return 1;
       }
-      if (vorlauftemp >= 50) {
+      if (vorlauftemp >= maxTemp) {
         return 0;
       }
-      return (50 - vorlauftemp) / (50 - 38);
+      return (maxTemp - vorlauftemp) / (maxTemp - 38);
     })();
 
     const scaledPosition = Math.max(0, Math.min(100, basePosition * vorlaufFactor));

@@ -47,16 +47,17 @@ export function calculateNewSliderPosition({ einaus, schaltzustand, heizentaste,
     }
 
     const vorlaufFactor = (() => {
+        const maxTemp = TEMP_CALC_CONSTANTS.VORLAUF_FACTOR_MAX_TEMP;
         if (vorlauftemp === undefined || vorlauftemp === null || isNaN(vorlauftemp)) {
             return 1;
         }
         if (vorlauftemp <= 38) {
             return 1;
         }
-        if (vorlauftemp >= 50) {
+        if (vorlauftemp >= maxTemp) {
             return 0;
         }
-        return (50 - vorlauftemp) / (50 - 38);
+        return (maxTemp - vorlauftemp) / (maxTemp - 38);
     })();
 
     const scaledPosition = Math.max(0, Math.min(100, basePosition * vorlaufFactor));

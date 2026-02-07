@@ -87,5 +87,7 @@ export const TEMP_CALC_CONSTANTS = {
      * 
      * Default: 5.0 (allows delta values between -5°C and +5°C)
      */
-    MAX_DELTA_VALUE: 5.0
+    MAX_DELTA_VALUE: 5.0,
+
+    VORLAUF_FACTOR_MAX_TEMP: 60
 } as const;
