@@ -5,30 +5,37 @@ import { DatabaseService } from '@/lib/database/sqliteService';
 type LogType = 'ecowitt' | 'eta' | 'config' | 'temp_diff' | 'min_temp_status';
 
 export const logData = async (type: LogType, data: any) => {
+    let sqliteSuccess = false;
+
     // Write to SQLite database
     try {
         const db = DatabaseService.getInstance();
 
         switch (type) {
             case 'ecowitt':
-                db.insertEcowittLog(data);
+                await db.insertEcowittLog(data);
                 break;
             case 'eta':
-                db.insertEtaLog(data);
+                await db.insertEtaLog(data);
                 break;
             case 'config':
-                db.insertConfigLog(data);
+                await db.insertConfigLog(data);
                 break;
             case 'temp_diff':
-                db.insertTempDiffLog(data);
+                await db.insertTempDiffLog(data);
                 break;
             case 'min_temp_status':
-                db.insertMinTempStatusLog(data);
+                await db.insertMinTempStatusLog(data);
                 break;
         }
+        sqliteSuccess = true;
     } catch (error) {
         console.error(`Error writing to SQLite (${type}):`, error);
         // Continue to file-based logging as fallback
+    }
+
+    if (sqliteSuccess && (type === 'temp_diff' || type === 'min_temp_status')) {
+        return `sqlite:${type}`;
     }
 
     // Keep file-based logging as backup/fallback
@@ -43,7 +50,7 @@ export const logData = async (type: LogType, data: any) => {
     const getRuntimeRoot = () => process.cwd();
 
     const baseDir = path.join(getRuntimeRoot(), 'public/log', type, String(year), month, day);
-    const fileName = `${hour}-${minute}.${type === 'config' ? 'json' : 'xml'}`;
+    const fileName = `${hour}-${minute}.${type === 'config' ? 'json' : (type === 'temp_diff' || type === 'min_temp_status') ? 'jsonl' : 'xml'}`;
     const filePath = path.join(baseDir, fileName);
 
     // Create directory structure if it doesn't exist
@@ -71,7 +78,9 @@ export const logData = async (type: LogType, data: any) => {
 
     // Format data based on type
     let formattedData = '';
-    if (type === 'config') {
+    if (type === 'temp_diff' || type === 'min_temp_status') {
+        formattedData = JSON.stringify({ timestamp: now.toISOString(), ...data });
+    } else if (type === 'config') {
         formattedData = JSON.stringify(data, null, 2);
     } else if (type === 'eta') {
         // Structured handling for ETA data
@@ -124,7 +133,11 @@ export const logData = async (type: LogType, data: any) => {
     }
 
     // Write the file
-    await fs.promises.writeFile(filePath, formattedData);
+    if (type === 'temp_diff' || type === 'min_temp_status') {
+        await fs.promises.appendFile(filePath, `${formattedData}\n`);
+    } else {
+        await fs.promises.writeFile(filePath, formattedData);
+    }
     return filePath;
 };
 

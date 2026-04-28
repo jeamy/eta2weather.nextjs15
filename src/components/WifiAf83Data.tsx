@@ -151,7 +151,7 @@ const WifiAf83Data: React.FC = () => {
     }
 
     const updateTimer = Math.max(
-      parseInt(config.data.t_update_timer) || DEFAULT_UPDATE_TIMER,
+      parseInt(config.data.t_update_timer, 10) || DEFAULT_UPDATE_TIMER,
       MIN_API_INTERVAL
     );
 

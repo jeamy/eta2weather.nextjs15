@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { getConfig } from '@/utils/cache';
+import { requireWriteAccess } from '@/utils/apiAuth';
 
 function normalizeId(rawId: string): string {
   if (!rawId) {
@@ -34,7 +35,12 @@ function normalizeId(rawId: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  let etaApi: EtaApi | null = null;
+
   try {
+    const authError = requireWriteAccess(request);
+    if (authError) return authError;
+
     // Get config from cache
     const config = await getConfig();
     console.log(`[API] Loaded config s_eta: ${config.s_eta}`);
@@ -45,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`Setting value for ID ${normalizedId} (raw: ${id}) to value: ${value}, begin: ${begin}, end: ${end}`);
 
-    if (!normalizedId || !value) {
+    if (!normalizedId || value === undefined || value === null) {
       return NextResponse.json(
         { error: 'Missing required parameters' },
         { status: 400 }
@@ -59,7 +65,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const etaApi = new EtaApi(config.s_eta);
+    etaApi = new EtaApi(config.s_eta);
     const result = await etaApi.setUserVar(normalizedId, value, begin, end);
 
     if (result.error) {
@@ -85,5 +91,7 @@ export async function POST(request: NextRequest) {
       { error: error instanceof Error ? error.message : 'Failed to update ETA data' },
       { status: 500 }
     );
+  } finally {
+    etaApi?.dispose();
   }
 }

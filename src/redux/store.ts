@@ -1,17 +1,6 @@
-import { configureStore } from '@reduxjs/toolkit';
-import configReducer from './configSlice';
-import etaReducer from './etaSlice';
-import wifiAf83Reducer from './wifiAf83Slice';
-import names2IdReducer from './names2IdSlice';
+import { makeStore, RootState as RootStateFromReducer } from './index';
 
-export const store = configureStore({
-  reducer: {
-    config: configReducer,
-    eta: etaReducer,
-    wifiAf83: wifiAf83Reducer,
-    names2Id: names2IdReducer,
-  },
-});
+export const store = makeStore();
 
-export type RootState = ReturnType<typeof store.getState>;
+export type RootState = RootStateFromReducer;
 export type AppDispatch = typeof store.dispatch;

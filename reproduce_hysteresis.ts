@@ -17,7 +17,8 @@ function runTests() {
         wasBelow: false,
         wasSliderNegative: false,
         manualOverride: false,
-        manualOverrideTime: null
+        manualOverrideTime: null,
+        initialized: true
     };
 
     const minTemp = 20.0;

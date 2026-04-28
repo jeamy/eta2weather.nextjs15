@@ -13,36 +13,36 @@
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@reduxjs/toolkit": "^2.11.2",
-    "@tailwindcss/postcss": "^4.1.18",
-    "better-sqlite3": "^12.6.2",
+    "@tailwindcss/postcss": "^4.2.4",
+    "@xmldom/xmldom": "^0.9.10",
+    "better-sqlite3": "^12.9.0",
     "chart.js": "^4.5.1",
     "chartjs-adapter-date-fns": "^3.0.0",
     "chartjs-plugin-zoom": "^2.2.0",
     "cross-env": "^10.1.0",
     "date-fns": "^4.1.0",
-    "next": "16.1.6",
-    "react": "19.2.4",
+    "next": "16.2.4",
+    "react": "19.2.5",
     "react-chartjs-2": "^5.3.1",
-    "react-dom": "19.2.4",
+    "react-dom": "19.2.5",
     "react-redux": "^9.2.0",
-    "swr": "^2.4.0",
-    "tsx": "^4.21.0",
-    "@xmldom/xmldom": "^0.8.11"
+    "swr": "^2.4.1",
+    "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^25.2.1",
-    "@types/react": "19.2.13",
+    "@types/node": "^25.6.0",
+    "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "autoprefixer": "^10.4.24",
-    "eslint": "^10.0.0",
-    "eslint-config-next": "16.1.6",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.18",
-    "typescript": "^5"
+    "autoprefixer": "^10.5.0",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "16.2.4",
+    "postcss": "^8.5.12",
+    "tailwindcss": "^4.2.4",
+    "typescript": "^6"
   },
   "overrides": {
-    "@types/react": "19.2.13",
+    "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3"
   }
 }

@@ -51,7 +51,7 @@ function WifiTab({ data }: WifiTabProps) {
   // Extract all available channels from data - memoized to prevent unnecessary recalculation
   const channelData = useMemo(() => 
     Object.entries(data || {})
-      .filter(([key]) => key.startsWith('temp_and_humidity_ch') && parseInt(key.replace('temp_and_humidity_ch', '')) <= 8)
+      .filter(([key]) => key.startsWith('temp_and_humidity_ch') && parseInt(key.replace('temp_and_humidity_ch', ''), 10) <= 8)
       .reduce((acc, [key, value]) => {
         const channelNum = key.replace('temp_and_humidity_ch', '');
         const channelKey = `CH${channelNum}`;

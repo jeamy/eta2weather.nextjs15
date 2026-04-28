@@ -17,7 +17,13 @@ function runTests() {
         wasBelow: false,
         wasSliderNegative: false,
         manualOverride: false,
-        manualOverrideTime: null
+        manualOverrideTime: null,
+        initialized: true
+    };
+
+    const uninitializedState: ControlState = {
+        ...baseState,
+        initialized: false
     };
 
     const baseInput: ControlInput = {
@@ -34,6 +40,20 @@ function runTests() {
     {
         const result = determineControlAction(baseInput);
         assert(result.action === 'NONE', 'Should do nothing when state matches');
+    }
+
+    // Test 1b: Startup mismatch should not be treated as manual override
+    {
+        const input = {
+            ...baseInput,
+            currentActiveButton: EtaButtons.KT,
+            lastTempState: uninitializedState
+        };
+        const result = determineControlAction(input);
+        assert(result.action === 'SWITCH_BUTTON', 'Should correct startup mismatch without entering override');
+        assert(result.targetButton === EtaButtons.AA, 'Should target expected startup button');
+        assert(result.newState.manualOverride === false, 'Should not set manualOverride during initialization');
+        assert(result.newState.initialized === true, 'Should mark state initialized');
     }
 
     // Test 2: Temperature drops below min -> Switch to KT

@@ -43,12 +43,14 @@ export const parseXML = (content: string, shortkey: string, names2id: Names2Id |
     };
 
     // Add root element attributes with 'eta_' prefix
-    Array.from(xmlDoc.documentElement.attributes).forEach((attr: Attr) => {
-        result[`eta_${attr.nodeName}`] = attr.nodeValue ?? 'N/A';
-    });
+    if (xmlDoc.documentElement) {
+        Array.from((xmlDoc.documentElement as any).attributes || []).forEach((attr: any) => {
+            result[`eta_${attr.nodeName}`] = attr.nodeValue ?? 'N/A';
+        });
+    }
 
     // Add value element attributes (skip duplicates)
-    Array.from(valueElement.attributes).forEach((attr: Attr) => {
+    Array.from((valueElement as any).attributes || []).forEach((attr: any) => {
         if (!(attr.nodeName in result)) {
             result[attr.nodeName] = attr.nodeValue ?? 'N/A';
         }

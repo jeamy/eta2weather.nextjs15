@@ -12,21 +12,6 @@ import { API } from '@/constants/apiPaths';
 import { MenuNode } from "@/types/menu";
 import HomeHero from "@/components/HomeHero";
 
-async function isServerReady(url: string, retries = 5, delay = 1000): Promise<boolean> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) {
-        return true;
-      }
-    } catch (error) {
-      console.warn(`Server not ready, retrying... (${i + 1}/${retries})`);
-    }
-    await new Promise(resolve => setTimeout(resolve, delay));
-  }
-  return false;
-}
-
 export default function Home() {
   const [menuItems, setMenuItems] = useState<MenuNode[]>([]);
   const [wifiData, setWifiData] = useState<any>(null);

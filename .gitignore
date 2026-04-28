@@ -39,3 +39,6 @@ eco.ts
 eco.tsx
 public/log/*
 #docker-compose.yml
+
+.codex
+.windsurf

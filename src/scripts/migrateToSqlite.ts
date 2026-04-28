@@ -6,6 +6,7 @@ import { DOMParser } from '@xmldom/xmldom';
 
 const LOG_BASE_DIR = path.join(process.cwd(), 'public', 'log');
 const BATCH_SIZE = 1000;
+const APPLY_MIGRATION = process.argv.includes('--apply');
 
 interface MigrationStats {
     ecowitt: { total: number; success: number; errors: number };
@@ -55,20 +56,20 @@ function parseTimestampFromPath(filePath: string): { timestamp: Date; year: numb
     }
 
     const timestamp = new Date(
-        parseInt(year),
-        parseInt(month) - 1,
-        parseInt(day),
-        parseInt(hour),
-        parseInt(minute)
+        parseInt(year, 10),
+        parseInt(month, 10) - 1,
+        parseInt(day, 10),
+        parseInt(hour, 10),
+        parseInt(minute, 10)
     );
 
     return {
         timestamp,
-        year: parseInt(year),
-        month: parseInt(month),
-        day: parseInt(day),
-        hour: parseInt(hour),
-        minute: parseInt(minute)
+        year: parseInt(year, 10),
+        month: parseInt(month, 10),
+        day: parseInt(day, 10),
+        hour: parseInt(hour, 10),
+        minute: parseInt(minute, 10)
     };
 }
 
@@ -92,9 +93,9 @@ function parseXmlContent(xmlContent: string): any {
             errorHandler: {
                 warning: () => {}, // Suppress warnings
                 error: () => {},   // Suppress errors
-                fatalError: (e) => { throw e; }
+                fatalError: (e: any) => { throw e; }
             }
-        });
+        } as any);
         const doc = parser.parseFromString(sanitized, 'text/xml');
         
         // Try both 'data' (ecowitt) and 'allData' (legacy) tags
@@ -145,9 +146,9 @@ function parseEtaXml(xmlContent: string): any {
             errorHandler: {
                 warning: () => {},
                 error: () => {},
-                fatalError: (e) => { throw e; }
+                fatalError: (e: any) => { throw e; }
             }
-        });
+        } as any);
         const doc = parser.parseFromString(sanitized, 'text/xml');
         const variables = doc.getElementsByTagName('variable');
         const data: any = {};
@@ -375,8 +376,8 @@ async function migrateConfig(db: DatabaseService, stats: MigrationStats): Promis
 
             const database = db.getDatabase();
             database.prepare(`
-                INSERT OR REPLACE INTO config_logs (timestamp, year, month, day, hour, minute, data)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT OR REPLACE INTO config_logs (timestamp, year, month, day, hour, minute, second, data)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `).run(
                 timeInfo.timestamp.toISOString(),
                 timeInfo.year,
@@ -384,6 +385,7 @@ async function migrateConfig(db: DatabaseService, stats: MigrationStats): Promis
                 timeInfo.day,
                 timeInfo.hour,
                 timeInfo.minute,
+                timeInfo.timestamp.getSeconds(),
                 JSON.stringify(data)
             );
 
@@ -442,7 +444,7 @@ async function migrateTempDiff(db: DatabaseService, stats: MigrationStats): Prom
             }
 
             // Parse optional fields
-            const sliderPosition = sliderNode?.textContent ? parseInt(sliderNode.textContent.replace(/^["']|["']$/g, '')) : null;
+            const sliderPosition = sliderNode?.textContent ? parseFloat(sliderNode.textContent.replace(/^["']|["']$/g, '')) : null;
             const tSoll = tSollNode?.textContent ? parseFloat(tSollNode.textContent.replace(/^["']|["']$/g, '')) : null;
             const tDelta = tDeltaNode?.textContent ? parseFloat(tDeltaNode.textContent.replace(/^["']|["']$/g, '')) : null;
             const indoorTemp = indoorTempNode?.textContent ? parseFloat(indoorTempNode.textContent.replace(/^["']|["']$/g, '')) : null;
@@ -528,6 +530,17 @@ async function main() {
     console.log('=== SQLite Migration Tool ===\n');
     console.log(`Start time: ${new Date().toISOString()}`);
     console.log(`Log directory: ${LOG_BASE_DIR}\n`);
+
+    if (!APPLY_MIGRATION) {
+        console.log('Dry run only. Re-run with --apply to write migrated rows to SQLite.');
+        const types = ['ecowitt', 'eta', 'config', 'temp_diff', 'min_temp_status'];
+        for (const type of types) {
+            const ext = type === 'config' ? '.json' : '.xml';
+            const files = await getAllFiles(path.join(LOG_BASE_DIR, type), ext);
+            console.log(`${type}: ${files.length} files found`);
+        }
+        return;
+    }
 
     const stats: MigrationStats = {
         ecowitt: { total: 0, success: 0, errors: 0 },

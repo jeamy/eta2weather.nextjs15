@@ -435,7 +435,6 @@ Manual Mode (Override ON):
 
 **Slider Calculation:**
 - `src/utils/Functions.ts` - `calculateNewSliderPosition()` (lines 26-67)
-- `src/reader/functions/SetEta.ts` - `calculateNewSliderPosition()` (lines 100-130)
 - `src/lib/backgroundService.ts` - Automatic updates (lines 656-746)
 
 **Flow Temperature Scaling:**
@@ -506,12 +505,13 @@ eta2weather.nextjs15/
 │   ├── hooks/              # Custom React Hooks
 │   │   └── useEtaData.ts   # ETA data management hook
 │   ├── lib/                # Core Business Logic
-│   │   └── backgroundService.ts # Intelligent background processing
+│   │   ├── backgroundService.ts # Intelligent background processing
+│   │   └── heatingMode.ts       # Server-side ETA heating mode switching
 │   ├── reader/             # Data Processing & External APIs
 │   │   └── functions/      # Core functionality modules
 │   │       ├── EtaApi.ts       # ETA heating system API client
 │   │       ├── EtaData.ts      # ETA data processing
-│   │       ├── SetEta.ts       # ETA parameter control
+│   │       ├── etaMenuParser.ts # ETA menu XML parser
 │   │       ├── WifiAf83Api.ts  # Weather station API client
 │   │       ├── readMenuData.ts # ETA menu data parser
 │   │       └── types-constants/ # TypeScript definitions
@@ -661,6 +661,16 @@ The raw data interface features:
    npm run dev
    ```
 
+### Optional Write API Token
+
+Schreibende API-Routen bleiben ohne `API_WRITE_TOKEN` kompatibel zum lokalen LAN-Betrieb. Sobald `API_WRITE_TOKEN` gesetzt ist, muessen Clients bei Schreibzugriffen einen Header `x-api-token` oder `x-eta2weather-token` mit diesem Wert senden.
+
+Betroffene Routen:
+- `POST /api/config`
+- `POST /api/channelnames`
+- `POST /api/eta/update`
+- `POST /api/eta/heating-mode`
+
 ## API Documentation
 
 ### ETA System Endpoints
@@ -689,6 +699,14 @@ The raw data interface features:
     "end"?: string    // Optional end time (default: "0")
   }
   ```
+- `POST /api/eta/heating-mode`: Switches the active heating mode button
+  ```typescript
+  // Request body
+  {
+    "targetButton": string,
+    "activeFlags"?: Record<string, boolean>
+  }
+  ```
 
 ### Weather Data Endpoints
 
@@ -705,7 +723,7 @@ The raw data interface features:
 - `GET /api/names2id/read`: Gets name-to-ID mappings
 
 #### Update Operations
-- `POST /api/config/update`: Updates configuration values
+- `POST /api/config`: Updates configuration values
   ```typescript
   // Request body
   {
@@ -886,6 +904,20 @@ You can run this application using Docker in two ways:
 The application will be available at `http://localhost:3000`.
 
 Note: The Docker build process will include your configured `.env` and `eco.tsx` files in the image. Make sure these files are properly configured before building the image.
+
+## SQLite Log Migration
+
+Das Migrationsskript ist standardmaessig ein Dry-Run und zaehlt nur vorhandene Logdateien:
+
+```bash
+npx tsx src/scripts/migrateToSqlite.ts
+```
+
+Schreibende Migrationen muessen explizit bestaetigt werden:
+
+```bash
+npx tsx src/scripts/migrateToSqlite.ts --apply
+```
 
 ## Automatic Startup with systemd
 

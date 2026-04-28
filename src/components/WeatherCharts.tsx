@@ -147,8 +147,8 @@ export default function WeatherCharts({
     const withChannels = weatherData.find((d) => d.channels && Object.keys(d.channels).length > 0);
     const keys = withChannels ? Object.keys(withChannels.channels) : [];
     return keys.sort((a, b) => {
-      const an = parseInt(a.replace('ch', '')) || 0;
-      const bn = parseInt(b.replace('ch', '')) || 0;
+      const an = parseInt(a.replace('ch', ''), 10) || 0;
+      const bn = parseInt(b.replace('ch', ''), 10) || 0;
       return an - bn;
     });
   }, [weatherData]);

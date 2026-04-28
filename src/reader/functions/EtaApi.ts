@@ -1,6 +1,3 @@
-import { env } from 'process';
-
-const DEFAULT_SERVER = `${env.DEFAULT_SERVER || '192.168.8.100:8080'}`;
 const DEBUG = process.env.NODE_ENV === 'development';
 
 // Response type
@@ -15,8 +12,12 @@ export class EtaApi {
     private abortControllers: Set<AbortController> = new Set();
     private isDisposed: boolean = false;
 
-    constructor(server: string = DEFAULT_SERVER) {
+    constructor(server: string = EtaApi.getDefaultServer()) {
         this.server = this.normalizeServer(server);
+    }
+
+    private static getDefaultServer(): string {
+        return process.env.DEFAULT_SERVER || 'http://192.168.8.100:8080';
     }
 
     setServer(server: string): void {
@@ -24,10 +25,20 @@ export class EtaApi {
     }
 
     /**
-     * Normalize server address by removing protocol prefix
+     * Normalize server address to an origin while preserving http/https.
      */
     private normalizeServer(server: string): string {
-        return server.replace(/^https?:\/\//, '');
+        const trimmed = server.trim();
+        if (!trimmed) {
+            throw new Error('ETA server address is empty');
+        }
+
+        const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+        const url = new URL(withProtocol);
+        if (!url.hostname) {
+            throw new Error(`Invalid ETA server address: ${server}`);
+        }
+        return url.origin;
     }
 
     /**
@@ -35,7 +46,7 @@ export class EtaApi {
      */
     private buildUrl(endpoint: string): string {
         const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-        return `http://${this.server}${formattedEndpoint}`;
+        return `${this.server}${formattedEndpoint}`;
     }
 
     /**
@@ -49,6 +60,9 @@ export class EtaApi {
      */
     private normalizeVarEndpoint(id: string): string {
         let path = id.trim();
+        if (!path) {
+            throw new Error('ETA variable id is empty');
+        }
 
         // If a full URL was accidentally passed, extract just the path part
         if (path.startsWith('http://') || path.startsWith('https://')) {
@@ -62,15 +76,25 @@ export class EtaApi {
 
         // Already a /user/var/... path
         if (path.startsWith('/user/var/')) {
+            if (path.replace(/^\/user\/var\/+/, '').trim() === '') {
+                throw new Error('ETA variable id is empty');
+            }
             return path;
         }
         if (path.startsWith('user/var/')) {
+            if (path.replace(/^user\/var\/+/, '').trim() === '') {
+                throw new Error('ETA variable id is empty');
+            }
             return `/${path}`;
         }
 
         // Otherwise treat as pure numeric path, optionally starting with '/'
         if (path.startsWith('/')) {
             path = path.substring(1);
+        }
+
+        if (!path) {
+            throw new Error('ETA variable id is empty');
         }
 
         return `/user/var/${path}`;
@@ -153,8 +177,16 @@ export class EtaApi {
     }
 
     public async getUserVar(id: string, signal?: AbortSignal): Promise<ApiResponse> {
-        const endpoint = this.normalizeVarEndpoint(id);
-        return this.fetchApi(endpoint, 'GET', undefined, signal);
+        try {
+            const endpoint = this.normalizeVarEndpoint(id);
+            return this.fetchApi(endpoint, 'GET', undefined, signal);
+        } catch (error) {
+            return {
+                result: null,
+                error: error instanceof Error ? error.message : 'Invalid ETA variable id',
+                uri: id
+            };
+        }
     }
 
     public async setUserVar(
@@ -164,9 +196,18 @@ export class EtaApi {
         end: string,
         signal?: AbortSignal
     ): Promise<ApiResponse> {
-        const endpoint = this.normalizeVarEndpoint(id);
-        if (DEBUG) {
-            console.log(`[EtaApi] Setting var ${endpoint}: value=${value}, begin=${begin}, end=${end}`);
+        let endpoint: string;
+        try {
+            endpoint = this.normalizeVarEndpoint(id);
+            if (DEBUG) {
+                console.log(`[EtaApi] Setting var ${endpoint}: value=${value}, begin=${begin}, end=${end}`);
+            }
+        } catch (error) {
+            return {
+                result: null,
+                error: error instanceof Error ? error.message : 'Invalid ETA variable id',
+                uri: id
+            };
         }
 
         return this.fetchApi(endpoint, 'POST', {

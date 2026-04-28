@@ -5,6 +5,7 @@ export interface ControlState {
     wasSliderNegative: boolean;
     manualOverride: boolean;
     manualOverrideTime: number | null;
+    initialized: boolean;
 }
 
 export interface ControlInput {
@@ -80,6 +81,19 @@ export function determineControlAction(input: ControlInput): ControlResult {
 
     logs.push(`Decision: expected=${expectedButton}, current=${currentActiveButton}`);
     logs.push(`Checks: stateChanged=${stateChanged}, buttonMismatch=${buttonMismatch}, isManualOverride=${isManualOverride}`);
+
+    if (!lastTempState.initialized) {
+        logs.push('Initializing control state without entering manual override');
+        newState.wasBelow = isBelow;
+        newState.wasSliderNegative = isSliderNegative;
+        newState.initialized = true;
+
+        if (!isManualOverride && buttonMismatch) {
+            return { action: 'SWITCH_BUTTON', targetButton: expectedButton, newState, logs };
+        }
+
+        return { action: 'NONE', targetButton: null, newState, logs };
+    }
 
     // CRITICAL FIX: If button mismatch detected and NOT in override, assume user pressed button -> ENTER override
     if (buttonMismatch && !isManualOverride && !stateChanged) {

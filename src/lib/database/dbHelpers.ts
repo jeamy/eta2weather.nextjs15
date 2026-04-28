@@ -1,6 +1,13 @@
 import { DatabaseService } from './sqliteService';
 
 export type TimeRange = '24h' | '7d' | '1m';
+const VALID_LOG_TABLES = new Set([
+    'ecowitt_logs',
+    'eta_logs',
+    'config_logs',
+    'temp_diff_logs',
+    'min_temp_status_logs'
+]);
 
 export class DatabaseHelpers {
     private db: DatabaseService;
@@ -187,7 +194,7 @@ export class DatabaseHelpers {
         });
 
         return allRows.map((row: any) => {
-            const ext = type === 'config' ? 'json' : 'xml';
+            const ext = type === 'config' ? 'json' : ['temp_diff', 'min_temp_status'].includes(type) ? 'jsonl' : 'xml';
             const month = String(row.month).padStart(2, '0');
             const day = String(row.day).padStart(2, '0');
             const hour = String(row.hour).padStart(2, '0');
@@ -198,6 +205,9 @@ export class DatabaseHelpers {
 
     async count(table: string): Promise<number> {
         await this.ensureInitialized();
+        if (!VALID_LOG_TABLES.has(table)) {
+            throw new Error(`Unsupported log table: ${table}`);
+        }
         const years = this.db.getAllAvailableYears();
         let totalCount = 0;
 
@@ -217,6 +227,9 @@ export class DatabaseHelpers {
 
     async getAllTimestamps(table: string): Promise<string[]> {
         await this.ensureInitialized();
+        if (!VALID_LOG_TABLES.has(table)) {
+            throw new Error(`Unsupported log table: ${table}`);
+        }
         const years = this.db.getAllAvailableYears();
         const allTimestamps: string[] = [];
 
