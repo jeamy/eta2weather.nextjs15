@@ -7,9 +7,24 @@ import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
 import { storeData as storeEtaData } from '@/redux/etaSlice';
 import { EtaPos, EtaText, EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
+import { EtaConstants } from '@/reader/functions/types-constants/Names2IDconstants';
 import Image from 'next/image';
 import { API } from '@/constants/apiPaths';
 import { useToast } from '@/components/ToastProvider';
+
+const ETA_DISPLAY_ORDER: Partial<Record<EtaConstants, number>> = {
+  [EtaConstants.SCHIEBERPOS]: 1,
+  [EtaConstants.AUSSENTEMP]: 2,
+  [EtaConstants.KESSELTEMP]: 3,
+  [EtaConstants.VORLAUFTEMP]: 4,
+  [EtaConstants.HEIZKURVE]: 5,
+  [EtaConstants.INHALT_PELLETS_BEHALTER]: 6,
+  [EtaConstants.VORRAT]: 7,
+  [EtaConstants.SCHALTZUSTAND]: 8,
+  [EtaConstants.EIN_AUS_TASTE]: 9,
+};
+
+const ETA_DISPLAY_SHORTS = new Set<string>(Object.keys(ETA_DISPLAY_ORDER));
 
 interface DisplayEtaValue {
   short: string;
@@ -383,8 +398,10 @@ const EtaData: React.FC = () => {
           <div className="grid grid-cols-1 gap-2">
             {Object.entries(etaState.data || {})
               .filter(([_, value]) => {
-                // Filter out button entries only; allow entries even if strValue is empty
                 if (Object.values(EtaButtons).includes(value.short as EtaButtons)) {
+                  return false;
+                }
+                if (!value.short || !ETA_DISPLAY_SHORTS.has(value.short)) {
                   return false;
                 }
                 const hasText = !!(value.strValue && value.strValue.trim() !== '');
@@ -395,14 +412,10 @@ const EtaData: React.FC = () => {
                 return hasText || hasNumeric;
               })
               .sort(([_, a], [__, b]) => {
-                const order: Record<string, number> = {
-                  SP: 1, AT: 2, KZ: 3, VT: 4, HK: 5,
-                  IP: 6, VR: 7, SZ: 8, EAT: 9
-                };
                 const aShort = a.short || '';
                 const bShort = b.short || '';
-                const aOrder = aShort in order ? order[aShort] : 99;
-                const bOrder = bShort in order ? order[bShort] : 99;
+                const aOrder = ETA_DISPLAY_ORDER[aShort as EtaConstants] ?? 99;
+                const bOrder = ETA_DISPLAY_ORDER[bShort as EtaConstants] ?? 99;
                 return aOrder - bOrder;
               })
               .map(([key, value]) => {
@@ -416,7 +429,7 @@ const EtaData: React.FC = () => {
                   <div key={key} className="flex flex-col">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{value.long}:</span>
+                        <span className="font-medium">{value.long || value.short}:</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="badge badge--neutral">
