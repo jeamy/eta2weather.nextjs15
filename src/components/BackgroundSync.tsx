@@ -17,6 +17,7 @@ const BackgroundSync: React.FC = () => {
   const lastConfigRef = useRef(config.data);
   const isFirstMount = useRef(true);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchBackgroundData = useCallback(async () => {
@@ -32,6 +33,7 @@ const BackgroundSync: React.FC = () => {
       const result = await response.json();
       
       if (result.success) {
+        const hasEtaData = result.data.eta && Object.keys(result.data.eta).length > 0;
         // Only update config if it has changed
         if (JSON.stringify(result.data.config) !== JSON.stringify(lastConfigRef.current)) {
           dispatch(storeConfigData(result.data.config));
@@ -39,8 +41,13 @@ const BackgroundSync: React.FC = () => {
         }
         
         // Always update other data - but only if we actually have data
-        if (result.data.eta && Object.keys(result.data.eta).length > 0) {
+        if (hasEtaData) {
           dispatch(storeEtaData(result.data.eta));
+        } else if (!retryTimeoutRef.current) {
+          retryTimeoutRef.current = setTimeout(() => {
+            retryTimeoutRef.current = null;
+            fetchBackgroundData();
+          }, 2000);
         }
         
         // Only update WiFi data if it exists (API sends undefined if not initialized)
@@ -91,6 +98,10 @@ const BackgroundSync: React.FC = () => {
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
+        }
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+          retryTimeoutRef.current = null;
         }
         // Abort any in-flight request on unmount
         if (abortRef.current) {

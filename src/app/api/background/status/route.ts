@@ -9,6 +9,7 @@ export async function GET() {
     // Only include WiFi data if it has been initialized (time > 0)
     const wifiData = state.wifiAf83.data;
     const hasValidWifiData = wifiData.time > 0;
+    const etaEntryCount = Object.keys(state.eta.data || {}).length;
 
     return NextResponse.json({
       success: true,
@@ -17,7 +18,11 @@ export async function GET() {
         eta: state.eta.data,
         // Only send WiFi data if it's been initialized
         wifiAf83: hasValidWifiData ? wifiData : undefined,
-        names2Id: state.names2Id.data
+        names2Id: state.names2Id.data,
+        diagnostics: {
+          etaEntryCount,
+          hasValidWifiData
+        }
       }
     });
   } catch (error) {
