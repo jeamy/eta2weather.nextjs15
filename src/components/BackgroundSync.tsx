@@ -43,11 +43,17 @@ const BackgroundSync: React.FC = () => {
         // Always update other data - but only if we actually have data
         if (hasEtaData) {
           dispatch(storeEtaData(result.data.eta));
-        } else if (!retryTimeoutRef.current) {
-          retryTimeoutRef.current = setTimeout(() => {
-            retryTimeoutRef.current = null;
-            fetchBackgroundData();
-          }, 2000);
+        } else {
+          const etaResponse = await fetch(API.ETA_READ, { signal: controller.signal });
+          const etaResult = await etaResponse.json();
+          if (etaResult.success && etaResult.data && Object.keys(etaResult.data).length > 0) {
+            dispatch(storeEtaData(etaResult.data));
+          } else if (!retryTimeoutRef.current) {
+            retryTimeoutRef.current = setTimeout(() => {
+              retryTimeoutRef.current = null;
+              fetchBackgroundData();
+            }, 2000);
+          }
         }
         
         // Only update WiFi data if it exists (API sends undefined if not initialized)

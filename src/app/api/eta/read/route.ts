@@ -1,12 +1,24 @@
 import { NextResponse } from 'next/server';
 import { EtaButtons, EtaPos } from '@/reader/functions/types-constants/EtaConstants';
 import { getServerStore } from '@/lib/backgroundService';
+import { fetchEtaData } from '@/reader/functions/EtaData';
+import { defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
+import { getConfig } from '@/utils/cache';
+import { storeData as storeEtaData } from '@/redux/etaSlice';
 
 export async function GET() {
   try {
     const store = getServerStore();
     const state = store.getState();
-    const etaData = { ...state.eta.data };
+    let etaData = { ...state.eta.data };
+
+    if (Object.keys(etaData).length === 0) {
+      const config = await getConfig();
+      etaData = await fetchEtaData(config, defaultNames2Id);
+      if (Object.keys(etaData).length > 0) {
+        store.dispatch(storeEtaData(etaData));
+      }
+    }
 
     // CRITICAL: Enforce button invariants at API level
     // Find currently active button (manual buttons have priority over AA)
