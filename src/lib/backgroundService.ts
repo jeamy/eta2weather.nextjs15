@@ -11,10 +11,11 @@ import { storeData as storeEtaData } from '../redux/etaSlice';
 import { storeData as storeConfigData } from '../redux/configSlice';
 import { storeData as storeNames2IdData } from '../redux/names2IdSlice';
 import { getAllUris } from '../utils/etaUtils';
+import { createLogger } from '@/utils/logger';
 import { MenuNode } from '@/types/menu';
 import { EtaPos, EtaButtons, EtaData } from '@/reader/functions/types-constants/EtaConstants';
 import { logData } from '@/utils/logging';
-import { updateConfig } from '@/utils/cache';
+import { getConfig, updateConfig } from '@/utils/cache';
 import { getWifiAf83Data } from '@/utils/cache';
 import { DatabaseService } from '@/lib/database/sqliteService';
 import * as fs from 'fs';
@@ -22,9 +23,11 @@ import path from 'path';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { calculateNewSliderPosition, calculateTemperatureDiff, updateSliderPosition } from '@/utils/Functions';
 import { parseXML } from '@/reader/functions/EtaData';
-import { parseNumOrZero } from '@/utils/numberParser';
+import { parseEtaMenuXml } from '@/reader/functions/etaMenuParser';
+import { parseNum, parseNumOrZero } from '@/utils/numberParser';
 import { determineControlAction, ControlInput } from './controlLogic';
 import { checkHeatingTime } from '@/utils/etaUtils';
+import { setHeatingMode, HeatingButtonFlags } from './heatingMode';
 const getRuntimeRoot = () => process.cwd();
 
 const CONFIG_FILE_PATH = path.resolve(getRuntimeRoot(), process.env.CONFIG_PATH || 'src/config/f_etacfg.json');
@@ -47,19 +50,24 @@ export class BackgroundService {
   private readonly MEMORY_CHECK_INTERVAL = 15 * 60 * 1000; // 15 minutes
   private readonly MAX_HEAP_SIZE = 1024 * 1024 * 1024; // 1GB
   private readonly DATA_RETENTION_PERIOD = 24 * 60 * 60 * 1000; // 24 hours
+  private readonly ETA_FULL_SCAN_INTERVAL_MS = parseInt(process.env.ETA_FULL_SCAN_INTERVAL_MS || String(60 * 60 * 1000), 10);
+  private readonly logger = createLogger('BackgroundService');
   private etaApi: EtaApi | null = null;
   private lastTempState: {
     wasBelow: boolean;
     wasSliderNegative: boolean;
     manualOverride: boolean;
     manualOverrideTime: number | null;
+    initialized: boolean;
   } = {
       wasBelow: false,
       wasSliderNegative: false,
       manualOverride: false,
-      manualOverrideTime: null
+      manualOverrideTime: null,
+      initialized: false
     };
   private lastEtaUpdate: number | null = null;
+  private lastFullEtaScan: number | null = null;
   // Cache for parsed ETA menu and URIs to avoid reparsing when content doesn't change
   private cachedMenuNodes: MenuNode[] | null = null;
   private cachedUris: string[] | null = null;
@@ -67,7 +75,7 @@ export class BackgroundService {
   private menuLoadedOnce: boolean = false;
   // Monitoring and housekeeping
   private eventLoopDelayMonitor: ReturnType<typeof monitorEventLoopDelay> | null = null;
-  private readonly ETA_CALL_DELAY_MS = parseInt(process.env.ETA_CALL_DELAY_MS || '120');
+  private readonly ETA_CALL_DELAY_MS = parseInt(process.env.ETA_CALL_DELAY_MS || '120', 10);
   // Track active timeouts for cleanup
   private activeTimeouts: Set<NodeJS.Timeout> = new Set();
   private activeSleeps: Set<{ resolve: () => void; timeout: NodeJS.Timeout }> = new Set();
@@ -100,40 +108,10 @@ export class BackgroundService {
 
   private async loadConfig(): Promise<Config> {
     try {
-      if (!fs.existsSync(CONFIG_FILE_PATH)) {
-        console.log(`${this.getTimestamp()} Config file does not exist. Creating with default values.`);
-        fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(defaultConfig, null, 2));
-        store.dispatch(storeConfigData(defaultConfig));
-        return defaultConfig;
-      }
-
-      let retries = 3;
-      let lastError: Error | null = null;
-
-      while (retries > 0) {
-        try {
-          const rawData = fs.readFileSync(CONFIG_FILE_PATH, 'utf-8');
-          if (!rawData.trim()) {
-            throw new Error('Config file is empty');
-          }
-
-          const configData = JSON.parse(rawData);
-          console.log(`${this.getTimestamp()} Config loaded successfully`);
-          store.dispatch(storeConfigData(configData));
-          return configData;
-        } catch (error) {
-          lastError = error as Error;
-          retries--;
-          if (retries > 0) {
-            console.log(`${this.getTimestamp()} Retrying config load... (${retries} attempts remaining)`);
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
-        }
-      }
-
-      console.error(`${this.getTimestamp()} Failed to load config after retries:`, lastError);
-      store.dispatch(storeConfigData(defaultConfig));
-      return defaultConfig;
+      const configData = await getConfig();
+      console.log(`${this.getTimestamp()} Config loaded successfully`);
+      store.dispatch(storeConfigData(configData));
+      return configData;
     } catch (error) {
       console.error(`${this.getTimestamp()} Error loading config:`, error);
       store.dispatch(storeConfigData(defaultConfig));
@@ -199,8 +177,8 @@ export class BackgroundService {
       try {
         console.log(`${this.getTimestamp()} Config file changed, reloading...`);
         const newConfig = await this.loadConfig();
-        const oldUpdateTimer = parseInt(this.config[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER;
-        const newUpdateTimer = parseInt(newConfig[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER;
+        const oldUpdateTimer = parseInt(this.config[ConfigKeys.T_UPDATE_TIMER], 10) || DEFAULT_UPDATE_TIMER;
+        const newUpdateTimer = parseInt(newConfig[ConfigKeys.T_UPDATE_TIMER], 10) || DEFAULT_UPDATE_TIMER;
 
         console.log(`${this.getTimestamp()} Logging CONFIG data...`);
         await logData('config', newConfig);
@@ -226,6 +204,7 @@ export class BackgroundService {
             this.menuLoadedOnce = false;
             this.cachedMenuNodes = null;
             this.cachedUris = null;
+            this.lastFullEtaScan = null;
             console.log(`${this.getTimestamp()} Menu cache cleared, will reload on next data fetch`);
           } catch (e) {
             console.error(`${this.getTimestamp()} Failed to reinitialize EtaApi:`, e);
@@ -267,7 +246,7 @@ export class BackgroundService {
     }
 
     const updateTimer = Math.max(
-      parseInt(this.config[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER,
+      parseInt(this.config[ConfigKeys.T_UPDATE_TIMER], 10) || DEFAULT_UPDATE_TIMER,
       MIN_API_INTERVAL
     );
 
@@ -288,9 +267,48 @@ export class BackgroundService {
     console.log(`${this.getTimestamp()} Update interval restarted with timer: ${updateTimer}ms`);
   }
 
+  private shouldRunFullEtaScan(): boolean {
+    if (!this.lastFullEtaScan) return true;
+    if (!Number.isFinite(this.ETA_FULL_SCAN_INTERVAL_MS) || this.ETA_FULL_SCAN_INTERVAL_MS <= 0) return false;
+    return Date.now() - this.lastFullEtaScan >= this.ETA_FULL_SCAN_INTERVAL_MS;
+  }
+
+  private getBackgroundEtaUris(): string[] {
+    const requiredUris = new Set<string>();
+    Object.values(defaultNames2Id).forEach(entry => {
+      if (entry?.id) requiredUris.add(entry.id);
+    });
+
+    const addNodeTree = (node: MenuNode) => {
+      if (node.uri) requiredUris.add(node.uri);
+      node.children?.forEach(addNodeTree);
+    };
+
+    const walk = (nodes: MenuNode[]) => {
+      for (const node of nodes) {
+        if (node.name === 'Heizzeiten' || node.uri?.endsWith('/12113/0/0')) {
+          addNodeTree(node);
+          continue;
+        }
+        if (node.children) walk(node.children);
+      }
+    };
+
+    if (this.cachedMenuNodes) {
+      walk(this.cachedMenuNodes);
+    }
+
+    if (this.cachedUris?.length) {
+      const filtered = this.cachedUris.filter(uri => requiredUris.has(uri));
+      return filtered.length ? filtered : this.cachedUris;
+    }
+
+    return Array.from(requiredUris);
+  }
+
   private async loadAndStoreData() {
     if (this.isUpdating) {
-      console.log(`${this.getTimestamp()} Update already in progress, skipping...`);
+      this.logger.debug('Update already in progress, skipping');
       return;
     }
 
@@ -326,7 +344,9 @@ export class BackgroundService {
       if (!this.cachedUris || this.cachedUris.length === 0) {
         throw new Error('Menu structure not loaded, cannot fetch data');
       }
-      const uris = this.cachedUris;
+      const allUris = this.cachedUris;
+      const shouldFullEtaScan = this.shouldRunFullEtaScan();
+      const uris = shouldFullEtaScan ? allUris : this.getBackgroundEtaUris();
 
       // Build id->short map once for O(1) lookups
       const idToShort: Record<string, string> = {};
@@ -336,9 +356,11 @@ export class BackgroundService {
       });
 
       // Fetch data in batches using EtaApi with timeout/retry
-      console.log(`${this.getTimestamp()} Fetching ETA data...`);
-      const menuData: EtaData = {};
+      this.logger.info(`Fetching ETA data (${shouldFullEtaScan ? 'full scan' : 'control subset'}: ${uris.length}/${allUris.length} URIs)`);
+      const existingEtaData = (store.getState() as RootState).eta.data || {};
+      const menuData: EtaData = shouldFullEtaScan ? {} : { ...existingEtaData };
       const batchSize = 5; // Process 5 URIs at a time
+      let fetchedCount = 0;
 
       const fetchWithRetry = async (id: string, retries = 2, timeoutMs = 5000): Promise<string> => {
         let attempt = 0;
@@ -399,6 +421,7 @@ export class BackgroundService {
             const shortkey = idToShort[uri] || '';
             // Parse the XML into ParsedXmlData so it matches EtaData shape
             menuData[uri] = parseXML(result, shortkey, defaultNames2Id);
+            fetchedCount += 1;
           } else {
             const reason: any = r.reason;
             const errorUri = reason?.uri || 'unknown URI';
@@ -412,12 +435,19 @@ export class BackgroundService {
         }
       }
 
-      console.log(`${this.getTimestamp()} Successfully fetched ETA data for ${Object.keys(menuData).length} URIs`);
+      if (shouldFullEtaScan) {
+        this.lastFullEtaScan = Date.now();
+      }
 
-      // Log all ETA data
-      console.log(`${this.getTimestamp()} Logging ETA data...`);
-      await logData('eta', menuData);
-      console.log(`${this.getTimestamp()} Logging ETA data DONE!`);
+      this.logger.info(`Successfully fetched ETA data for ${fetchedCount} URIs; store now has ${Object.keys(menuData).length} entries`);
+
+      if (shouldFullEtaScan) {
+        this.logger.debug('Logging ETA data');
+        await logData('eta', menuData);
+        this.logger.debug('Logging ETA data done');
+      } else {
+        this.logger.debug('Skipping ETA full-data log for control subset refresh');
+      }
 
       // Quick win: store ETA data in Redux
       try {
@@ -430,17 +460,18 @@ export class BackgroundService {
 
       // Load WiFi AF83 data
       const wifiApi = new WifiAf83Api();
-      const allData = await getWifiAf83Data(() => wifiApi.getAllRealtime());
+      const allData = await getWifiAf83Data(() => wifiApi.getAllRealtime())
+        .finally(() => wifiApi.dispose());
 
       // Extract and validate temperature values
       const outdoorTempRaw = allData.outdoor?.temperature?.value;
       const indoorTempRaw = allData.indoor?.temperature?.value;
-      const outdoorTemp = parseFloat(outdoorTempRaw ?? '');
-      const indoorTemp = parseFloat(indoorTempRaw ?? '');
+      const outdoorTemp = parseNum(outdoorTempRaw);
+      const indoorTemp = parseNum(indoorTempRaw);
 
       let wifiData: WifiAF83Data | null = null;
 
-      if (Number.isNaN(outdoorTemp) || Number.isNaN(indoorTemp)) {
+      if (outdoorTemp === null || indoorTemp === null) {
         console.warn(`${this.getTimestamp()} Invalid temperature values (outdoor: ${outdoorTempRaw}, indoor: ${indoorTempRaw}). Skipping temperature-dependent logic.`);
         // We continue without wifiData, so temperature logic will be skipped, but ETA data is preserved
       } else {
@@ -461,11 +492,11 @@ export class BackgroundService {
           allData: allData
         };
 
-        console.log(`${this.getTimestamp()} WiFi AF83 data updated`);
+        this.logger.debug('WiFi AF83 data updated');
         store.dispatch(storeWifiAf83Data(wifiData));
-        console.log(`${this.getTimestamp()} Logging ECOWITT data...`);
+        this.logger.debug('Logging ECOWITT data');
         await logData('ecowitt', wifiData);
-        console.log(`${this.getTimestamp()} Logging ECOWITT data DONE!`);
+        this.logger.debug('Logging ECOWITT data done');
 
         // Update update IndoorTemperature Diff  after new data is loaded
         await this.updateIndoorTemperatureDiff(wifiData);
@@ -498,7 +529,7 @@ export class BackgroundService {
     const activeSleepsCount = this.activeSleeps.size;
     const cacheSize = this.cachedUris ? this.cachedUris.length : 0;
 
-    console.log(`${this.getTimestamp()} Memory Monitor:`, {
+    this.logger.debug('Memory Monitor', {
       heapUsed: `${heapUsedMB}MB`,
       heapTotal: `${heapTotalMB}MB`,
       external: `${externalMB}MB`,
@@ -511,23 +542,23 @@ export class BackgroundService {
 
     // Alert if memory usage is too high
     if (used.heapUsed > this.MAX_HEAP_SIZE) {
-      console.warn(`${this.getTimestamp()} ⚠️ High memory usage detected! Running emergency cleanup...`);
+      this.logger.warn('High memory usage detected; running emergency cleanup');
       this.cleanupOldData(true).catch(error => {
-        console.error(`${this.getTimestamp()} Error during emergency cleanup:`, error);
+        this.logger.error('Error during emergency cleanup', error);
       });
 
       // Force garbage collection if available
       if (global.gc) {
-        console.log(`${this.getTimestamp()} Forcing garbage collection...`);
+        this.logger.info('Forcing garbage collection');
         global.gc();
       } else {
-        console.log(`${this.getTimestamp()} Garbage collection not available (run with --expose-gc flag)`);
+        this.logger.debug('Garbage collection not available (run with --expose-gc flag)');
       }
     }
   }
 
   private async cleanupOldData(emergency: boolean = false) {
-    console.log(`${this.getTimestamp()} Running data cleanup${emergency ? ' (emergency)' : ''}...`);
+    this.logger.debug(`Running data cleanup${emergency ? ' (emergency)' : ''}`);
 
     try {
       const state = store.getState() as RootState;
@@ -539,13 +570,13 @@ export class BackgroundService {
       // Check WiFi AF83 data
       const wifiData = state.wifiAf83.data;
       if (wifiData?.time && wifiData.time < cutoffTime) {
-        console.log(`${this.getTimestamp()} WiFi AF83 data is outdated`);
+        this.logger.debug('WiFi AF83 data is outdated');
         needsRefresh = true;
       }
 
       // Check ETA data via lastEtaUpdate timestamp tracked by background service
       if (this.lastEtaUpdate && this.lastEtaUpdate < cutoffTime) {
-        console.log(`${this.getTimestamp()} ETA data is outdated (last update ${new Date(this.lastEtaUpdate).toISOString()})`);
+        this.logger.debug(`ETA data is outdated (last update ${new Date(this.lastEtaUpdate).toISOString()})`);
         needsRefresh = true;
       }
 
@@ -553,22 +584,25 @@ export class BackgroundService {
       if (needsRefresh) {
         // Clear outdated data from store with empty data objects
         store.dispatch(storeWifiAf83Data({
-          time: Date.now(),
-          datestring: new Date().toLocaleString('de-DE', {
-            hour: 'numeric',
-            minute: 'numeric',
-            second: 'numeric',
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-          }),
+          time: 0,
+          datestring: '',
           temperature: 0,
           indoorTemperature: 0,
           allData: null
         }));
         store.dispatch(storeEtaData({}));
-        console.log(`${this.getTimestamp()} Cleared outdated data from store`);
+        this.lastFullEtaScan = null;
+        this.logger.info('Cleared outdated data from store');
+      }
+
+      try {
+        const db = DatabaseService.getInstance();
+        const deletedRows = await db.deleteOlderThan(new Date(cutoffTime).toISOString());
+        if (deletedRows > 0) {
+          this.logger.info(`Deleted ${deletedRows} old SQLite log rows`);
+        }
+      } catch (error) {
+        console.warn(`${this.getTimestamp()} Failed to delete old SQLite log rows:`, error);
       }
 
       return needsRefresh;
@@ -650,109 +684,96 @@ export class BackgroundService {
       if (numericDiff !== null) {
         console.log(`${this.getTimestamp()} Numeric diff: ${numericDiff}`);
         const newDiffValue = numericDiff.toString();
-        // Only update if the diff value has changed
-        if (newDiffValue !== config.data[ConfigKeys.DIFF]) {
+        const etaValues = {
+          einaus: getEtaValue(EtaConstants.EIN_AUS_TASTE),
+          schaltzustand: getEtaValue(EtaConstants.SCHALTZUSTAND),
+          heizentaste: getEtaValue(EtaConstants.HEIZENTASTE),
+          kommentaste: getEtaValue(EtaConstants.KOMMENTASTE),
+          tes: parseNumOrZero(getEtaValue(EtaConstants.SCHIEBERPOS)),
+          tea: parseNumOrZero(getEtaValue(EtaConstants.AUSSENTEMP)),
+          vorlauftemp: parseNumOrZero(getEtaValue(EtaConstants.VORLAUFTEMP)),
+        };
+        const sliderPositions = calculateNewSliderPosition(etaValues, numericDiff);
+        const currentConfigData = store.getState().config.data;
 
-          const etaValues = {
-            einaus: getEtaValue(EtaConstants.EIN_AUS_TASTE),
-            schaltzustand: getEtaValue(EtaConstants.SCHALTZUSTAND),
-            heizentaste: getEtaValue(EtaConstants.HEIZENTASTE),
-            kommentaste: getEtaValue(EtaConstants.KOMMENTASTE),
-            tes: parseNumOrZero(getEtaValue(EtaConstants.SCHIEBERPOS)),
-            tea: parseNumOrZero(getEtaValue(EtaConstants.AUSSENTEMP)),
-            vorlauftemp: parseNumOrZero(getEtaValue(EtaConstants.VORLAUFTEMP)),
-          };
+        console.log(`${this.getTimestamp()} Eta values: ${JSON.stringify(etaValues)}`);
+        console.log(`${this.getTimestamp()} New slider position: base=${sliderPositions.base}, final=${sliderPositions.final}`);
 
-          console.log(`${this.getTimestamp()} Eta values: ${JSON.stringify(etaValues)}`);
-          const sliderPositions = calculateNewSliderPosition(etaValues, numericDiff);
-          console.log(`${this.getTimestamp()} New slider position: base=${sliderPositions.base}, final=${sliderPositions.final}`);
-          if (sliderPositions.final !== config.data[ConfigKeys.T_SLIDER] || newDiffValue !== config.data[ConfigKeys.DIFF]) {
-            console.log(`${this.getTimestamp()} Updating temperature diff...`);
-            const updatedConfigData = {
-              ...config.data,
-              [ConfigKeys.DIFF]: newDiffValue,
-              [ConfigKeys.T_SLIDER]: sliderPositions.final,
-              [ConfigKeys.T_SLIDER_BASE]: sliderPositions.base
-            } as Config;
-            store.dispatch(storeConfigData(updatedConfigData));
-            try {
-              await updateConfig(updatedConfigData);
-            } catch (e) {
-              console.warn(`${this.getTimestamp()} Failed to persist updated config:`, e);
-            }
+        const configChanged =
+          newDiffValue !== currentConfigData[ConfigKeys.DIFF] ||
+          sliderPositions.final !== currentConfigData[ConfigKeys.T_SLIDER] ||
+          sliderPositions.base !== currentConfigData[ConfigKeys.T_SLIDER_BASE];
 
-            const { t_soll, t_delta } = config.data;
-            // Log the temperature diff update
-            console.log(`${this.getTimestamp()} Updated temperature diff ${t_soll} + ${t_delta} - ${wifiData.indoorTemperature} - Diff: ${newDiffValue}, Slider: ${sliderPositions.base} -> ${sliderPositions.final}`);
+        if (configChanged) {
+          console.log(`${this.getTimestamp()} Updating temperature diff/slider config...`);
+          const updatedConfigData = {
+            ...currentConfigData,
+            [ConfigKeys.DIFF]: newDiffValue,
+            [ConfigKeys.T_SLIDER]: sliderPositions.final,
+            [ConfigKeys.T_SLIDER_BASE]: sliderPositions.base
+          } as Config;
+          store.dispatch(storeConfigData(updatedConfigData));
+          try {
+            await updateConfig(updatedConfigData);
+          } catch (e) {
+            console.warn(`${this.getTimestamp()} Failed to persist updated config:`, e);
+          }
 
-            // Update the physical slider position if needed
-            const recommendedPos = Math.round(parseFloat(sliderPositions.final));
-            const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
-            const currentPos = etaSP ? parseNumOrZero(etaSP.strValue) : recommendedPos;
-            console.log(`${this.getTimestamp()} Current slider position: ${currentPos}, Recommended slider position: ${recommendedPos}`);
-            // Only update if the positions are different and values are valid
-            if (etaSP &&
-              recommendedPos !== currentPos &&
-              !isNaN(recommendedPos) &&
-              !isNaN(currentPos)) {
+          const { t_soll, t_delta } = updatedConfigData;
+          console.log(`${this.getTimestamp()} Updated temperature diff ${t_soll} + ${t_delta} - ${wifiData.indoorTemperature} - Diff: ${newDiffValue}, Slider: ${sliderPositions.base} -> ${sliderPositions.final}`);
+        }
 
-              if (!this.etaApi) {
-                console.error(`${this.getTimestamp()} EtaApi not initialized`);
-                return;
+        // Update the physical slider position if needed, even if only ETA state or flow temperature changed.
+        const recommendedPos = Math.round(parseFloat(sliderPositions.final));
+        const etaSP = etaState.data[defaultNames2Id[EtaConstants.SCHIEBERPOS].id];
+        const currentPos = etaSP ? parseNumOrZero(etaSP.strValue) : recommendedPos;
+        console.log(`${this.getTimestamp()} Current slider position: ${currentPos}, Recommended slider position: ${recommendedPos}`);
+
+        if (etaSP &&
+          recommendedPos !== currentPos &&
+          !isNaN(recommendedPos) &&
+          !isNaN(currentPos)) {
+
+          if (!this.etaApi) {
+            console.error(`${this.getTimestamp()} EtaApi not initialized`);
+            return;
+          }
+
+          try {
+            console.log(`${this.getTimestamp()} Update slider position from ${currentPos} to ${recommendedPos}`);
+
+            const result = await updateSliderPosition(
+              recommendedPos,
+              currentPos,
+              defaultNames2Id,
+              this.etaApi
+            );
+
+            if (result.success) {
+              const updatedEtaData = { ...etaState.data };
+              const spId = defaultNames2Id[EtaConstants.SCHIEBERPOS].id;
+              if (updatedEtaData[spId]) {
+                updatedEtaData[spId] = {
+                  ...updatedEtaData[spId],
+                  strValue: (result.position).toString()
+                };
+                store.dispatch(storeEtaData(updatedEtaData));
+                console.log(`${this.getTimestamp()} Successfully updated slider position to ${result.position}`);
               }
-
-              try {
-                console.log(`${this.getTimestamp()} Update slider position from ${currentPos} to ${recommendedPos}`);
-
-                const result = await updateSliderPosition(
-                  recommendedPos,
-                  currentPos,
-                  defaultNames2Id,
-                  this.etaApi
-                );
-
-                if (result.success) {
-                  // Update the SP value in the Redux store
-                  const updatedEtaData = { ...etaState.data };
-                  const spId = defaultNames2Id[EtaConstants.SCHIEBERPOS].id;
-                  if (updatedEtaData[spId]) {
-                    updatedEtaData[spId] = {
-                      ...updatedEtaData[spId],
-                      strValue: (result.position).toString()
-                    };
-                    store.dispatch(storeEtaData(updatedEtaData));
-                    console.log(`${this.getTimestamp()} Successfully updated slider position to ${result.position}`);
-                  }
-                  // Ensure config reflects the applied target immediately for UI sync
-                  try {
-                    const appliedConfig = {
-                      ...store.getState().config.data,
-                      [ConfigKeys.T_SLIDER]: sliderPositions.final,
-                      [ConfigKeys.T_SLIDER_BASE]: sliderPositions.base
-                    } as Config;
-                    store.dispatch(storeConfigData(appliedConfig));
-                    await updateConfig(appliedConfig);
-                  } catch (e) {
-                    console.warn(`${this.getTimestamp()} Failed to persist applied slider position:`, e);
-                  }
-                } else if (result.error) {
-                  console.error(`${this.getTimestamp()} Failed to update slider position:`, result.error);
-                }
-              } catch (error) {
-                console.error(`${this.getTimestamp()} Error updating slider position:`, error);
-              }
+            } else if (result.error) {
+              console.error(`${this.getTimestamp()} Failed to update slider position:`, result.error);
             }
+          } catch (error) {
+            console.error(`${this.getTimestamp()} Error updating slider position:`, error);
           }
         }
 
-        // Log temp_diff unconditionally every cycle
-        const { t_soll, t_delta } = config.data;
+        const { t_soll, t_delta } = store.getState().config.data;
         await logData('temp_diff', {
           timestamp: Date.now(),
           diff: numericDiff,
-          sliderPosition: calculateNewSliderPosition({
-            einaus: '0', schaltzustand: '0', heizentaste: '0', kommentaste: '0', tes: 0, tea: 0, vorlauftemp: 0
-          }, numericDiff).final,
+          sliderPosition: sliderPositions.final,
+          sliderPositionBase: sliderPositions.base,
           t_soll: t_soll,
           t_delta: t_delta,
           indoor_temp: wifiData.indoorTemperature,
@@ -801,7 +822,7 @@ export class BackgroundService {
       });
 
       // Prepare input for control logic
-      const manualOverrideMs = parseInt(state.config.data?.t_override || String(60 * 60 * 1000));
+      const manualOverrideMs = parseInt(state.config.data?.t_override || String(60 * 60 * 1000), 10);
 
       const input: ControlInput = {
         indoorTemp,
@@ -848,20 +869,6 @@ export class BackgroundService {
         // or we can trust the logic's newState.wasBelow/wasSliderNegative changes
         // But for simplicity, we just proceed to switching.
 
-        // Build IDs mapping
-        const buttonIds = {
-          [EtaButtons.HT]: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
-          [EtaButtons.KT]: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
-          [EtaButtons.AA]: defaultNames2Id[EtaConstants.AUTOTASTE].id,
-          [EtaButtons.GT]: defaultNames2Id[EtaConstants.GEHENTASTE].id,
-          [EtaButtons.DT]: defaultNames2Id[EtaConstants.ABSENKTASTE].id
-        };
-
-        const targetButtonId = buttonIds[targetButtonName];
-        if (!targetButtonId) {
-          throw new Error(`Button ID not found for ${targetButtonName}`);
-        }
-
         try {
           // Ensure EtaApi instance is available
           if (!this.etaApi || this.etaApi.disposed) {
@@ -873,44 +880,22 @@ export class BackgroundService {
           const etaApi = this.etaApi;
 
           // Get current flags to minimize API calls
-          const flags: Record<string, boolean> = { [EtaButtons.AA]: false, [EtaButtons.HT]: false, [EtaButtons.KT]: false, [EtaButtons.GT]: false, [EtaButtons.DT]: false };
+          const flags: HeatingButtonFlags = { [EtaButtons.AA]: false, [EtaButtons.HT]: false, [EtaButtons.KT]: false, [EtaButtons.GT]: false, [EtaButtons.DT]: false };
           Object.entries(etaState.data).forEach(([_, item]) => {
             if (Object.values(EtaButtons).includes(item.short as EtaButtons)) {
               flags[item.short as EtaButtons] = item.value === EtaPos.EIN;
             }
           });
 
-          // First turn off all buttons except AA and the target
-          console.log(`${this.getTimestamp()} Turning off all buttons (except AA) before activating ${targetButtonName}`);
-          for (const [name, id] of Object.entries(buttonIds)) {
-            if (name !== EtaButtons.AA && name !== targetButtonName) {
-              // Only send if currently ON (idempotent)
-              if (flags[name]) {
-                await etaApi.setUserVar(id, EtaPos.AUS, "0", "0");
-                await this.sleep(this.ETA_CALL_DELAY_MS);
-              }
-            }
-          }
-
-          // Special handling for AA button - turn it off BEFORE activating manual button
-          if (targetButtonName !== EtaButtons.AA) {
-            console.log(`${this.getTimestamp()} Turning off AA button before activating manual button`);
-            await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.AUS, "0", "0");
-            await this.sleep(this.ETA_CALL_DELAY_MS);
-          }
-
-          // Then activate target button
-          console.log(`${this.getTimestamp()} Activating ${targetButtonName}`);
-          await etaApi.setUserVar(targetButtonId, EtaPos.EIN, "0", "0");
-          await this.sleep(this.ETA_CALL_DELAY_MS);
-
-          // CRITICAL: Ensure AA is OFF after activating manual button (double-check)
-          if (targetButtonName !== EtaButtons.AA) {
-            console.log(`${this.getTimestamp()} Double-checking: AA is OFF after ${targetButtonName} activation`);
-            await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.AUS, "0", "0");
-            // Wait for heater to process the command
-            await this.sleep(this.ETA_CALL_DELAY_MS);
-          }
+          await setHeatingMode({
+            targetButton: targetButtonName,
+            names2id: defaultNames2Id,
+            etaApi,
+            activeFlags: flags,
+            delayMs: this.ETA_CALL_DELAY_MS,
+            sleep: (ms) => this.sleep(ms),
+            log: (message) => console.log(`${this.getTimestamp()} ${message}`)
+          });
 
           // Final delay to allow heater to stabilize before any status reads
           console.log(`${this.getTimestamp()} Button switching complete. Waiting for heater to stabilize...`);
@@ -1034,62 +1019,8 @@ export class BackgroundService {
       throw new Error(menuResponse.error || 'No ETA menu data received');
     }
 
-    // Parse menu XML to get menu nodes
-    const menuNodes: MenuNode[] = [];
-    const parseMenuXML = (xmlString: string) => {
-      const getAttributeValue = (line: string, attr: string): string => {
-        const match = line.match(new RegExp(`${attr}="([^"]+)"`));
-        return match ? match[1] : '';
-      };
-
-      const lines = xmlString.split('\n');
-      const nodeStack: MenuNode[] = [];
-
-      lines.forEach(line => {
-        if (!line.trim() || line.includes('<?xml') || line.includes('</eta>')) {
-          return;
-        }
-
-        if (line.includes('<eta')) {
-          // Root node
-          return;
-        }
-
-        const uri = getAttributeValue(line, 'uri');
-        const name = getAttributeValue(line, 'name');
-
-        if (uri && name) {
-          const node: MenuNode = {
-            uri,
-            name,
-            children: []
-          };
-
-          if (line.includes('</node>')) {
-            // Leaf node
-            if (nodeStack.length > 0) {
-              nodeStack[nodeStack.length - 1].children?.push(node);
-            } else {
-              menuNodes.push(node);
-            }
-          } else {
-            // Parent node
-            if (nodeStack.length > 0) {
-              nodeStack[nodeStack.length - 1].children?.push(node);
-            } else {
-              menuNodes.push(node);
-            }
-            nodeStack.push(node);
-          }
-        } else if (line.includes('</node>') && nodeStack.length > 0) {
-          nodeStack.pop();
-        }
-      });
-    };
-
     const menuXml = menuResponse.result as string;
-
-    parseMenuXML(menuXml);
+    const menuNodes = parseEtaMenuXml(menuXml);
     this.cachedMenuNodes = menuNodes;
 
     // Get all URIs from the menu tree
@@ -1158,17 +1089,19 @@ export class BackgroundService {
     }
 
     // Clear all active timeouts
+    const activeTimeoutsCount = this.activeTimeouts.size;
     this.activeTimeouts.forEach(timeout => clearTimeout(timeout));
     this.activeTimeouts.clear();
-    console.log(`${this.getTimestamp()} Cleared ${this.activeTimeouts.size} active timeouts`);
+    console.log(`${this.getTimestamp()} Cleared ${activeTimeoutsCount} active timeouts`);
 
     // Cancel all active sleep promises
+    const activeSleepsCount = this.activeSleeps.size;
     this.activeSleeps.forEach(({ resolve, timeout }) => {
       clearTimeout(timeout);
       resolve(); // Resolve immediately to prevent hanging promises
     });
     this.activeSleeps.clear();
-    console.log(`${this.getTimestamp()} Cancelled ${this.activeSleeps.size} active sleep promises`);
+    console.log(`${this.getTimestamp()} Cancelled ${activeSleepsCount} active sleep promises`);
 
     // Dispose EtaApi instance
     if (this.etaApi) {
@@ -1197,6 +1130,7 @@ export class BackgroundService {
     // Clear caches to free memory
     this.cachedMenuNodes = null;
     this.cachedUris = null;
+    this.lastFullEtaScan = null;
     this.menuLoadedOnce = false;
     console.log(`${this.getTimestamp()} Cleared menu cache`);
 

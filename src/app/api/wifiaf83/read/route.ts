@@ -2,17 +2,19 @@ import { NextResponse } from 'next/server';
 import { WifiAf83Api } from '@/reader/functions/WifiAf83Api';
 import { getWifiAf83Data } from '@/utils/cache';
 import { WifiAF83Data } from '@/reader/functions/types-constants/WifiAf83';
+import { parseNum } from '@/utils/numberParser';
 
 export async function GET(request: Request) {
+  const wifiApi = new WifiAf83Api();
+
   try {
-    const wifiApi = new WifiAf83Api();
     const allData = await getWifiAf83Data((s) => wifiApi.getAllRealtime(s), request.signal);
 
     // Extract and validate temperature values
-    const outdoorTemp = allData.outdoor?.temperature?.value;
-    const indoorTemp = allData.indoor?.temperature?.value;
+    const outdoorTemp = parseNum(allData.outdoor?.temperature?.value);
+    const indoorTemp = parseNum(allData.indoor?.temperature?.value);
 
-    if (!outdoorTemp || !indoorTemp) {
+    if (outdoorTemp === null || indoorTemp === null) {
       throw new Error('Invalid temperature values');
     }
 
@@ -28,8 +30,8 @@ export async function GET(request: Request) {
         month: 'long',
         year: 'numeric',
       }),
-      temperature: parseFloat(outdoorTemp),
-      indoorTemperature: parseFloat(indoorTemp),
+      temperature: outdoorTemp,
+      indoorTemperature: indoorTemp,
       allData: null
     };
 
@@ -40,5 +42,7 @@ export async function GET(request: Request) {
       { success: false, error: 'Failed to fetch weather data' },
       { status: 500 }
     );
+  } finally {
+    wifiApi.dispose();
   }
 }

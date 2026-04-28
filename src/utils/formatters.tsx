@@ -28,7 +28,7 @@ export const formatValue = (data: ParsedXmlData): FormattedValue => {
   const timeRangeMatch = value.match(/^(\d{2}):(\d{2})\s*-\s*(\d{2}):(\d{2})$/);
   if (timeRangeMatch) {
     const [, hour1, min1, hour2, min2] = timeRangeMatch;
-    const formattedTime = `${parseInt(hour1)}:${min1} - ${parseInt(hour2)}:${min2}`;
+    const formattedTime = `${parseInt(hour1, 10)}:${min1} - ${parseInt(hour2, 10)}:${min2}`;
     return { 
       text: formattedTime,
       color: "text-gray-900" 

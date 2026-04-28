@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getConfig, updateConfig } from '@/utils/cache';
+import { requireWriteAccess } from '@/utils/apiAuth';
 
 export async function GET() {
   try {
@@ -18,8 +19,11 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const authError = requireWriteAccess(request);
+    if (authError) return authError;
+
     const newChannelNames = await request.json();
     
     // Get existing config using cache utility

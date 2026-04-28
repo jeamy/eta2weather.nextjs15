@@ -86,7 +86,7 @@ async function verifyTimestampCoverage(type: string, table: string, extension: s
         const result = database.prepare(`
             SELECT COUNT(*) as count FROM ${table}
             WHERE year = ? AND month = ? AND day = ? AND hour = ? AND minute = ?
-        `).get(parseInt(year), parseInt(month), parseInt(day), parseInt(hour), parseInt(minute)) as any;
+        `).get(parseInt(year, 10), parseInt(month, 10), parseInt(day, 10), parseInt(hour, 10), parseInt(minute, 10)) as any;
 
         if (result.count > 0) {
             matches++;

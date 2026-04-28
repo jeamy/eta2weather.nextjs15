@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 
 const DB_DIR = process.env.DATABASE_PATH ? path.dirname(process.env.DATABASE_PATH) : path.join(process.cwd(), 'db');
+const SCHEMA_VERSION = '2';
 
 export class DatabaseService {
     private static instance: DatabaseService;
@@ -21,7 +22,14 @@ export class DatabaseService {
     }
 
     private getDbPath(year: number): string {
+        if (!this.isValidYear(year)) {
+            throw new Error(`Invalid database year: ${year}`);
+        }
         return path.join(DB_DIR, `eta2weather_${year}.db`);
+    }
+
+    private isValidYear(year: number): boolean {
+        return Number.isInteger(year) && year >= 2000 && year <= 2100;
     }
 
     async initialize(): Promise<void> {
@@ -62,15 +70,16 @@ export class DatabaseService {
         this.currentDb.pragma('cache_size = -64000');
         this.currentDb.pragma('mmap_size = 268435456');
 
-        // Initialize schema if new DB
+        // Always initialize/migrate schema. Existing DBs may have been created by older versions.
+        this.initializeSchema();
         if (!dbExists) {
-            this.initializeSchema();
             console.log(`[${new Date().toISOString()}] Created new DB for year ${year}: ${dbPath}`);
         }
     }
 
     attachYear(year: number): void {
         if (!this.currentDb) throw new Error('Database not initialized');
+        if (!this.isValidYear(year)) throw new Error(`Invalid database year: ${year}`);
         if (this.attachedDbs.has(year)) return; // Already attached
 
         const dbPath = this.getDbPath(year);
@@ -80,13 +89,15 @@ export class DatabaseService {
         }
 
         const alias = `db_${year}`;
-        this.currentDb.exec(`ATTACH DATABASE '${dbPath}' AS ${alias}`);
+        const escapedDbPath = dbPath.replace(/'/g, "''");
+        this.currentDb.exec(`ATTACH DATABASE '${escapedDbPath}' AS ${alias}`);
         this.attachedDbs.set(year, alias);
         console.log(`[${new Date().toISOString()}] Attached DB for year ${year} as ${alias}`);
     }
 
     detachYear(year: number): void {
         if (!this.currentDb) return;
+        if (!this.isValidYear(year)) throw new Error(`Invalid database year: ${year}`);
         const alias = this.attachedDbs.get(year);
         if (!alias) return;
 
@@ -142,16 +153,17 @@ export class DatabaseService {
                 day INTEGER NOT NULL,
                 hour INTEGER NOT NULL,
                 minute INTEGER NOT NULL,
+                second INTEGER NOT NULL DEFAULT 0,
                 data TEXT NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(year, month, day, hour, minute)
+                UNIQUE(year, month, day, hour, minute, second)
             );
 
             CREATE TABLE IF NOT EXISTS temp_diff_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp TEXT NOT NULL UNIQUE,
                 diff REAL NOT NULL,
-                slider_position INTEGER,
+                slider_position REAL,
                 t_soll REAL,
                 t_delta REAL,
                 indoor_temp REAL,
@@ -173,6 +185,75 @@ export class DatabaseService {
                 value TEXT NOT NULL,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
+        `);
+        this.migrateConfigLogs();
+        this.migrateTempDiffLogs();
+        this.currentDb.prepare(`
+            INSERT OR REPLACE INTO migration_metadata (key, value, updated_at)
+            VALUES ('schema_version', ?, CURRENT_TIMESTAMP)
+        `).run(SCHEMA_VERSION);
+    }
+
+    private getTableColumns(table: string): Array<{ name: string; type: string }> {
+        if (!this.currentDb) throw new Error('Database not connected');
+        return this.currentDb.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string; type: string }>;
+    }
+
+    private migrateConfigLogs(): void {
+        if (!this.currentDb) throw new Error('Database not connected');
+        const columns = this.getTableColumns('config_logs');
+        if (!columns.length || columns.some(column => column.name === 'second')) {
+            return;
+        }
+
+        this.currentDb.exec(`
+            ALTER TABLE config_logs RENAME TO config_logs_old;
+            CREATE TABLE config_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                year INTEGER NOT NULL,
+                month INTEGER NOT NULL,
+                day INTEGER NOT NULL,
+                hour INTEGER NOT NULL,
+                minute INTEGER NOT NULL,
+                second INTEGER NOT NULL DEFAULT 0,
+                data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(year, month, day, hour, minute, second)
+            );
+            INSERT OR REPLACE INTO config_logs (id, timestamp, year, month, day, hour, minute, second, data, created_at)
+            SELECT id, timestamp, year, month, day, hour, minute,
+                   CAST(strftime('%S', timestamp) AS INTEGER),
+                   data, created_at
+            FROM config_logs_old;
+            DROP TABLE config_logs_old;
+        `);
+    }
+
+    private migrateTempDiffLogs(): void {
+        if (!this.currentDb) throw new Error('Database not connected');
+        const sliderColumn = this.getTableColumns('temp_diff_logs').find(column => column.name === 'slider_position');
+        if (!sliderColumn || sliderColumn.type.toUpperCase() === 'REAL') {
+            return;
+        }
+
+        this.currentDb.exec(`
+            ALTER TABLE temp_diff_logs RENAME TO temp_diff_logs_old;
+            CREATE TABLE temp_diff_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL UNIQUE,
+                diff REAL NOT NULL,
+                slider_position REAL,
+                t_soll REAL,
+                t_delta REAL,
+                indoor_temp REAL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            INSERT OR REPLACE INTO temp_diff_logs (id, timestamp, diff, slider_position, t_soll, t_delta, indoor_temp, created_at)
+            SELECT id, timestamp, diff, slider_position, t_soll, t_delta, indoor_temp, created_at
+            FROM temp_diff_logs_old;
+            DROP TABLE temp_diff_logs_old;
+            CREATE INDEX IF NOT EXISTS idx_temp_diff_timestamp ON temp_diff_logs(timestamp);
         `);
     }
 
@@ -204,9 +285,9 @@ export class DatabaseService {
         if (!this.currentDb) throw new Error('Database not initialized');
         
         this.currentDb.prepare(`INSERT OR REPLACE INTO config_logs 
-            (timestamp, year, month, day, hour, minute, data) VALUES (?, ?, ?, ?, ?, ?, ?)`
+            (timestamp, year, month, day, hour, minute, second, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
         ).run(now.toISOString(), now.getFullYear(), now.getMonth() + 1,
-              now.getDate(), now.getHours(), now.getMinutes(), JSON.stringify(data));
+              now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds(), JSON.stringify(data));
     }
 
     async insertTempDiffLog(data: { diff: number; sliderPosition?: number; t_soll?: number; t_delta?: number; indoor_temp?: number }): Promise<void> {
@@ -214,7 +295,7 @@ export class DatabaseService {
         await this.switchToYear(now.getFullYear());
         if (!this.currentDb) throw new Error('Database not initialized');
         
-        this.currentDb.prepare(`INSERT INTO temp_diff_logs 
+        this.currentDb.prepare(`INSERT OR REPLACE INTO temp_diff_logs 
             (timestamp, diff, slider_position, t_soll, t_delta, indoor_temp) VALUES (?, ?, ?, ?, ?, ?)`
         ).run(now.toISOString(), data.diff, data.sliderPosition, data.t_soll, data.t_delta, data.indoor_temp);
     }
@@ -224,7 +305,7 @@ export class DatabaseService {
         await this.switchToYear(now.getFullYear());
         if (!this.currentDb) throw new Error('Database not initialized');
         
-        this.currentDb.prepare(`INSERT INTO min_temp_status_logs (timestamp, diff, status) VALUES (?, ?, ?)`
+        this.currentDb.prepare(`INSERT OR REPLACE INTO min_temp_status_logs (timestamp, diff, status) VALUES (?, ?, ?)`
         ).run(now.toISOString(), data.diff, data.status);
     }
 
@@ -234,6 +315,7 @@ export class DatabaseService {
 
     getDbForYear(year: number): Database.Database {
         if (!this.currentDb) throw new Error('Database not initialized');
+        if (!this.isValidYear(year)) throw new Error(`Invalid database year: ${year}`);
         if (this.currentYear === year) return this.currentDb;
         
         // Attach if not already attached
@@ -250,7 +332,7 @@ export class DatabaseService {
         for (const file of files) {
             const match = file.match(/^eta2weather_(\d{4})\.db$/);
             if (match) {
-                years.push(parseInt(match[1]));
+                years.push(parseInt(match[1], 10));
             }
         }
         
@@ -260,6 +342,28 @@ export class DatabaseService {
     getDatabase(): Database.Database {
         if (!this.currentDb) throw new Error('Database not initialized');
         return this.currentDb;
+    }
+
+    async deleteOlderThan(cutoffIso: string): Promise<number> {
+        await this.initialize();
+        const years = this.getAllAvailableYears();
+        let deleted = 0;
+        const tables = ['ecowitt_logs', 'eta_logs', 'config_logs', 'temp_diff_logs', 'min_temp_status_logs'];
+
+        for (const year of years) {
+            try {
+                const yearDb = this.getDbForYear(year);
+                const alias = year === this.currentYear ? '' : `db_${year}.`;
+                for (const table of tables) {
+                    const result = yearDb.prepare(`DELETE FROM ${alias}${table} WHERE timestamp < ?`).run(cutoffIso);
+                    deleted += result.changes;
+                }
+            } catch (error) {
+                console.error(`Error deleting old rows for year ${year}:`, error);
+            }
+        }
+
+        return deleted;
     }
 
     async close(): Promise<void> {

@@ -40,21 +40,23 @@ class Cache<T> {
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Names2Id } from '@/reader/functions/types-constants/Names2IDconstants';
+import { Config, defaultConfig } from '@/reader/functions/types-constants/ConfigConstants';
 
 export const CONFIG_CACHE_KEY = 'eta_config';
 export const WIFIAF83_CACHE_KEY = 'wifiaf83_data';
 export const NAMES2ID_CACHE_KEY = 'names2id_config';
 
-const CONFIG_PATH = path.join(process.cwd(), 'src', 'config', 'f_etacfg.json');
+const CONFIG_PATH = path.resolve(process.cwd(), process.env.CONFIG_PATH || 'src/config/f_etacfg.json');
 const NAMES2ID_PATH = path.join(process.cwd(), 'src', 'config', 'f_names2id.json');
 const WIFIAF83_PATH = path.join(process.cwd(), 'src', 'config', 'f_wifiaf89.json');
+let configWriteChain: Promise<void> = Promise.resolve();
 
 // Create singleton cache instances with 3 seconds TTL
 export const configCache = new Cache<any>(1000*60);
 export const wifiaf83Cache = new Cache<any>(1000*60*5);
 export const names2idCache = new Cache<Names2Id>(1000*60*60);
 
-export async function getConfig() {
+export async function getConfig(): Promise<Config> {
     // Try to get config from cache first
     const cachedConfig = configCache.get(CONFIG_CACHE_KEY);
     if (cachedConfig) {
@@ -62,8 +64,18 @@ export async function getConfig() {
     }
 
     // If not in cache, read from file
-    const configData = await fs.readFile(CONFIG_PATH, 'utf8');
-    const config = JSON.parse(configData);
+    let config: Config;
+    try {
+        const configData = await fs.readFile(CONFIG_PATH, 'utf8');
+        config = JSON.parse(configData);
+    } catch (error: any) {
+        if (error?.code !== 'ENOENT') {
+            throw error;
+        }
+        config = defaultConfig;
+        await fs.mkdir(path.dirname(CONFIG_PATH), { recursive: true });
+        await fs.writeFile(CONFIG_PATH, JSON.stringify(defaultConfig, null, 2), 'utf8');
+    }
     
     // Store in cache
     configCache.set(CONFIG_CACHE_KEY, config);
@@ -71,25 +83,35 @@ export async function getConfig() {
 }
 
 export async function updateConfig(newConfig: any) {
-    // Get existing config
-    let existingConfig = {};
-    try {
-        const configData = await fs.readFile(CONFIG_PATH, { encoding: 'utf8', flag: 'r' });
-        existingConfig = JSON.parse(configData);
-    } catch (error) {
-        console.error('Error reading existing config:', error);
-    }
+    const writeTask = async () => {
+        // Get existing config
+        let existingConfig = {};
+        try {
+            const configData = await fs.readFile(CONFIG_PATH, { encoding: 'utf8', flag: 'r' });
+            existingConfig = JSON.parse(configData);
+        } catch (error: any) {
+            if (error?.code !== 'ENOENT') {
+                console.error('Error reading existing config:', error);
+            }
+        }
 
-    // Merge existing config with new config
-    const mergedConfig = { ...existingConfig, ...newConfig };
-    
-    // Write the merged config to file with proper UTF-8 encoding
-    const configStr = JSON.stringify(mergedConfig, null, 2);
-    const buffer = Buffer.from(configStr, 'utf8');
-    await fs.writeFile(CONFIG_PATH, buffer, { encoding: 'utf8', flag: 'w' });
-    
-    // Update cache with merged config
-    configCache.set(CONFIG_CACHE_KEY, mergedConfig);
+        // Merge existing config with new config
+        const mergedConfig = { ...existingConfig, ...newConfig };
+
+        // Write atomically so concurrent readers never observe a partially written JSON file.
+        const configStr = JSON.stringify(mergedConfig, null, 2);
+        const tmpPath = `${CONFIG_PATH}.${process.pid}.${Date.now()}.tmp`;
+        await fs.mkdir(path.dirname(CONFIG_PATH), { recursive: true });
+        await fs.writeFile(tmpPath, configStr, { encoding: 'utf8', flag: 'w' });
+        await fs.rename(tmpPath, CONFIG_PATH);
+
+        // Update cache with merged config
+        configCache.set(CONFIG_CACHE_KEY, mergedConfig);
+    };
+
+    const nextWrite = configWriteChain.then(writeTask, writeTask);
+    configWriteChain = nextWrite.catch(() => undefined);
+    await nextWrite;
 }
 
 async function updateWifiAf83File(data: any) {

@@ -2,37 +2,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { Config } from '../reader/functions/types-constants/ConfigConstants';
 import { EtaApi } from '../reader/functions/EtaApi';
-import { DOMParser } from '@xmldom/xmldom';
-
-interface MenuNode {
-    id: string;
-    name: string;
-    type: string;
-    children?: MenuNode[];
-}
-
-async function parseMenuXML(xmlString: string): Promise<MenuNode[]> {
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
-    
-    function parseNode(node: Element): MenuNode {
-        const menuNode: MenuNode = {
-            id: node.getAttribute('id') || '',
-            name: node.getAttribute('name') || '',
-            type: node.getAttribute('type') || ''
-        };
-
-        const childNodes = Array.from(node.getElementsByTagName('node'));
-        if (childNodes.length > 0) {
-            menuNode.children = childNodes.map(child => parseNode(child as Element));
-        }
-
-        return menuNode;
-    }
-
-    const rootNodes = Array.from(xmlDoc.getElementsByTagName('node'));
-    return rootNodes.map(node => parseNode(node as Element));
-}
+import { parseEtaMenuXml } from '../reader/functions/etaMenuParser';
+import { MenuNode } from '../types/menu';
 
 async function fetchMenu() {
     try {
@@ -55,7 +26,7 @@ async function fetchMenu() {
         }
 
         console.log('Parsing menu XML...');
-        const menuData = await parseMenuXML(menuResponse.result);
+        const menuData = parseEtaMenuXml(menuResponse.result);
         console.log(menuData);
 
         // Save to file

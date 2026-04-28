@@ -65,7 +65,7 @@ const ConfigData: React.FC = () => {
     // Client-side slider auto-update effect removed (server is source of truth)
 
     useEffect(() => {
-        const updateTimer = parseInt(config.data[ConfigKeys.T_UPDATE_TIMER]) || 60000;
+        const updateTimer = parseInt(config.data[ConfigKeys.T_UPDATE_TIMER], 10) || 60000;
         let interval: NodeJS.Timeout;
 
         const updateCountdown = () => {
@@ -111,7 +111,7 @@ const ConfigData: React.FC = () => {
         if (!ms) {
             return (DEFAULT_UPDATE_TIMER / 60000).toString();
         }
-        const minutes = parseInt(ms) / 60000;
+        const minutes = parseInt(ms, 10) / 60000;
         return isNaN(minutes) ? (DEFAULT_UPDATE_TIMER / 60000).toString() : minutes.toString();
     };
 
@@ -135,13 +135,13 @@ const ConfigData: React.FC = () => {
         // Check IP octets
         const octets = ip.split('.');
         for (const octet of octets) {
-            const num = parseInt(octet);
+            const num = parseInt(octet, 10);
             if (num < 0 || num > 255) return false;
         }
 
         // Validate port if present
         if (port !== undefined) {
-            const portNum = parseInt(port);
+            const portNum = parseInt(port, 10);
             if (isNaN(portNum) || portNum < 1 || portNum > 65535) return false;
         }
 
@@ -642,7 +642,7 @@ const ConfigData: React.FC = () => {
         const isEditingThis = isEditing === ConfigKeys.T_OVERRIDE;
         const configValue = config.data[ConfigKeys.T_OVERRIDE] || '';
         const rawValue = typeof configValue === 'string' ? configValue.replace('*', '') : '';
-        const value = rawValue ? parseInt(rawValue) / 60000 : 0;
+        const value = rawValue ? parseInt(rawValue, 10) / 60000 : 0;
 
         const handleEditStart = () => {
             setEditValue(String(value));
@@ -653,7 +653,7 @@ const ConfigData: React.FC = () => {
             if (!isEditing) return;
 
             try {
-                const minutes = parseInt(editValue);
+                const minutes = parseInt(editValue, 10);
                 const valueToSave = String(minutes * 60000);
                 const response = await fetch(API.CONFIG, {
                     method: 'POST',

@@ -9,6 +9,14 @@ export async function GET(
   const { path: pathSegments } = await params;
 
   try {
+    if (!Array.isArray(pathSegments) ||
+      pathSegments.some(segment => !segment || segment === '..' || segment.includes('/') || segment.includes('\\'))) {
+      return NextResponse.json(
+        { error: 'Invalid file path' },
+        { status: 403 }
+      );
+    }
+
     // Helper to get runtime root
     const getRuntimeRoot = () => process.cwd();
 
@@ -18,8 +26,8 @@ export async function GET(
 
     // Verify the path is within the logs directory
     const normalizedPath = path.normalize(filePath);
-    const logsDir = path.join(getRuntimeRoot(), 'public/log');
-    if (!normalizedPath.startsWith(logsDir)) {
+    const logsDir = path.resolve(getRuntimeRoot(), 'public/log');
+    if (normalizedPath !== logsDir && !normalizedPath.startsWith(`${logsDir}${path.sep}`)) {
       return NextResponse.json(
         { error: 'Invalid file path' },
         { status: 403 }

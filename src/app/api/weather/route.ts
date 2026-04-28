@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { DOMParser } from '@xmldom/xmldom';
 import { DatabaseHelpers, TimeRange } from '@/lib/database/dbHelpers';
+import { parseNum } from '@/utils/numberParser';
 
 // Simple in-memory cache per range to speed up repeated requests.
 // TTLs are conservative and per-range.
@@ -165,12 +166,18 @@ async function processXmlFiles(files: string[], range: string): Promise<any[]> {
         continue;
       }
 
+      const outdoorTemperature = parseNum(data?.outdoor?.temperature?.value);
+      const pressure = parseNum(data?.pressure?.relative?.value);
+      const outdoorHumidity = parseNum(data?.outdoor?.humidity?.value);
+      const indoorTemperature = parseNum(data?.indoor?.temperature?.value);
+      const indoorHumidity = parseNum(data?.indoor?.humidity?.value);
+
       // Validate required data exists before adding
-      if (!data?.outdoor?.temperature?.value ||
-        !data?.pressure?.relative?.value ||
-        !data?.outdoor?.humidity?.value ||
-        !data?.indoor?.temperature?.value ||
-        !data?.indoor?.humidity?.value) {
+      if (outdoorTemperature === null ||
+        pressure === null ||
+        outdoorHumidity === null ||
+        indoorTemperature === null ||
+        indoorHumidity === null) {
         console.error(`Missing required data fields in file: ${file}`);
         continue;
       }
@@ -191,12 +198,12 @@ async function processXmlFiles(files: string[], range: string): Promise<any[]> {
 
       weatherData.push({
         timestamp,
-        temperature: parseFloat(String(data.outdoor.temperature.value)),
-        pressure: parseFloat(String(data.pressure.relative.value)),
-        humidity: parseFloat(String(data.outdoor.humidity.value)),
+        temperature: outdoorTemperature,
+        pressure,
+        humidity: outdoorHumidity,
         indoor: {
-          temperature: parseFloat(String(data.indoor.temperature.value)),
-          humidity: parseFloat(String(data.indoor.humidity.value))
+          temperature: indoorTemperature,
+          humidity: indoorHumidity
         },
         channels,
       });

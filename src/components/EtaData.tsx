@@ -3,19 +3,13 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux';
-import { ConfigState } from '@/redux/configSlice';
 import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
 import { storeData as storeEtaData } from '@/redux/etaSlice';
-import { storeData as storeConfigData } from '@/redux/configSlice';
-import { EtaData as EtaDataType, EtaPos, EtaText, EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
-import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
-import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
+import { EtaPos, EtaText, EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
 import Image from 'next/image';
-import { EtaApi } from '@/reader/functions/EtaApi';
 import { API } from '@/constants/apiPaths';
 import { useToast } from '@/components/ToastProvider';
-import { parseNum } from '@/utils/numberParser';
 
 interface DisplayEtaValue {
   short: string;
@@ -28,18 +22,11 @@ type DisplayDataType = {
   [key: string]: DisplayEtaValue;
 };
 
-interface ApiResponse {
-  data: EtaDataType;
-  config?: ConfigState['data'];
-}
-
 const EtaData: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
   const config = useSelector((state: RootState) => state.config.data);
   const etaState = useSelector((state: RootState) => state.eta);
-  const wifiState = useSelector((state: RootState) => state.wifiAf83);
   const [loadingState, setLoadingState] = useState({ isLoading: false, error: '' });
-  const etaApiRef = useRef<EtaApi | null>(null);
   // Prevent overlapping update operations
   const updateBusyRef = useRef<boolean>(false);
 
@@ -48,6 +35,13 @@ const EtaData: React.FC = () => {
   const [overrideActive, setOverrideActive] = useState<boolean>(false);
   const [overrideRemainingMs, setOverrideRemainingMs] = useState<number>(0);
   const { showToast } = useToast();
+  const lastTempState = useRef<{
+    manualOverride: boolean;
+    manualOverrideTime: number | null;
+  }>({
+    manualOverride: false,
+    manualOverrideTime: null
+  });
 
   // Memoized map of button short codes to their URIs
   const buttonIds = useMemo<Record<string, string>>(() => {
@@ -61,24 +55,7 @@ const EtaData: React.FC = () => {
     return map;
   }, [etaState.data]);
 
-  useEffect(() => {
-    if (config?.s_eta) {
-      // Dispose alte Instance vor Erstellung einer neuen
-      if (etaApiRef.current && !etaApiRef.current.disposed) {
-        etaApiRef.current.dispose();
-      }
-      etaApiRef.current = new EtaApi(config.s_eta);
-    }
-    // Cleanup beim unmount
-    return () => {
-      if (etaApiRef.current && !etaApiRef.current.disposed) {
-        etaApiRef.current.dispose();
-        etaApiRef.current = null;
-      }
-    };
-  }, [config?.s_eta]);
-
-  // ETA data is now loaded centrally by EtaDataProvider
+  // ETA data is now loaded centrally by BackgroundSync
   // This component only reads from Redux store
 
   const updateLocalState = useCallback((uri: string, value: EtaPos) => {
@@ -112,132 +89,44 @@ const EtaData: React.FC = () => {
       if (currentActive === activeButton) {
         return;
       }
-      // Use memoized buttonIds
-
-      const activeId = buttonIds[activeButton];
-      const aaId = buttonIds[EtaButtons.AA];
-
-      // If a manual button is requested but missing, show user-friendly error and abort.
-      if (activeButton !== EtaButtons.AA && !activeId) {
+      if (!buttonIds[activeButton]) {
         console.warn(`Button ID not found for ${activeButton}`);
         setLoadingState(prev => ({ ...prev, error: `Button ID not found for ${activeButton}` }));
         return;
       }
 
-      // Turn off all buttons first
-      const allButtons = Object.entries(buttonIds);
-      for (const [name, uri] of allButtons) {
-        if (name !== EtaButtons.AA && etaState.data[uri]?.value === EtaPos.EIN) {
-          // console.log(`Turning OFF button: ${name}`);
-          const response = await fetch(API.ETA_UPDATE, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              id: uri,
-              value: EtaPos.AUS,
-              begin: "0",
-              end: "0"
-            })
-          });
+      const activeFlags = Object.fromEntries(
+        Object.entries(buttonIds).map(([button, uri]) => [button, etaState.data[uri]?.value === EtaPos.EIN])
+      );
 
-          if (!response.ok) {
-            let errorMessage = response.statusText;
-            try {
-              const errorData = await response.json();
-              if (errorData.error) errorMessage = errorData.error;
-            } catch { /* ignore */ }
-            throw new Error(`Failed to turn off button ${name}: ${errorMessage}`);
-          }
+      const response = await fetch(API.ETA_HEATING_MODE, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          targetButton: activeButton,
+          activeFlags,
+          isManual
+        })
+      });
 
-          updateLocalState(uri, EtaPos.AUS);
+      if (!response.ok) {
+        let errorMessage = response.statusText;
+        try {
+          const errorData = await response.json();
+          if (errorData.error) errorMessage = errorData.error;
+        } catch { /* ignore */ }
+        throw new Error(`Failed to update heating mode ${activeButton}: ${errorMessage}`);
+      }
+
+      for (const [button, uri] of Object.entries(buttonIds)) {
+        if (Object.values(EtaButtons).includes(button as EtaButtons)) {
+          updateLocalState(uri, button === activeButton ? EtaPos.EIN : EtaPos.AUS);
         }
       }
 
-      // Turn on the active button (or handle AA gracefully if missing)
-      if (activeButton === EtaButtons.AA) {
-        if (aaId) {
-          const resp = await fetch(API.ETA_UPDATE, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              id: aaId,
-              value: EtaPos.EIN,
-              begin: "0",
-              end: "0"
-            })
-          });
-          if (!resp.ok) {
-            let errorMessage = resp.statusText;
-            try {
-              const errorData = await resp.json();
-              if (errorData.error) errorMessage = errorData.error;
-            } catch { /* ignore */ }
-            throw new Error(`Failed to turn on button ${EtaButtons.AA}: ${errorMessage}`);
-          }
-
-          updateLocalState(aaId, EtaPos.EIN);
-        } else {
-          console.warn('AA button ID not found; turned off manual buttons only.');
-        }
-      } else {
-        // Manual button case
-        const respOn = await fetch(API.ETA_UPDATE, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            id: activeId,
-            value: EtaPos.EIN,
-            begin: "0",
-            end: "0"
-          })
-        });
-        if (!respOn.ok) {
-          let errorMessage = respOn.statusText;
-          try {
-            const errorData = await respOn.json();
-            if (errorData.error) errorMessage = errorData.error;
-          } catch { /* ignore json parse error */ }
-          throw new Error(`Failed to turn on button ${activeButton}: ${errorMessage}`);
-        }
-
-        if (activeId) {
-          updateLocalState(activeId, EtaPos.EIN);
-        }
-
-        // Ensure AA is off if we turned on a manual button and AA exists
-        if (aaId) {
-          const respOffAA = await fetch(API.ETA_UPDATE, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              id: aaId,
-              value: EtaPos.AUS,
-              begin: "0",
-              end: "0"
-            })
-          });
-          if (!respOffAA.ok) {
-            let errorMessage = respOffAA.statusText;
-            try {
-              const errorData = await respOffAA.json();
-              if (errorData.error) errorMessage = errorData.error;
-            } catch { /* ignore */ }
-            throw new Error(`Failed to turn off button ${EtaButtons.AA}: ${errorMessage}`);
-          }
-
-          updateLocalState(aaId, EtaPos.AUS);
-        }
-      }
-
-      // Data will be refreshed automatically by EtaDataProvider
+      // Data will be refreshed automatically by BackgroundSync
     } catch (error) {
       console.error('Error updating button states:', error);
       setLoadingState(prev => ({ ...prev, error: (error as Error).message }));
@@ -298,7 +187,7 @@ const EtaData: React.FC = () => {
     if (clickedButton !== EtaButtons.AA) {
       lastTempState.current.manualOverride = true;
       lastTempState.current.manualOverrideTime = Date.now();
-      const overrideMs = parseInt(config.t_override) || 60 * 60 * 1000;
+      const overrideMs = parseInt(config.t_override, 10) || 60 * 60 * 1000;
       const overrideMinutes = Math.round(overrideMs / 60000);
       console.log(`Manual override activated for ${overrideMinutes} minutes`);
       // Immediate UI feedback
@@ -328,7 +217,7 @@ const EtaData: React.FC = () => {
   // Countdown for manual override; updates every second
   useEffect(() => {
     const interval = setInterval(() => {
-      const timeoutMs = parseInt(config.t_override) || 60 * 60 * 1000;
+      const timeoutMs = parseInt(config.t_override, 10) || 60 * 60 * 1000;
       if (lastTempState.current.manualOverride && lastTempState.current.manualOverrideTime) {
         const elapsed = Date.now() - lastTempState.current.manualOverrideTime;
         const remaining = Math.max(0, timeoutMs - elapsed);
@@ -357,63 +246,8 @@ const EtaData: React.FC = () => {
   }, [updateButtonStates]);
 
   useEffect(() => {
-    const checkTemperature = async () => {
-      if (!wifiState.data?.indoorTemperature || !config.t_min) return;
-
-      // Skip temperature check if there's a manual override
-      if (lastTempState.current.manualOverride) return;
-
-      const indoorTemp = wifiState.data.indoorTemperature;
-      const minTemp = Number(config.t_min);
-
-      if (isNaN(indoorTemp) || isNaN(minTemp)) return;
-
-      const isBelow = indoorTemp < minTemp;
-      const now = Date.now();
-
-      // Prevent rapid updates by enforcing a minimum time between updates (configurable)
-      const minGapMs = (() => {
-        const v = Number((config as any)?.t_temp_check_min_ms);
-        return Number.isFinite(v) && v > 0 ? v : 5000;
-      })();
-      if (now - lastTempState.current.lastUpdate < minGapMs) return;
-
-      // Prevent concurrent updates
-      if (lastTempState.current.isUpdating) return;
-
-      try {
-        // Only act when temperature state changes
-        if (lastTempState.current.wasBelow !== null &&
-          lastTempState.current.wasBelow !== isBelow) {
-
-          lastTempState.current.isUpdating = true;
-
-          if (isBelow) {
-            // Temperature dropped below minimum - activate Kommen
-            console.log(`Temperature dropped below minimum: indoor=${indoorTemp}°C, min=${minTemp}°C -> activating Kommen`);
-            await updateButtonStates(EtaButtons.KT, false);
-          } else {
-            // Temperature rose above or equals minimum - activate Auto
-            console.log(`Temperature rose above minimum: indoor=${indoorTemp}°C, min=${minTemp}°C -> activating Auto`);
-            await updateButtonStates(EtaButtons.AA, false);
-          }
-        }
-      } finally {
-        lastTempState.current.isUpdating = false;
-      }
-
-      // Always update the state tracking
-      lastTempState.current.wasBelow = isBelow;
-      lastTempState.current.lastUpdate = now;
-    };
-
-    // Run temperature check
-    checkTemperature();
-  }, [wifiState.data?.indoorTemperature, config, config.t_min, updateButtonStates]);
-
-  useEffect(() => {
     // t_override is stored in milliseconds (ms); default to 60 minutes if not set
-    const overrideTimeoutMs = parseInt(config.t_override) || 60 * 60 * 1000;
+    const overrideTimeoutMs = parseInt(config.t_override, 10) || 60 * 60 * 1000;
     const overrideTimeoutMinutes = Math.round(overrideTimeoutMs / 60000);
 
     if (lastTempState.current.manualOverride && lastTempState.current.manualOverrideTime) {
@@ -426,21 +260,7 @@ const EtaData: React.FC = () => {
     }
   }, [config.t_override]); // Re-run when override timeout changes
 
-  // Periodic refresh is now handled by EtaDataProvider - no need for interval here
-
-  const lastTempState = useRef<{
-    wasBelow: boolean | null;
-    lastUpdate: number;
-    isUpdating: boolean;
-    manualOverride: boolean;
-    manualOverrideTime: number | null;
-  }>({
-    wasBelow: null,
-    lastUpdate: 0,
-    isUpdating: false,
-    manualOverride: false,
-    manualOverrideTime: null
-  });
+  // Periodic refresh is now handled by BackgroundSync - no need for interval here
 
   if (loadingState.isLoading) {
     return (

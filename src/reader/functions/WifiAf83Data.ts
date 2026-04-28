@@ -2,6 +2,7 @@
 
 import { WifiAf83Api } from './WifiAf83Api';
 import { WifiAF83Data } from './types-constants/WifiAf83';
+import { parseNum } from '@/utils/numberParser';
 
 interface Temperature {
     time: string;
@@ -92,8 +93,8 @@ export const fetchWifiAf83Data = async (): Promise<WifiAF83Data> => {
 
 //        console.log('Raw temperature values:', { outdoorTemp, indoorTemp });
 
-        const temperature = outdoorTemp ? parseFloat(outdoorTemp) : null;
-        const indoorTemperature = indoorTemp ? parseFloat(indoorTemp) : null;
+        const temperature = parseNum(outdoorTemp);
+        const indoorTemperature = parseNum(indoorTemp);
 
         if (temperature === null || indoorTemperature === null) {
             console.error('Missing temperature values:', {
@@ -114,8 +115,8 @@ export const fetchWifiAf83Data = async (): Promise<WifiAF83Data> => {
         const result: WifiAF83Data = {
             time: Date.parse(data.time),
             datestring: data.datestring,
-            temperature: temperature || 0,
-            indoorTemperature: indoorTemperature || 0,
+            temperature,
+            indoorTemperature,
             allData: null
         };
 
@@ -124,5 +125,7 @@ export const fetchWifiAf83Data = async (): Promise<WifiAF83Data> => {
     } catch (error) {
         console.error('Error fetching WifiAf83 data:', error);
         throw error;
+    } finally {
+        wifiApi.dispose();
     }
 };

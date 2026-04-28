@@ -1,18 +1,12 @@
 import { NextResponse } from 'next/server';
-import { fetchEtaData } from '@/reader/functions/EtaData';
-import { getConfig, getNames2Id } from '@/utils/cache';
 import { EtaButtons, EtaPos } from '@/reader/functions/types-constants/EtaConstants';
+import { getServerStore } from '@/lib/backgroundService';
 
 export async function GET() {
   try {
-    // Get both configs (cached or fresh)
-    const [config, names2id] = await Promise.all([
-      getConfig(),
-      getNames2Id()
-    ]);
-
-    // Fetch ETA data
-    const etaData = await fetchEtaData(config, names2id);
+    const store = getServerStore();
+    const state = store.getState();
+    const etaData = { ...state.eta.data };
 
     // CRITICAL: Enforce button invariants at API level
     // Find currently active button (manual buttons have priority over AA)
@@ -62,7 +56,7 @@ export async function GET() {
       }
     });
 
-    return NextResponse.json({ success: true, data: etaData });
+    return NextResponse.json({ success: true, data: etaData, config: state.config.data });
   } catch (error) {
     console.error('Error reading ETA data:', error);
     return NextResponse.json(

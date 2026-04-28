@@ -2,57 +2,31 @@ import { NextResponse } from 'next/server';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { getConfig } from '@/utils/cache';
 import { MenuNode } from '@/types/menu';
-import { isValidEndpointUri } from '@/utils/etaUtils';
+import { getAllUris } from '@/utils/etaUtils';
+import { parseEtaMenuXml } from '@/reader/functions/etaMenuParser';
 
-async function getMenuItems(): Promise<MenuNode[]> {
-  const response = await fetch('http://localhost:3000/api/eta/menu');
-  const result = await response.json();
-  if (result.success && Array.isArray(result.data)) {
-    return result.data;
+async function getMenuItems(etaApi: EtaApi): Promise<MenuNode[]> {
+  const response = await etaApi.getMenu();
+  if (response.error || !response.result) {
+    throw new Error(response.error || 'Failed to fetch menu items');
   }
-  throw new Error('Failed to fetch menu items');
+  return parseEtaMenuXml(response.result);
 }
 
 export async function GET() {
+  let etaApi: EtaApi | null = null;
   try {
     const config = await getConfig();
-    const etaApi = new EtaApi(config.s_eta);
-    const menuItems = await getMenuItems();
+    etaApi = new EtaApi(config.s_eta);
+    const menuItems = await getMenuItems(etaApi);
     
     // Collect all URIs from menu items
     const rawData: Record<string, any> = {};
     
-    for (const category of menuItems) {
-      if (category.children) {
-        for (const item of category.children) {
-          if (item.uri) {
-            // Only fetch data for valid endpoint URIs
-            if (isValidEndpointUri(item.uri)) {
-              const response = await etaApi.getUserVar(item.uri);
-              if (response.result) {
-                rawData[item.uri] = response.result;
-              }
-            } else {
-              console.log(`Skipping category URI: ${item.uri}`);
-            }
-          }
-          
-          if (item.children) {
-            for (const subItem of item.children) {
-              if (subItem.uri) {
-                // Only fetch data for valid endpoint URIs
-                if (isValidEndpointUri(subItem.uri)) {
-                  const response = await etaApi.getUserVar(subItem.uri);
-                  if (response.result) {
-                    rawData[subItem.uri] = response.result;
-                  }
-                } else {
-                  console.log(`Skipping category URI: ${subItem.uri}`);
-                }
-              }
-            }
-          }
-        }
+    for (const uri of getAllUris(menuItems)) {
+      const response = await etaApi.getUserVar(uri);
+      if (response.result) {
+        rawData[uri] = response.result;
       }
     }
     
@@ -69,5 +43,7 @@ export async function GET() {
       { success: false, error: 'Failed to fetch ETA data' },
       { status: 500 }
     );
+  } finally {
+    etaApi?.dispose();
   }
 }

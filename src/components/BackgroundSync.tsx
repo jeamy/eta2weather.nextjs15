@@ -76,7 +76,7 @@ const BackgroundSync: React.FC = () => {
 
       // Calculate update interval from config, ensuring it's not less than MIN_API_INTERVAL
       const updateTimer = Math.max(
-        parseInt(config.data[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER,
+        parseInt(config.data[ConfigKeys.T_UPDATE_TIMER], 10) || DEFAULT_UPDATE_TIMER,
         MIN_API_INTERVAL
       );
 
@@ -103,7 +103,7 @@ const BackgroundSync: React.FC = () => {
 
   // Handle timer updates - only when timer value actually changes
   const updateTimerValue = Math.max(
-    parseInt(config.data[ConfigKeys.T_UPDATE_TIMER]) || DEFAULT_UPDATE_TIMER,
+    parseInt(config.data[ConfigKeys.T_UPDATE_TIMER], 10) || DEFAULT_UPDATE_TIMER,
     MIN_API_INTERVAL
   );
   const lastTimerRef = useRef(updateTimerValue);

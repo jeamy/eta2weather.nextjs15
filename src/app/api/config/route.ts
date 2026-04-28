@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConfig, updateConfig } from '@/utils/cache';
+import { validateConfigPatch } from '@/utils/configValidation';
+import { requireWriteAccess } from '@/utils/apiAuth';
 
 export async function GET() {
   try {
@@ -16,7 +18,18 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const authError = requireWriteAccess(request);
+    if (authError) return authError;
+
     const { key, value } = await request.json();
+    const validation = validateConfigPatch(key, value);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        { success: false, error: validation.error, message: validation.error },
+        { status: 400 }
+      );
+    }
     
     // Get existing config
     const existingConfig = await getConfig();
@@ -24,7 +37,7 @@ export async function POST(request: NextRequest) {
     // Update the specific key in the config
     const updatedConfig = {
       ...existingConfig,
-      [key]: value
+      [validation.key]: validation.value
     };
     
     // Update the config using cache utility
