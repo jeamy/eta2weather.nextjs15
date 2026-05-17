@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const existingConfig = await getConfig();
+    const existingConfig = await getConfig(true);
     
     const configPatch = {
       [validation.key]: validation.value
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     await service.triggerImmediateRecompute(existingConfig);
 
     // Return the config that is now in the store (may have updated slider/diff)
-    const computedConfig = await getConfig();
+    const computedConfig = await getConfig(true);
 
     return NextResponse.json({ 
       success: true, 

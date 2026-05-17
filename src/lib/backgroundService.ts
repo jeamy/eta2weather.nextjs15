@@ -106,9 +106,9 @@ export class BackgroundService {
     });
   }
 
-  private async loadConfig(): Promise<Config> {
+  private async loadConfig(forceRefresh = false): Promise<Config> {
     try {
-      const configData = await getConfig();
+      const configData = await getConfig(forceRefresh);
       console.log(`${this.getTimestamp()} Config loaded successfully`);
       store.dispatch(storeConfigData(configData));
       return configData;
@@ -176,9 +176,22 @@ export class BackgroundService {
     this.configChangeTimeout = setTimeout(async () => {
       try {
         console.log(`${this.getTimestamp()} Config file changed, reloading...`);
-        const newConfig = await this.loadConfig();
+        const newConfig = await this.loadConfig(true);
         const oldUpdateTimer = parseInt(this.config[ConfigKeys.T_UPDATE_TIMER], 10) || DEFAULT_UPDATE_TIMER;
         const newUpdateTimer = parseInt(newConfig[ConfigKeys.T_UPDATE_TIMER], 10) || DEFAULT_UPDATE_TIMER;
+        const oldRelevantConfig = {
+          ...this.config,
+          [ConfigKeys.DIFF]: undefined,
+          [ConfigKeys.T_SLIDER]: undefined,
+          [ConfigKeys.T_SLIDER_BASE]: undefined,
+        };
+        const newRelevantConfig = {
+          ...newConfig,
+          [ConfigKeys.DIFF]: undefined,
+          [ConfigKeys.T_SLIDER]: undefined,
+          [ConfigKeys.T_SLIDER_BASE]: undefined,
+        };
+        const onlyComputedValuesChanged = JSON.stringify(oldRelevantConfig) === JSON.stringify(newRelevantConfig);
 
         console.log(`${this.getTimestamp()} Logging CONFIG data...`);
         await logData('config', newConfig);
@@ -220,6 +233,10 @@ export class BackgroundService {
         if (oldUpdateTimer !== newUpdateTimer && this.isRunning) {
           console.log(`${this.getTimestamp()} Update timer changed, restarting interval...`);
           this.restartUpdateInterval();
+        }
+
+        if (onlyComputedValuesChanged) {
+          return;
         }
 
         // Immediately recompute diff/slider with current WiFi data to keep UI in sync after config edits
@@ -941,7 +958,7 @@ export class BackgroundService {
    */
   async triggerImmediateRecompute(previousConfig?: Config): Promise<void> {
     try {
-      const freshConfig = await getConfig();
+      const freshConfig = await getConfig(true);
       const oldConfig = previousConfig ?? this.config;
       const oldUpdateTimer = parseInt(oldConfig[ConfigKeys.T_UPDATE_TIMER], 10) || DEFAULT_UPDATE_TIMER;
       const newUpdateTimer = parseInt(freshConfig[ConfigKeys.T_UPDATE_TIMER], 10) || DEFAULT_UPDATE_TIMER;
@@ -976,7 +993,7 @@ export class BackgroundService {
         await this.updateIndoorTemperatureDiff(wifiData);
       }
 
-      const finalConfig = await getConfig();
+      const finalConfig = await getConfig(true);
       this.config = finalConfig;
       store.dispatch(storeConfigData(finalConfig));
       this.lastConfigContent = JSON.stringify(finalConfig, null, 2);

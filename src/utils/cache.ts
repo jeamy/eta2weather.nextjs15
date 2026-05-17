@@ -56,11 +56,13 @@ export const configCache = new Cache<any>(1000*60);
 export const wifiaf83Cache = new Cache<any>(1000*60*5);
 export const names2idCache = new Cache<Names2Id>(1000*60*60);
 
-export async function getConfig(): Promise<Config> {
-    // Try to get config from cache first
-    const cachedConfig = configCache.get(CONFIG_CACHE_KEY);
-    if (cachedConfig) {
-        return cachedConfig;
+export async function getConfig(forceRefresh = false): Promise<Config> {
+    if (!forceRefresh) {
+        // Try to get config from cache first
+        const cachedConfig = configCache.get(CONFIG_CACHE_KEY);
+        if (cachedConfig) {
+            return cachedConfig;
+        }
     }
 
     // If not in cache, read from file
