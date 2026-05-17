@@ -975,6 +975,15 @@ export class BackgroundService {
       if (wifiData && (wifiData as any).time) {
         await this.updateIndoorTemperatureDiff(wifiData);
       }
+
+      const finalConfig = await getConfig();
+      this.config = finalConfig;
+      store.dispatch(storeConfigData(finalConfig));
+      this.lastConfigContent = JSON.stringify(finalConfig, null, 2);
+      if (this.configChangeTimeout) {
+        clearTimeout(this.configChangeTimeout);
+        this.configChangeTimeout = null;
+      }
     } catch (e) {
       console.warn(`${this.getTimestamp()} triggerImmediateRecompute failed:`, e);
     }
