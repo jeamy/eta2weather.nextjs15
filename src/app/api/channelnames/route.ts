@@ -26,12 +26,9 @@ export async function POST(request: NextRequest) {
 
     const newChannelNames = await request.json();
     
-    // Get existing config using cache utility
     const config = await getConfig();
     
-    // Update channel names in config
-    const updatedConfig = {
-      ...config,
+    const configPatch = {
       channelNames: {
         ...(config.channelNames || {}),
         ...newChannelNames
@@ -39,7 +36,7 @@ export async function POST(request: NextRequest) {
     };
     
     // Update config using cache utility
-    await updateConfig(updatedConfig);
+    await updateConfig(configPatch);
     
     const response = NextResponse.json({ success: true });
     response.headers.set('Content-Type', 'application/json; charset=utf-8');

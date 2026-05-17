@@ -32,17 +32,14 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Get existing config
     const existingConfig = await getConfig();
     
-    // Update the specific key in the config
-    const updatedConfig = {
-      ...existingConfig,
+    const configPatch = {
       [validation.key]: validation.value
     };
     
     // Update the config using cache utility
-    await updateConfig(updatedConfig);
+    await updateConfig(configPatch);
 
     // Immediately recompute diff/slider so the response contains up-to-date values
     const service = BackgroundService.getInstance();

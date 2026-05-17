@@ -706,15 +706,20 @@ export class BackgroundService {
 
         if (configChanged) {
           console.log(`${this.getTimestamp()} Updating temperature diff/slider config...`);
+          const latestConfigData = store.getState().config.data;
           const updatedConfigData = {
-            ...currentConfigData,
+            ...latestConfigData,
             [ConfigKeys.DIFF]: newDiffValue,
             [ConfigKeys.T_SLIDER]: sliderPositions.final,
             [ConfigKeys.T_SLIDER_BASE]: sliderPositions.base
           } as Config;
           store.dispatch(storeConfigData(updatedConfigData));
           try {
-            await updateConfig(updatedConfigData);
+            await updateConfig({
+              [ConfigKeys.DIFF]: newDiffValue,
+              [ConfigKeys.T_SLIDER]: sliderPositions.final,
+              [ConfigKeys.T_SLIDER_BASE]: sliderPositions.base
+            });
           } catch (e) {
             console.warn(`${this.getTimestamp()} Failed to persist updated config:`, e);
           }
@@ -955,6 +960,10 @@ export class BackgroundService {
         this.cachedMenuNodes = null;
         this.cachedUris = null;
         this.lastFullEtaScan = null;
+      }
+
+      if (!this.etaApi || this.etaApi.disposed) {
+        this.etaApi = new EtaApi(freshConfig[ConfigKeys.S_ETA]);
       }
 
       if (oldUpdateTimer !== newUpdateTimer && this.isRunning) {
