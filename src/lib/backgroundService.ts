@@ -927,6 +927,50 @@ export class BackgroundService {
     }
   }
 
+  /**
+   * Immediately recomputes the temperature diff and slider position using
+   * the current WiFi data in the store. Called by the config API route after
+   * any config change so the frontend gets up-to-date slider/diff values
+   * without waiting for the next background interval.
+   * Returns the config state after recompute.
+   */
+  async triggerImmediateRecompute(previousConfig?: Config): Promise<void> {
+    try {
+      const freshConfig = await getConfig();
+      const oldConfig = previousConfig ?? this.config;
+      const oldUpdateTimer = parseInt(oldConfig[ConfigKeys.T_UPDATE_TIMER], 10) || DEFAULT_UPDATE_TIMER;
+      const newUpdateTimer = parseInt(freshConfig[ConfigKeys.T_UPDATE_TIMER], 10) || DEFAULT_UPDATE_TIMER;
+      const oldEtaEndpoint = oldConfig[ConfigKeys.S_ETA];
+      const newEtaEndpoint = freshConfig[ConfigKeys.S_ETA];
+
+      this.config = freshConfig;
+      store.dispatch(storeConfigData(freshConfig));
+
+      if (oldEtaEndpoint !== newEtaEndpoint) {
+        if (this.etaApi && !this.etaApi.disposed) {
+          this.etaApi.dispose();
+        }
+        this.etaApi = new EtaApi(newEtaEndpoint);
+        this.menuLoadedOnce = false;
+        this.cachedMenuNodes = null;
+        this.cachedUris = null;
+        this.lastFullEtaScan = null;
+      }
+
+      if (oldUpdateTimer !== newUpdateTimer && this.isRunning) {
+        this.restartUpdateInterval();
+      }
+
+      const state = store.getState() as RootState;
+      const wifiData = state.wifiAf83.data as WifiAF83Data;
+      if (wifiData && (wifiData as any).time) {
+        await this.updateIndoorTemperatureDiff(wifiData);
+      }
+    } catch (e) {
+      console.warn(`${this.getTimestamp()} triggerImmediateRecompute failed:`, e);
+    }
+  }
+
   async start() {
     if (this.isRunning) {
       console.log(`${this.getTimestamp()} Background service is already running`);

@@ -5,12 +5,8 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../redux';
 import { useAppDispatch } from '../redux/hooks';
 import { AppDispatch } from '@/redux/index';
-import { storeData, storeError, setIsLoading as setIsConfigLoading } from '@/redux/configSlice';
-import type { ConfigState } from '@/redux/configSlice';
-import { EtaConstants, defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
-import { calculateTemperatureDiff, calculateNewSliderPosition } from '@/utils/Functions';
 import { ConfigKeys, TEMP_CALC_CONSTANTS } from '@/reader/functions/types-constants/ConfigConstants';
-import type { Config } from '@/reader/functions/types-constants/ConfigConstants';
+import { storeData, storeError } from '@/redux/configSlice';
 import { DEFAULT_UPDATE_TIMER } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
 import { API } from '@/constants/apiPaths';
@@ -19,15 +15,12 @@ const ConfigData: React.FC = () => {
     const dispatch: AppDispatch = useAppDispatch();
     const config = useSelector((state: RootState) => state.config);
     const etaState = useSelector((state: RootState) => state.eta);
-    const wifiState = useSelector((state: RootState) => state.wifiAf83);
     const [isEditing, setIsEditing] = useState<ConfigKeys | null>(null);
     const [editValue, setEditValue] = useState('');
     const sliderValue = config.data[ConfigKeys.T_SLIDER];
     // Removed client-side slider updates; handled by server-side BackgroundService
     const [nextUpdate, setNextUpdate] = useState<number>(0);
     const lastUpdateTime = useRef<number>(Date.now());
-    // Track timeouts for cleanup
-    const pendingTimeouts = useRef<Set<NodeJS.Timeout>>(new Set());
 
     useEffect(() => {
         const loadConfigData = async () => {
@@ -85,9 +78,6 @@ const ConfigData: React.FC = () => {
 
         return () => {
             clearInterval(interval);
-            // Cleanup all pending timeouts on unmount
-            pendingTimeouts.current.forEach(clearTimeout);
-            pendingTimeouts.current.clear();
         };
     }, [config.data]);
 
@@ -193,28 +183,9 @@ const ConfigData: React.FC = () => {
 
                 const result = await response.json();
                 if (result.success && result.config) {
+                    // POST response already contains the recomputed config (incl. slider/diff)
                     dispatch(storeData(result.config));
                     setIsEditing(null);
-                    // Refresh config shortly after server-side recompute (file watcher debounce)
-                    const timeout = setTimeout(async () => {
-                        pendingTimeouts.current.delete(timeout);
-                        try {
-                            // Poll background status to get the latest computed config (including slider position)
-                            const r = await fetch(API.BACKGROUND_STATUS);
-                            const j = await r.json();
-                            if (j?.success && j?.data?.config) {
-                                dispatch(storeData(j.data.config));
-                            } else {
-                                // Fallback to reading config directly if background status fails
-                                const r2 = await fetch(API.CONFIG_READ);
-                                const j2 = await r2.json();
-                                if (j2?.success && j2?.data) {
-                                    dispatch(storeData(j2.data));
-                                }
-                            }
-                        } catch { /* ignore */ }
-                    }, 3000);
-                    pendingTimeouts.current.add(timeout);
                 } else {
                     throw new Error('Invalid response format');
                 }
@@ -452,28 +423,9 @@ const ConfigData: React.FC = () => {
 
                 const result = await response.json();
                 if (result.success && result.config) {
+                    // POST response already contains the recomputed config (incl. slider/diff)
                     dispatch(storeData(result.config));
                     setIsEditing(null);
-                    // Refresh config shortly after server-side recompute
-                    const timeout = setTimeout(async () => {
-                        pendingTimeouts.current.delete(timeout);
-                        try {
-                            // Poll background status to get the latest computed config (including slider position)
-                            const r = await fetch(API.BACKGROUND_STATUS);
-                            const j = await r.json();
-                            if (j?.success && j?.data?.config) {
-                                dispatch(storeData(j.data.config));
-                            } else {
-                                // Fallback to reading config directly if background status fails
-                                const r2 = await fetch(API.CONFIG_READ);
-                                const j2 = await r2.json();
-                                if (j2?.success && j2?.data) {
-                                    dispatch(storeData(j2.data));
-                                }
-                            }
-                        } catch { /* ignore */ }
-                    }, 2300);
-                    pendingTimeouts.current.add(timeout);
                 } else {
                     throw new Error('Invalid response format');
                 }
@@ -673,20 +625,9 @@ const ConfigData: React.FC = () => {
 
                 const result = await response.json();
                 if (result.success && result.config) {
+                    // POST response already contains the recomputed config (incl. slider/diff)
                     dispatch(storeData(result.config));
                     setIsEditing(null);
-                    // Pull server-recomputed config (diff/t_slider) shortly after file watcher debounce
-                    const timeout = setTimeout(async () => {
-                        pendingTimeouts.current.delete(timeout);
-                        try {
-                            const r = await fetch(API.BACKGROUND_STATUS);
-                            const j = await r.json();
-                            if (j?.success && j?.data?.config) {
-                                dispatch(storeData(j.data.config));
-                            }
-                        } catch { /* ignore */ }
-                    }, 2300);
-                    pendingTimeouts.current.add(timeout);
                 } else {
                     throw new Error('Invalid response format');
                 }

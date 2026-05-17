@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getConfig, updateConfig } from '@/utils/cache';
 import { validateConfigPatch } from '@/utils/configValidation';
 import { requireWriteAccess } from '@/utils/apiAuth';
+import { BackgroundService } from '@/lib/backgroundService';
 
 export async function GET() {
   try {
@@ -42,10 +43,17 @@ export async function POST(request: NextRequest) {
     
     // Update the config using cache utility
     await updateConfig(updatedConfig);
-    
+
+    // Immediately recompute diff/slider so the response contains up-to-date values
+    const service = BackgroundService.getInstance();
+    await service.triggerImmediateRecompute(existingConfig);
+
+    // Return the config that is now in the store (may have updated slider/diff)
+    const computedConfig = await getConfig();
+
     return NextResponse.json({ 
       success: true, 
-      config: updatedConfig 
+      config: computedConfig
     });
   } catch (error) {
     console.error('Error updating config:', error);
