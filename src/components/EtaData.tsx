@@ -84,7 +84,7 @@ const EtaData: React.FC = () => {
   // ETA data is now loaded centrally by BackgroundSync
   // This component only reads from Redux store
 
-  const updateButtonStates = useCallback(async (activeButton: EtaButtons, isManual: boolean = false) => {
+  const updateButtonStates = useCallback(async (activeButton: EtaModeButton, isManual: boolean = false) => {
     try {
       // Debounce concurrent operations
       if (updateBusyRef.current) return;
