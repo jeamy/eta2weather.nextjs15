@@ -4,6 +4,7 @@ import { EtaConstants, Names2Id } from '@/reader/functions/types-constants/Names
 
 export type HeatingButtonIds = Record<EtaButtons, string>;
 export type HeatingButtonFlags = Partial<Record<EtaButtons, boolean>>;
+const MODE_BUTTONS = [EtaButtons.HT, EtaButtons.KT, EtaButtons.AA, EtaButtons.GT, EtaButtons.DT] as const;
 
 const BUTTON_CONSTANTS: Record<EtaButtons, EtaConstants> = {
   [EtaButtons.EAT]: EtaConstants.EIN_AUS_TASTE,
@@ -51,8 +52,16 @@ export async function setHeatingMode(options: {
     }
   };
 
-  log?.(`Turning off non-target buttons before activating ${targetButton}`);
-  for (const button of Object.values(EtaButtons)) {
+  if (targetButton !== EtaButtons.EAT && activeFlags[EtaButtons.EAT] !== true) {
+    log?.(`Turning on ${EtaButtons.EAT} before activating ${targetButton}`);
+    await etaApi.setUserVar(buttonIds[EtaButtons.EAT], EtaPos.EIN, '0', '0');
+    await wait();
+  }
+
+  const buttonsToSwitch = targetButton === EtaButtons.EAT ? Object.values(EtaButtons) : MODE_BUTTONS;
+
+  log?.(`Turning off non-target mode buttons before activating ${targetButton}`);
+  for (const button of buttonsToSwitch) {
     if (button === targetButton) {
       continue;
     }
@@ -68,7 +77,7 @@ export async function setHeatingMode(options: {
   await wait();
 
   log?.(`Ensuring only ${targetButton} remains active`);
-  for (const button of Object.values(EtaButtons)) {
+  for (const button of buttonsToSwitch) {
     if (button === targetButton) {
       continue;
     }

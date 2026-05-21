@@ -59,10 +59,11 @@ export async function POST(request: NextRequest) {
     for (const [button, uri] of Object.entries(buttonIds)) {
       if (!etaData[uri]) continue;
       const isActive = button === targetButton;
+      const shouldStayOn = targetButton !== EtaButtons.EAT && button === EtaButtons.EAT;
       etaData[uri] = {
         ...etaData[uri],
-        value: isActive ? EtaPos.EIN : EtaPos.AUS,
-        strValue: isActive ? EtaText.EIN : EtaText.AUS,
+        value: isActive || shouldStayOn ? EtaPos.EIN : EtaPos.AUS,
+        strValue: isActive || shouldStayOn ? EtaText.EIN : EtaText.AUS,
       };
     }
     store.dispatch(storeEtaData(etaData));

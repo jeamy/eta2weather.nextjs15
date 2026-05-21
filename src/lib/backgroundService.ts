@@ -938,10 +938,11 @@ export class BackgroundService {
           for (const [button, uri] of Object.entries(buttonIds)) {
             if (!updatedEtaData[uri]) continue;
             const isActive = button === targetButtonName;
+            const shouldStayOn = targetButtonName !== EtaButtons.EAT && button === EtaButtons.EAT;
             updatedEtaData[uri] = {
               ...updatedEtaData[uri],
-              value: isActive ? EtaPos.EIN : EtaPos.AUS,
-              strValue: isActive ? EtaText.EIN : EtaText.AUS,
+              value: isActive || shouldStayOn ? EtaPos.EIN : EtaPos.AUS,
+              strValue: isActive || shouldStayOn ? EtaText.EIN : EtaText.AUS,
             };
           }
           store.dispatch(storeEtaData(updatedEtaData));
