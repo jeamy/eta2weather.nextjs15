@@ -1,13 +1,11 @@
 import { EtaApi } from '@/reader/functions/EtaApi';
-import { EtaButtons, EtaPos } from '@/reader/functions/types-constants/EtaConstants';
+import { ETA_MODE_BUTTONS, EtaButtons, EtaModeButton, EtaPos } from '@/reader/functions/types-constants/EtaConstants';
 import { EtaConstants, Names2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 
-export type HeatingButtonIds = Record<EtaButtons, string>;
-export type HeatingButtonFlags = Partial<Record<EtaButtons, boolean>>;
-const MODE_BUTTONS = [EtaButtons.HT, EtaButtons.KT, EtaButtons.AA, EtaButtons.GT, EtaButtons.DT] as const;
+export type HeatingButtonIds = Record<EtaModeButton, string>;
+export type HeatingButtonFlags = Partial<Record<EtaModeButton, boolean>>;
 
-const BUTTON_CONSTANTS: Record<EtaButtons, EtaConstants> = {
-  [EtaButtons.EAT]: EtaConstants.EIN_AUS_TASTE,
+const BUTTON_CONSTANTS: Record<EtaModeButton, EtaConstants> = {
   [EtaButtons.HT]: EtaConstants.HEIZENTASTE,
   [EtaButtons.KT]: EtaConstants.KOMMENTASTE,
   [EtaButtons.AA]: EtaConstants.AUTOTASTE,
@@ -28,7 +26,7 @@ export function getHeatingButtonIds(names2id: Names2Id): HeatingButtonIds {
 }
 
 export async function setHeatingMode(options: {
-  targetButton: EtaButtons;
+  targetButton: EtaModeButton;
   names2id: Names2Id;
   etaApi: EtaApi;
   activeFlags?: HeatingButtonFlags;
@@ -52,16 +50,8 @@ export async function setHeatingMode(options: {
     }
   };
 
-  if (targetButton !== EtaButtons.EAT && activeFlags[EtaButtons.EAT] !== true) {
-    log?.(`Turning on ${EtaButtons.EAT} before activating ${targetButton}`);
-    await etaApi.setUserVar(buttonIds[EtaButtons.EAT], EtaPos.EIN, '0', '0');
-    await wait();
-  }
-
-  const buttonsToSwitch = targetButton === EtaButtons.EAT ? Object.values(EtaButtons) : MODE_BUTTONS;
-
   log?.(`Turning off non-target mode buttons before activating ${targetButton}`);
-  for (const button of buttonsToSwitch) {
+  for (const button of ETA_MODE_BUTTONS) {
     if (button === targetButton) {
       continue;
     }
@@ -77,7 +67,7 @@ export async function setHeatingMode(options: {
   await wait();
 
   log?.(`Ensuring only ${targetButton} remains active`);
-  for (const button of buttonsToSwitch) {
+  for (const button of ETA_MODE_BUTTONS) {
     if (button === targetButton) {
       continue;
     }

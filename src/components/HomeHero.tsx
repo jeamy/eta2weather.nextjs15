@@ -5,7 +5,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/redux";
 import { storeData } from "@/redux/configSlice";
 import { ConfigKeys, TEMP_CALC_CONSTANTS } from "@/reader/functions/types-constants/ConfigConstants";
-import { EtaButtons, EtaPos } from "@/reader/functions/types-constants/EtaConstants";
+import { ETA_MODE_BUTTONS, EtaModeButton, EtaButtons, EtaPos } from "@/reader/functions/types-constants/EtaConstants";
 import { EtaConstants as EtaConstKeys, defaultNames2Id } from "@/reader/functions/types-constants/Names2IDconstants";
 import { API } from "@/constants/apiPaths";
 import { parseNum } from "@/utils/numberParser";
@@ -62,7 +62,7 @@ export default function HomeHero() {
     let active: string | null = null;
     for (const [uri, item] of Object.entries(eta || {})) {
       if (!item?.short) continue;
-      const isButton = Object.values(EtaButtons).includes(item.short as EtaButtons);
+      const isButton = ETA_MODE_BUTTONS.includes(item.short as EtaModeButton);
       if (isButton && item.value === EtaPos.EIN) {
         active = item.short as string;
         break;

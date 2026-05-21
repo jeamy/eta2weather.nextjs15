@@ -1,4 +1,4 @@
-import { EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
+import { EtaButtons, EtaModeButton } from '@/reader/functions/types-constants/EtaConstants';
 
 export interface ControlState {
     wasBelow: boolean;
@@ -12,7 +12,7 @@ export interface ControlInput {
     indoorTemp: number;
     minTemp: number;
     sliderPos: number;
-    currentActiveButton: EtaButtons;
+    currentActiveButton: EtaModeButton;
     lastTempState: ControlState;
     manualOverrideDurationMs: number;
     currentTime: number;
@@ -20,7 +20,7 @@ export interface ControlInput {
 
 export interface ControlResult {
     action: 'NONE' | 'ENTER_OVERRIDE' | 'SWITCH_BUTTON';
-    targetButton: EtaButtons | null;
+    targetButton: EtaModeButton | null;
     newState: ControlState;
     logs: string[];
 }
@@ -67,7 +67,7 @@ export function determineControlAction(input: ControlInput): ControlResult {
     }
 
     // Determine expected button
-    let expectedButton: EtaButtons;
+    let expectedButton: EtaModeButton;
     if (isSliderNegative) {
         expectedButton = EtaButtons.GT;
     } else if (isBelow) {

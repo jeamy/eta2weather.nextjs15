@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerStore } from '@/lib/backgroundService';
-import { EtaButtons, EtaData, EtaPos, EtaText } from '@/reader/functions/types-constants/EtaConstants';
+import { ETA_MODE_BUTTONS, EtaModeButton, EtaButtons, EtaData, EtaPos, EtaText } from '@/reader/functions/types-constants/EtaConstants';
 
 function normalizeEtaButtonState(etaData: EtaData): EtaData {
   const normalized = { ...etaData };
@@ -8,7 +8,7 @@ function normalizeEtaButtonState(etaData: EtaData): EtaData {
 
   for (const item of Object.values(normalized)) {
     if (
-      Object.values(EtaButtons).includes(item.short as EtaButtons) &&
+      ETA_MODE_BUTTONS.includes(item.short as EtaModeButton) &&
       item.value === EtaPos.EIN &&
       item.short !== EtaButtons.AA
     ) {
@@ -29,7 +29,7 @@ function normalizeEtaButtonState(etaData: EtaData): EtaData {
   activeButton ??= EtaButtons.AA;
 
   for (const [uri, item] of Object.entries(normalized)) {
-    if (!Object.values(EtaButtons).includes(item.short as EtaButtons)) {
+    if (!ETA_MODE_BUTTONS.includes(item.short as EtaModeButton)) {
       continue;
     }
     const isActive = item.short === activeButton;

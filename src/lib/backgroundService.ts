@@ -13,7 +13,7 @@ import { storeData as storeNames2IdData } from '../redux/names2IdSlice';
 import { getAllUris } from '../utils/etaUtils';
 import { createLogger } from '@/utils/logger';
 import { MenuNode } from '@/types/menu';
-import { EtaPos, EtaButtons, EtaData, EtaText } from '@/reader/functions/types-constants/EtaConstants';
+import { ETA_MODE_BUTTONS, EtaModeButton, EtaPos, EtaButtons, EtaData, EtaText } from '@/reader/functions/types-constants/EtaConstants';
 import { logData } from '@/utils/logging';
 import { getConfig, updateConfig } from '@/utils/cache';
 import { getWifiAf83Data } from '@/utils/cache';
@@ -836,10 +836,10 @@ export class BackgroundService {
       console.log(`${this.getTimestamp()} Indoor: ${indoorTemp}°C, Min: ${minTemp}°C`);
 
       // Find currently active button
-      let currentActiveButton: EtaButtons = EtaButtons.AA;
+      let currentActiveButton: EtaModeButton = EtaButtons.AA;
       Object.entries(etaState.data).forEach(([_, item]) => {
-        if (Object.values(EtaButtons).includes(item.short as EtaButtons) && item.value === EtaPos.EIN) {
-          currentActiveButton = item.short as EtaButtons;
+        if (ETA_MODE_BUTTONS.includes(item.short as EtaModeButton) && item.value === EtaPos.EIN) {
+          currentActiveButton = item.short as EtaModeButton;
         }
       });
 
@@ -903,7 +903,6 @@ export class BackgroundService {
 
           // Get current flags to minimize API calls
           const flags: HeatingButtonFlags = {
-            [EtaButtons.EAT]: false,
             [EtaButtons.AA]: false,
             [EtaButtons.HT]: false,
             [EtaButtons.KT]: false,
@@ -911,8 +910,8 @@ export class BackgroundService {
             [EtaButtons.DT]: false
           };
           Object.entries(etaState.data).forEach(([_, item]) => {
-            if (Object.values(EtaButtons).includes(item.short as EtaButtons)) {
-              flags[item.short as EtaButtons] = item.value === EtaPos.EIN;
+            if (ETA_MODE_BUTTONS.includes(item.short as EtaModeButton)) {
+              flags[item.short as EtaModeButton] = item.value === EtaPos.EIN;
             }
           });
 
@@ -928,7 +927,6 @@ export class BackgroundService {
 
           const updatedEtaData = { ...etaState.data };
           const buttonIds = {
-            [EtaButtons.EAT]: defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id,
             [EtaButtons.AA]: defaultNames2Id[EtaConstants.AUTOTASTE].id,
             [EtaButtons.HT]: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
             [EtaButtons.KT]: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
@@ -938,11 +936,10 @@ export class BackgroundService {
           for (const [button, uri] of Object.entries(buttonIds)) {
             if (!updatedEtaData[uri]) continue;
             const isActive = button === targetButtonName;
-            const shouldStayOn = targetButtonName !== EtaButtons.EAT && button === EtaButtons.EAT;
             updatedEtaData[uri] = {
               ...updatedEtaData[uri],
-              value: isActive || shouldStayOn ? EtaPos.EIN : EtaPos.AUS,
-              strValue: isActive || shouldStayOn ? EtaText.EIN : EtaText.AUS,
+              value: isActive ? EtaPos.EIN : EtaPos.AUS,
+              strValue: isActive ? EtaText.EIN : EtaText.AUS,
             };
           }
           store.dispatch(storeEtaData(updatedEtaData));

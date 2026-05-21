@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { EtaButtons, EtaPos } from '@/reader/functions/types-constants/EtaConstants';
+import { ETA_MODE_BUTTONS, EtaModeButton, EtaButtons, EtaPos } from '@/reader/functions/types-constants/EtaConstants';
 import { getServerStore } from '@/lib/backgroundService';
 import { fetchEtaData } from '@/reader/functions/EtaData';
 import { defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
@@ -20,13 +20,13 @@ export async function GET() {
       }
     }
 
-    // CRITICAL: Enforce button invariants at API level
+    // CRITICAL: Enforce mode button invariants at API level
     // Find currently active button (manual buttons have priority over AA)
     let activeButton: EtaButtons | null = null;
 
-    // First, check for active non-auto buttons (EAT, HT, KT, GT, DT)
+    // First, check for active non-auto mode buttons (HT, KT, GT, DT)
     for (const item of Object.values(etaData)) {
-      if (Object.values(EtaButtons).includes(item.short as EtaButtons) &&
+      if (ETA_MODE_BUTTONS.includes(item.short as EtaModeButton) &&
         item.value === EtaPos.EIN &&
         item.short !== EtaButtons.AA) {
         activeButton = item.short as EtaButtons;
@@ -51,7 +51,7 @@ export async function GET() {
 
     // Enforce invariant: Only ONE button can be active
     Object.entries(etaData).forEach(([uri, item]) => {
-      if (Object.values(EtaButtons).includes(item.short as EtaButtons)) {
+      if (ETA_MODE_BUTTONS.includes(item.short as EtaModeButton)) {
         if (item.short === activeButton) {
           // This is the active button - ensure it's ON
           etaData[uri] = {

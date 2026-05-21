@@ -1,5 +1,5 @@
 import { determineControlAction, ControlInput, ControlState } from './controlLogic';
-import { EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
+import { EtaButtons, EtaModeButton } from '@/reader/functions/types-constants/EtaConstants';
 
 function assert(condition: boolean, message: string) {
     if (!condition) {
@@ -44,7 +44,7 @@ function runTests() {
 
     // Test 1b: Startup mismatch should not be treated as manual override
     {
-        const input = {
+        const input: ControlInput = {
             ...baseInput,
             currentActiveButton: EtaButtons.KT,
             lastTempState: uninitializedState
@@ -58,7 +58,7 @@ function runTests() {
 
     // Test 2: Temperature drops below min -> Switch to KT
     {
-        const input = { ...baseInput, indoorTemp: 19 };
+        const input: ControlInput = { ...baseInput, indoorTemp: 19 };
         const result = determineControlAction(input);
         assert(result.action === 'SWITCH_BUTTON', 'Should switch button when temp drops');
         assert(result.targetButton === EtaButtons.KT, 'Should target KT');
@@ -68,7 +68,7 @@ function runTests() {
     // Test 3: Manual Override Detection
     {
         // User pressed KT, but system expects AA (temp is fine)
-        const input = { ...baseInput, currentActiveButton: EtaButtons.KT };
+        const input: ControlInput = { ...baseInput, currentActiveButton: EtaButtons.KT };
         const result = determineControlAction(input);
         assert(result.action === 'ENTER_OVERRIDE', 'Should enter override mode on mismatch');
         assert(result.newState.manualOverride === true, 'Should set manualOverride flag');
@@ -82,10 +82,10 @@ function runTests() {
             manualOverride: true,
             manualOverrideTime: 1000000
         };
-        const input = {
+        const input: ControlInput = {
             ...baseInput,
             indoorTemp: 19, // Should be KT normally
-            currentActiveButton: EtaButtons.AA, // User wants AA
+            currentActiveButton: EtaButtons.AA as EtaModeButton, // User wants AA
             lastTempState: stateInOverride,
             currentTime: 1000100 // Just started override
         };
@@ -100,10 +100,10 @@ function runTests() {
             manualOverride: true,
             manualOverrideTime: 1000000
         };
-        const input = {
+        const input: ControlInput = {
             ...baseInput,
             indoorTemp: 19, // Should be KT
-            currentActiveButton: EtaButtons.AA,
+            currentActiveButton: EtaButtons.AA as EtaModeButton,
             lastTempState: stateInOverride,
             currentTime: 1000000 + 3600000 + 1 // Expired
         };
@@ -115,7 +115,7 @@ function runTests() {
 
     // Test 6: Slider Negative -> Switch to GT
     {
-        const input = { ...baseInput, sliderPos: -1 };
+        const input: ControlInput = { ...baseInput, sliderPos: -1 };
         const result = determineControlAction(input);
         assert(result.action === 'SWITCH_BUTTON', 'Should switch button when slider is negative');
         assert(result.targetButton === EtaButtons.GT, 'Should target GT (Gehen) when slider < 0');

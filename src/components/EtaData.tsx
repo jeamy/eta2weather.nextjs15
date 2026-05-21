@@ -6,7 +6,7 @@ import { RootState } from '@/redux';
 import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
 import { storeData as storeEtaData } from '@/redux/etaSlice';
-import { EtaPos, EtaText, EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
+import { ETA_MODE_BUTTONS, EtaModeButton, EtaPos, EtaText, EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
 import { EtaConstants } from '@/reader/functions/types-constants/Names2IDconstants';
 import Image from 'next/image';
 import { API } from '@/constants/apiPaths';
@@ -26,7 +26,6 @@ const ETA_DISPLAY_ORDER: Partial<Record<EtaConstants, number>> = {
 
 const ETA_DISPLAY_SHORTS = new Set<string>(Object.keys(ETA_DISPLAY_ORDER));
 const ETA_BUTTON_OPTIONS = [
-  { key: EtaButtons.EAT, label: 'Ein/Aus', longLabel: 'Ein/Aus Taste' },
   { key: EtaButtons.HT, label: 'Heizen', longLabel: 'Heizen Taste' },
   { key: EtaButtons.KT, label: 'Kommen', longLabel: 'Kommen Taste' },
   { key: EtaButtons.AA, label: 'Auto', longLabel: 'Autotaste' },
@@ -36,7 +35,7 @@ const ETA_BUTTON_OPTIONS = [
 const ETA_BUTTON_KEYS = ETA_BUTTON_OPTIONS.map(option => option.key);
 const ETA_BUTTON_LABELS = Object.fromEntries(
   ETA_BUTTON_OPTIONS.map(option => [option.key, option.longLabel])
-) as Record<EtaButtons, string>;
+) as Record<EtaModeButton, string>;
 
 interface DisplayEtaValue {
   short: string;
@@ -75,7 +74,7 @@ const EtaData: React.FC = () => {
     const map: Record<string, string> = {};
     if (!etaState.data) return map;
     Object.entries(etaState.data).forEach(([uri, data]) => {
-      if (Object.values(EtaButtons).includes(data.short as EtaButtons)) {
+      if (ETA_MODE_BUTTONS.includes(data.short as EtaModeButton)) {
         map[data.short ?? ''] = uri;
       }
     });
@@ -95,7 +94,7 @@ const EtaData: React.FC = () => {
       // No-op if already active
       const currentActive = (() => {
         for (const [, data] of Object.entries(etaState.data)) {
-          if (Object.values(EtaButtons).includes(data.short as EtaButtons) && data.value === EtaPos.EIN) {
+          if (ETA_MODE_BUTTONS.includes(data.short as EtaModeButton) && data.value === EtaPos.EIN) {
             return data.short as EtaButtons;
           }
         }
@@ -175,8 +174,8 @@ const EtaData: React.FC = () => {
     }
 
     for (const [, data] of Object.entries(etaState.data)) {
-      if (Object.values(EtaButtons).includes(data.short as EtaButtons) && data.value === EtaPos.EIN) {
-        return data.short as EtaButtons;
+      if (ETA_MODE_BUTTONS.includes(data.short as EtaModeButton) && data.value === EtaPos.EIN) {
+        return data.short as EtaModeButton;
       }
     }
     return EtaButtons.AA;
@@ -194,7 +193,7 @@ const EtaData: React.FC = () => {
     const newDisplayData: DisplayDataType = {};
 
     Object.values(etaState.data).forEach(entry => {
-      if (Object.values(EtaButtons).includes(entry.short as EtaButtons)) {
+      if (ETA_MODE_BUTTONS.includes(entry.short as EtaModeButton)) {
         // console.log(`Processing button ${entry.short}: value=${entry.value}, strValue=${entry.strValue}`);
         newDisplayData[entry.short || ' '] = {
           short: entry.short || 'Unknown',
@@ -236,7 +235,6 @@ const EtaData: React.FC = () => {
       const label = (() => {
         switch (clickedButton) {
           case EtaButtons.AA: return 'Auto aktiviert';
-          case EtaButtons.EAT: return 'Ein/Aus aktiviert';
           case EtaButtons.HT: return 'Heizen aktiviert';
           case EtaButtons.KT: return 'Kommen aktiviert';
           case EtaButtons.DT: return 'Absenken aktiviert';
@@ -408,7 +406,7 @@ const EtaData: React.FC = () => {
           <div className="grid grid-cols-1 gap-2">
             {Object.entries(etaState.data || {})
               .filter(([_, value]) => {
-                if (Object.values(EtaButtons).includes(value.short as EtaButtons)) {
+                if (ETA_MODE_BUTTONS.includes(value.short as EtaModeButton)) {
                   return false;
                 }
                 if (!value.short || !ETA_DISPLAY_SHORTS.has(value.short)) {
@@ -508,10 +506,10 @@ const EtaData: React.FC = () => {
   );
 };
 
-type HeatingKey = EtaButtons;
+type HeatingKey = EtaModeButton;
 
 const isHeatingKey = (key: string): key is HeatingKey => {
-  return Object.values(EtaButtons).includes(key as EtaButtons);
+  return ETA_MODE_BUTTONS.includes(key as EtaModeButton);
 };
 
 export default EtaData;

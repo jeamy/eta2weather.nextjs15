@@ -36,3 +36,18 @@ export enum EtaButtons {
   GT = 'GT',  // Gehen Taste
   DT = 'DT',  // Absenken Taste
 }
+
+export type EtaModeButton =
+  | EtaButtons.HT
+  | EtaButtons.KT
+  | EtaButtons.AA
+  | EtaButtons.GT
+  | EtaButtons.DT;
+
+export const ETA_MODE_BUTTONS: readonly EtaModeButton[] = [
+  EtaButtons.HT,
+  EtaButtons.KT,
+  EtaButtons.AA,
+  EtaButtons.GT,
+  EtaButtons.DT,
+] as const;

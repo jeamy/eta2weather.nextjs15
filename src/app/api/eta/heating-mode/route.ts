@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EtaApi } from '@/reader/functions/EtaApi';
-import { EtaButtons, EtaData, EtaPos, EtaText } from '@/reader/functions/types-constants/EtaConstants';
+import { ETA_MODE_BUTTONS, EtaButtons, EtaData, EtaModeButton, EtaPos, EtaText } from '@/reader/functions/types-constants/EtaConstants';
 import { getConfig, getNames2Id } from '@/utils/cache';
 import { HeatingButtonFlags, setHeatingMode } from '@/lib/heatingMode';
 import { requireWriteAccess } from '@/utils/apiAuth';
 import { getServerStore } from '@/lib/backgroundService';
 import { storeData as storeEtaData } from '@/redux/etaSlice';
 
-function isEtaButton(value: unknown): value is EtaButtons {
-  return typeof value === 'string' && Object.values(EtaButtons).includes(value as EtaButtons);
+function isEtaModeButton(value: unknown): value is EtaModeButton {
+  return typeof value === 'string' && ETA_MODE_BUTTONS.includes(value as EtaModeButton);
 }
 
-const BUTTON_LABELS: Record<EtaButtons, string> = {
-  [EtaButtons.EAT]: 'Ein/Aus Taste',
+const BUTTON_LABELS: Record<EtaModeButton, string> = {
   [EtaButtons.HT]: 'Heizen Taste',
   [EtaButtons.KT]: 'Kommen Taste',
   [EtaButtons.AA]: 'Autotaste',
@@ -23,7 +22,7 @@ const BUTTON_LABELS: Record<EtaButtons, string> = {
 function getButtonStatus(etaData: EtaData) {
   const status: Record<string, string> = {};
   for (const item of Object.values(etaData || {})) {
-    if (!isEtaButton(item.short)) continue;
+    if (!isEtaModeButton(item.short)) continue;
     status[item.short] = item.strValue || item.value || '';
   }
   return status;
@@ -40,7 +39,7 @@ export async function POST(request: NextRequest) {
     const targetButton = body?.targetButton;
     const activeFlags = body?.activeFlags as HeatingButtonFlags | undefined;
     const isManual = Boolean(body?.isManual);
-    if (!isEtaButton(targetButton)) {
+    if (!isEtaModeButton(targetButton)) {
       return NextResponse.json(
         { success: false, error: 'Invalid targetButton' },
         { status: 400 }
@@ -74,11 +73,10 @@ export async function POST(request: NextRequest) {
     for (const [button, uri] of Object.entries(buttonIds)) {
       if (!etaData[uri]) continue;
       const isActive = button === targetButton;
-      const shouldStayOn = targetButton !== EtaButtons.EAT && button === EtaButtons.EAT;
       etaData[uri] = {
         ...etaData[uri],
-        value: isActive || shouldStayOn ? EtaPos.EIN : EtaPos.AUS,
-        strValue: isActive || shouldStayOn ? EtaText.EIN : EtaText.AUS,
+        value: isActive ? EtaPos.EIN : EtaPos.AUS,
+        strValue: isActive ? EtaText.EIN : EtaText.AUS,
       };
     }
     store.dispatch(storeEtaData(etaData));
