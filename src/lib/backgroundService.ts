@@ -13,7 +13,7 @@ import { storeData as storeNames2IdData } from '../redux/names2IdSlice';
 import { getAllUris } from '../utils/etaUtils';
 import { createLogger } from '@/utils/logger';
 import { MenuNode } from '@/types/menu';
-import { EtaPos, EtaButtons, EtaData } from '@/reader/functions/types-constants/EtaConstants';
+import { EtaPos, EtaButtons, EtaData, EtaText } from '@/reader/functions/types-constants/EtaConstants';
 import { logData } from '@/utils/logging';
 import { getConfig, updateConfig } from '@/utils/cache';
 import { getWifiAf83Data } from '@/utils/cache';
@@ -902,7 +902,14 @@ export class BackgroundService {
           const etaApi = this.etaApi;
 
           // Get current flags to minimize API calls
-          const flags: HeatingButtonFlags = { [EtaButtons.AA]: false, [EtaButtons.HT]: false, [EtaButtons.KT]: false, [EtaButtons.GT]: false, [EtaButtons.DT]: false };
+          const flags: HeatingButtonFlags = {
+            [EtaButtons.EAT]: false,
+            [EtaButtons.AA]: false,
+            [EtaButtons.HT]: false,
+            [EtaButtons.KT]: false,
+            [EtaButtons.GT]: false,
+            [EtaButtons.DT]: false
+          };
           Object.entries(etaState.data).forEach(([_, item]) => {
             if (Object.values(EtaButtons).includes(item.short as EtaButtons)) {
               flags[item.short as EtaButtons] = item.value === EtaPos.EIN;
@@ -918,6 +925,26 @@ export class BackgroundService {
             sleep: (ms) => this.sleep(ms),
             log: (message) => console.log(`${this.getTimestamp()} ${message}`)
           });
+
+          const updatedEtaData = { ...etaState.data };
+          const buttonIds = {
+            [EtaButtons.EAT]: defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id,
+            [EtaButtons.AA]: defaultNames2Id[EtaConstants.AUTOTASTE].id,
+            [EtaButtons.HT]: defaultNames2Id[EtaConstants.HEIZENTASTE].id,
+            [EtaButtons.KT]: defaultNames2Id[EtaConstants.KOMMENTASTE].id,
+            [EtaButtons.GT]: defaultNames2Id[EtaConstants.GEHENTASTE].id,
+            [EtaButtons.DT]: defaultNames2Id[EtaConstants.ABSENKTASTE].id,
+          };
+          for (const [button, uri] of Object.entries(buttonIds)) {
+            if (!updatedEtaData[uri]) continue;
+            const isActive = button === targetButtonName;
+            updatedEtaData[uri] = {
+              ...updatedEtaData[uri],
+              value: isActive ? EtaPos.EIN : EtaPos.AUS,
+              strValue: isActive ? EtaText.EIN : EtaText.AUS,
+            };
+          }
+          store.dispatch(storeEtaData(updatedEtaData));
 
           // Final delay to allow heater to stabilize before any status reads
           console.log(`${this.getTimestamp()} Button switching complete. Waiting for heater to stabilize...`);

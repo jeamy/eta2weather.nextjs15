@@ -25,6 +25,18 @@ const ETA_DISPLAY_ORDER: Partial<Record<EtaConstants, number>> = {
 };
 
 const ETA_DISPLAY_SHORTS = new Set<string>(Object.keys(ETA_DISPLAY_ORDER));
+const ETA_BUTTON_OPTIONS = [
+  { key: EtaButtons.EAT, label: 'Ein/Aus', longLabel: 'Ein/Aus Taste' },
+  { key: EtaButtons.HT, label: 'Heizen', longLabel: 'Heizen Taste' },
+  { key: EtaButtons.KT, label: 'Kommen', longLabel: 'Kommen Taste' },
+  { key: EtaButtons.AA, label: 'Auto', longLabel: 'Autotaste' },
+  { key: EtaButtons.GT, label: 'Gehen', longLabel: 'Gehen Taste' },
+  { key: EtaButtons.DT, label: 'Absenken', longLabel: 'Absenken Taste' },
+] as const;
+const ETA_BUTTON_KEYS = ETA_BUTTON_OPTIONS.map(option => option.key);
+const ETA_BUTTON_LABELS = Object.fromEntries(
+  ETA_BUTTON_OPTIONS.map(option => [option.key, option.longLabel])
+) as Record<EtaButtons, string>;
 
 interface DisplayEtaValue {
   short: string;
@@ -72,18 +84,6 @@ const EtaData: React.FC = () => {
 
   // ETA data is now loaded centrally by BackgroundSync
   // This component only reads from Redux store
-
-  const updateLocalState = useCallback((uri: string, value: EtaPos) => {
-    if (!etaState.data?.[uri]) return;
-
-    dispatch(storeEtaData({
-      ...etaState.data,
-      [uri]: {
-        ...etaState.data[uri],
-        value
-      }
-    }));
-  }, [dispatch, etaState.data]);
 
   const updateButtonStates = useCallback(async (activeButton: EtaButtons, isManual: boolean = false) => {
     try {
@@ -135,11 +135,19 @@ const EtaData: React.FC = () => {
         throw new Error(`Failed to update heating mode ${activeButton}: ${errorMessage}`);
       }
 
+      const nextEtaData = { ...etaState.data };
       for (const [button, uri] of Object.entries(buttonIds)) {
-        if (Object.values(EtaButtons).includes(button as EtaButtons)) {
-          updateLocalState(uri, button === activeButton ? EtaPos.EIN : EtaPos.AUS);
+        if (!isHeatingKey(button) || !nextEtaData[uri]) {
+          continue;
         }
+        const isActive = button === activeButton;
+        nextEtaData[uri] = {
+          ...nextEtaData[uri],
+          value: isActive ? EtaPos.EIN : EtaPos.AUS,
+          strValue: isActive ? EtaText.EIN : EtaText.AUS,
+        };
       }
+      dispatch(storeEtaData(nextEtaData));
 
       // Data will be refreshed automatically by BackgroundSync
     } catch (error) {
@@ -149,17 +157,30 @@ const EtaData: React.FC = () => {
       updateBusyRef.current = false;
       setIsUpdating(false);
     }
-  }, [etaState.data, buttonIds, updateLocalState]);
+  }, [dispatch, etaState.data, buttonIds]);
 
   // Get the currently active button from etaState
   const getActiveButton = useCallback(() => {
-    for (const [uri, data] of Object.entries(etaState.data)) {
+    for (const key of ETA_BUTTON_KEYS.filter(key => key !== EtaButtons.AA)) {
+      const uri = buttonIds[key];
+      const data = uri ? etaState.data[uri] : undefined;
+      if (data?.value === EtaPos.EIN) {
+        return key;
+      }
+    }
+
+    const autoUri = buttonIds[EtaButtons.AA];
+    if (autoUri && etaState.data[autoUri]?.value === EtaPos.EIN) {
+      return EtaButtons.AA;
+    }
+
+    for (const [, data] of Object.entries(etaState.data)) {
       if (Object.values(EtaButtons).includes(data.short as EtaButtons) && data.value === EtaPos.EIN) {
         return data.short as EtaButtons;
       }
     }
-    return null;
-  }, [etaState.data]);
+    return EtaButtons.AA;
+  }, [buttonIds, etaState.data]);
 
   // Current active button (for segmented control state)
   const activeKey = getActiveButton();
@@ -215,6 +236,7 @@ const EtaData: React.FC = () => {
       const label = (() => {
         switch (clickedButton) {
           case EtaButtons.AA: return 'Auto aktiviert';
+          case EtaButtons.EAT: return 'Ein/Aus aktiviert';
           case EtaButtons.HT: return 'Heizen aktiviert';
           case EtaButtons.KT: return 'Kommen aktiviert';
           case EtaButtons.DT: return 'Absenken aktiviert';
@@ -350,13 +372,7 @@ const EtaData: React.FC = () => {
       <div className="mb-3">
         <div className="hidden sm:block">
           <div className="segmented" role="radiogroup" aria-label="Schnellaktionen">
-            {[
-              { key: EtaButtons.AA, label: 'Auto' },
-              { key: EtaButtons.HT, label: 'Heizen' },
-              { key: EtaButtons.KT, label: 'Kommen' },
-              { key: EtaButtons.DT, label: 'Absenken' },
-              { key: EtaButtons.GT, label: 'Gehen' },
-            ].map(({ key, label }) => (
+            {ETA_BUTTON_OPTIONS.map(({ key, label }) => (
               <button
                 key={key}
                 type="button"
@@ -381,13 +397,7 @@ const EtaData: React.FC = () => {
             onChange={(e) => handleButtonClick(e.target.value as EtaButtons)}
             disabled={isUpdating}
           >
-            {[
-              { key: EtaButtons.AA, label: 'Auto' },
-              { key: EtaButtons.HT, label: 'Heizen' },
-              { key: EtaButtons.KT, label: 'Kommen' },
-              { key: EtaButtons.DT, label: 'Absenken' },
-              { key: EtaButtons.GT, label: 'Gehen' },
-            ].map(({ key, label }) => (
+            {ETA_BUTTON_OPTIONS.map(({ key, label }) => (
               <option key={key} value={key}>{label}</option>
             ))}
           </select>
@@ -447,27 +457,24 @@ const EtaData: React.FC = () => {
               </div>
             )}
             {/* Render switches separately */}
-            {Object.values(EtaButtons).map(key => {
+            {ETA_BUTTON_KEYS.map(key => {
               const value = displayData[key] || { short: key, long: '', strValue: '', unit: '' };
+              const isActive = activeKey === key;
+              const textValue = isActive ? EtaText.EIN : EtaText.AUS;
               return (
                 <div key={key} className="flex flex-col">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex flex-col">
                       <span className="font-medium">
-                        {key === EtaButtons.HT ? 'Heizen Taste' :
-                          key === EtaButtons.AA ? 'Autotaste' :
-                            key === EtaButtons.DT ? 'Absenken Taste' :
-                              key === EtaButtons.GT ? 'Gehen Taste' :
-                                key === EtaButtons.KT ? 'Kommen Taste' :
-                                  value.long}:
+                        {ETA_BUTTON_LABELS[key] || value.long}:
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`badge ${value.strValue === EtaText.EIN ? 'badge--ok' :
-                        value.strValue === EtaText.AUS ? 'badge--error' :
+                      <span className={`badge ${isActive ? 'badge--ok' :
+                        textValue === EtaText.AUS ? 'badge--error' :
                           'badge--neutral'
                         }`}>
-                        {value.strValue}
+                        {textValue}
                       </span>
                       <button
                         onClick={() => {
@@ -478,7 +485,7 @@ const EtaData: React.FC = () => {
                         disabled={isUpdating}
                         className={`switch ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
                         role="switch"
-                        aria-checked={value.strValue === EtaText.EIN}
+                        aria-checked={isActive}
                         aria-busy={isUpdating}
                         title={`Toggle ${value.long}`}
                       >

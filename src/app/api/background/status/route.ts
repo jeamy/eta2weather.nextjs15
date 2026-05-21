@@ -1,5 +1,47 @@
 import { NextResponse } from 'next/server';
 import { getServerStore } from '@/lib/backgroundService';
+import { EtaButtons, EtaData, EtaPos, EtaText } from '@/reader/functions/types-constants/EtaConstants';
+
+function normalizeEtaButtonState(etaData: EtaData): EtaData {
+  const normalized = { ...etaData };
+  let activeButton: EtaButtons | null = null;
+
+  for (const item of Object.values(normalized)) {
+    if (
+      Object.values(EtaButtons).includes(item.short as EtaButtons) &&
+      item.value === EtaPos.EIN &&
+      item.short !== EtaButtons.AA
+    ) {
+      activeButton = item.short as EtaButtons;
+      break;
+    }
+  }
+
+  if (!activeButton) {
+    for (const item of Object.values(normalized)) {
+      if (item.short === EtaButtons.AA && item.value === EtaPos.EIN) {
+        activeButton = EtaButtons.AA;
+        break;
+      }
+    }
+  }
+
+  activeButton ??= EtaButtons.AA;
+
+  for (const [uri, item] of Object.entries(normalized)) {
+    if (!Object.values(EtaButtons).includes(item.short as EtaButtons)) {
+      continue;
+    }
+    const isActive = item.short === activeButton;
+    normalized[uri] = {
+      ...item,
+      value: isActive ? EtaPos.EIN : EtaPos.AUS,
+      strValue: isActive ? EtaText.EIN : EtaText.AUS,
+    };
+  }
+
+  return normalized;
+}
 
 export async function GET() {
   try {
@@ -9,13 +51,14 @@ export async function GET() {
     // Only include WiFi data if it has been initialized (time > 0)
     const wifiData = state.wifiAf83.data;
     const hasValidWifiData = wifiData.time > 0;
-    const etaEntryCount = Object.keys(state.eta.data || {}).length;
+    const eta = normalizeEtaButtonState(state.eta.data || {});
+    const etaEntryCount = Object.keys(eta).length;
 
     return NextResponse.json({
       success: true,
       data: {
         config: state.config.data,
-        eta: state.eta.data,
+        eta,
         // Only send WiFi data if it's been initialized
         wifiAf83: hasValidWifiData ? wifiData : undefined,
         names2Id: state.names2Id.data,

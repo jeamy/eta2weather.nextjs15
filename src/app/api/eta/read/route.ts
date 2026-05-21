@@ -24,7 +24,7 @@ export async function GET() {
     // Find currently active button (manual buttons have priority over AA)
     let activeButton: EtaButtons | null = null;
 
-    // First, check for active manual buttons (HT, KT, GT, DT)
+    // First, check for active non-auto buttons (EAT, HT, KT, GT, DT)
     for (const item of Object.values(etaData)) {
       if (Object.values(EtaButtons).includes(item.short as EtaButtons) &&
         item.value === EtaPos.EIN &&
@@ -56,13 +56,15 @@ export async function GET() {
           // This is the active button - ensure it's ON
           etaData[uri] = {
             ...item,
-            value: EtaPos.EIN
+            value: EtaPos.EIN,
+            strValue: 'Ein',
           };
         } else {
           // All other buttons must be OFF
           etaData[uri] = {
             ...item,
-            value: EtaPos.AUS
+            value: EtaPos.AUS,
+            strValue: 'Aus',
           };
         }
       }

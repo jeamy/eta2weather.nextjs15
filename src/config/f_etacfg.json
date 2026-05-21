@@ -1,13 +1,13 @@
 {
   "t_soll": "24",
-  "t_delta": "1",
-  "t_slider": "21.0",
+  "t_delta": "-4.3",
+  "t_slider": "0.0",
   "s_eta": "192.168.8.100:8080",
   "f_eta": "f_eta.json",
   "f_wifiaf83": "f_wifiaf89.json",
   "f_names2id": "f_names2id.json",
   "t_update_timer": "300000",
-  "diff": "1.42",
+  "diff": "2.14",
   "t_min": "18.5",
   "temp_diff": "-2.3",
   "t_override": "3600000",
@@ -21,5 +21,5 @@
     "CH8": "Schlafzimmer"
   },
   "delta_override": "false",
-  "t_slider_base": "21.0"
+  "t_slider_base": "0.0"
 }

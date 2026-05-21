@@ -6,6 +6,7 @@ export type HeatingButtonIds = Record<EtaButtons, string>;
 export type HeatingButtonFlags = Partial<Record<EtaButtons, boolean>>;
 
 const BUTTON_CONSTANTS: Record<EtaButtons, EtaConstants> = {
+  [EtaButtons.EAT]: EtaConstants.EIN_AUS_TASTE,
   [EtaButtons.HT]: EtaConstants.HEIZENTASTE,
   [EtaButtons.KT]: EtaConstants.KOMMENTASTE,
   [EtaButtons.AA]: EtaConstants.AUTOTASTE,
@@ -50,8 +51,8 @@ export async function setHeatingMode(options: {
     }
   };
 
-  log?.(`Turning off non-target manual buttons before activating ${targetButton}`);
-  for (const button of [EtaButtons.HT, EtaButtons.KT, EtaButtons.GT, EtaButtons.DT]) {
+  log?.(`Turning off non-target buttons before activating ${targetButton}`);
+  for (const button of Object.values(EtaButtons)) {
     if (button === targetButton) {
       continue;
     }
@@ -62,19 +63,16 @@ export async function setHeatingMode(options: {
     await wait();
   }
 
-  if (targetButton !== EtaButtons.AA) {
-    log?.(`Turning off ${EtaButtons.AA} before activating ${targetButton}`);
-    await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.AUS, '0', '0');
-    await wait();
-  }
-
   log?.(`Activating ${targetButton}`);
   await etaApi.setUserVar(buttonIds[targetButton], EtaPos.EIN, '0', '0');
   await wait();
 
-  if (targetButton !== EtaButtons.AA) {
-    log?.(`Ensuring ${EtaButtons.AA} is off after activating ${targetButton}`);
-    await etaApi.setUserVar(buttonIds[EtaButtons.AA], EtaPos.AUS, '0', '0');
+  log?.(`Ensuring only ${targetButton} remains active`);
+  for (const button of Object.values(EtaButtons)) {
+    if (button === targetButton) {
+      continue;
+    }
+    await etaApi.setUserVar(buttonIds[button], EtaPos.AUS, '0', '0');
     await wait();
   }
 

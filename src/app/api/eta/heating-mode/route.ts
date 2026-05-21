@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EtaApi } from '@/reader/functions/EtaApi';
-import { EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
+import { EtaButtons, EtaPos, EtaText } from '@/reader/functions/types-constants/EtaConstants';
 import { getConfig, getNames2Id } from '@/utils/cache';
 import { HeatingButtonFlags, setHeatingMode } from '@/lib/heatingMode';
 import { requireWriteAccess } from '@/utils/apiAuth';
+import { getServerStore } from '@/lib/backgroundService';
+import { storeData as storeEtaData } from '@/redux/etaSlice';
 
 function isEtaButton(value: unknown): value is EtaButtons {
   return typeof value === 'string' && Object.values(EtaButtons).includes(value as EtaButtons);
@@ -33,6 +35,19 @@ export async function POST(request: NextRequest) {
       etaApi,
       activeFlags: body?.activeFlags as HeatingButtonFlags | undefined,
     });
+
+    const store = getServerStore();
+    const etaData = { ...store.getState().eta.data };
+    for (const [button, uri] of Object.entries(buttonIds)) {
+      if (!etaData[uri]) continue;
+      const isActive = button === targetButton;
+      etaData[uri] = {
+        ...etaData[uri],
+        value: isActive ? EtaPos.EIN : EtaPos.AUS,
+        strValue: isActive ? EtaText.EIN : EtaText.AUS,
+      };
+    }
+    store.dispatch(storeEtaData(etaData));
 
     return NextResponse.json({ success: true, targetButton, buttonIds });
   } catch (error) {
