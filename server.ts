@@ -1,10 +1,8 @@
 import { createServer } from 'node:http';
-import { parse } from 'node:url';
 import next from 'next';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { Server } from 'node:http';
-import fs from 'node:fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,7 +32,7 @@ async function startServer() {
 
     server = createServer(async (req, res) => {
       try {
-        const parsedUrl = parse(req.url!, true);
+        const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || `${hostname}:${port}`}`);
         await handle(req, res, parsedUrl);
       } catch (err) {
         console.error('Error occurred handling', req.url, err);
