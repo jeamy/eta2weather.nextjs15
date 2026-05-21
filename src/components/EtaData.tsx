@@ -95,7 +95,7 @@ const EtaData: React.FC = () => {
       const currentActive = (() => {
         for (const [, data] of Object.entries(etaState.data)) {
           if (ETA_MODE_BUTTONS.includes(data.short as EtaModeButton) && data.value === EtaPos.EIN) {
-            return data.short as EtaButtons;
+            return data.short as EtaModeButton;
           }
         }
         return null;
@@ -217,7 +217,7 @@ const EtaData: React.FC = () => {
     });
   }, [etaState.data]);
 
-  const handleButtonClick = useCallback(async (clickedButton: EtaButtons) => {
+  const handleButtonClick = useCallback(async (clickedButton: EtaModeButton) => {
     // Set manual override when a button is clicked, except for AA
     if (clickedButton !== EtaButtons.AA) {
       lastTempState.current.manualOverride = true;
@@ -392,7 +392,7 @@ const EtaData: React.FC = () => {
           <select
             id="quick-actions"
             value={activeKey || EtaButtons.AA}
-            onChange={(e) => handleButtonClick(e.target.value as EtaButtons)}
+            onChange={(e) => handleButtonClick(e.target.value as EtaModeButton)}
             disabled={isUpdating}
           >
             {ETA_BUTTON_OPTIONS.map(({ key, label }) => (
