@@ -1,7 +1,11 @@
 import { createServer } from 'node:http';
 import next from 'next';
-import type { UrlWithParsedQuery } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import { Server } from 'node:http';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || process.env.HOST || '0.0.0.0';
@@ -11,31 +15,6 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
 }
 
 let server: Server | null = null;
-
-function parseRequestUrl(reqUrl: string | undefined, host: string | undefined): UrlWithParsedQuery {
-  const url = new URL(reqUrl || '/', `http://${host || `${hostname}:${port}`}`);
-  const query: Record<string, string | string[]> = {};
-
-  url.searchParams.forEach((value, key) => {
-    const existing = query[key];
-    if (Array.isArray(existing)) {
-      existing.push(value);
-    } else if (existing !== undefined) {
-      query[key] = [existing, value];
-    } else {
-      query[key] = value;
-    }
-  });
-
-  return {
-    href: `${url.pathname}${url.search}`,
-    path: `${url.pathname}${url.search}`,
-    pathname: url.pathname,
-    search: url.search || null,
-    hash: url.hash || null,
-    query,
-  } as UrlWithParsedQuery;
-}
 
 async function startServer() {
   const app = next({ dev, hostname, port });
@@ -53,7 +32,7 @@ async function startServer() {
 
     server = createServer(async (req, res) => {
       try {
-        const parsedUrl = parseRequestUrl(req.url, req.headers.host);
+        const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || `${hostname}:${port}`}`);
         await handle(req, res, parsedUrl);
       } catch (err) {
         console.error('Error occurred handling', req.url, err);
