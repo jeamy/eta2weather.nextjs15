@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EtaApi } from '@/reader/functions/EtaApi';
-import { EtaButtons, EtaPos, EtaText } from '@/reader/functions/types-constants/EtaConstants';
+import { EtaButtons, EtaData, EtaPos, EtaText } from '@/reader/functions/types-constants/EtaConstants';
 import { getConfig, getNames2Id } from '@/utils/cache';
 import { HeatingButtonFlags, setHeatingMode } from '@/lib/heatingMode';
 import { requireWriteAccess } from '@/utils/apiAuth';
@@ -19,6 +19,15 @@ const BUTTON_LABELS: Record<EtaButtons, string> = {
   [EtaButtons.GT]: 'Gehen Taste',
   [EtaButtons.DT]: 'Absenken Taste',
 };
+
+function getButtonStatus(etaData: EtaData) {
+  const status: Record<string, string> = {};
+  for (const item of Object.values(etaData || {})) {
+    if (!isEtaButton(item.short)) continue;
+    status[item.short] = item.strValue || item.value || '';
+  }
+  return status;
+}
 
 export async function POST(request: NextRequest) {
   let etaApi: EtaApi | null = null;
@@ -46,6 +55,13 @@ export async function POST(request: NextRequest) {
     });
 
     const [config, names2id] = await Promise.all([getConfig(), getNames2Id()]);
+    const store = getServerStore();
+    const etaDataBefore = { ...store.getState().eta.data };
+    console.info('[ETA heating-mode] Current button status before toggle', {
+      targetButton,
+      status: getButtonStatus(etaDataBefore),
+    });
+
     etaApi = new EtaApi(config.s_eta);
     const buttonIds = await setHeatingMode({
       targetButton,
@@ -54,7 +70,6 @@ export async function POST(request: NextRequest) {
       activeFlags,
     });
 
-    const store = getServerStore();
     const etaData = { ...store.getState().eta.data };
     for (const [button, uri] of Object.entries(buttonIds)) {
       if (!etaData[uri]) continue;
@@ -67,6 +82,11 @@ export async function POST(request: NextRequest) {
       };
     }
     store.dispatch(storeEtaData(etaData));
+
+    console.info('[ETA heating-mode] Current button status after toggle', {
+      targetButton,
+      status: getButtonStatus(etaData),
+    });
 
     console.info('[ETA heating-mode] Toggle applied', {
       targetButton,
