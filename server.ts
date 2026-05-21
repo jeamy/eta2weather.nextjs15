@@ -1,13 +1,6 @@
 import { createServer } from 'node:http';
-import { parse } from 'node:url';
 import next from 'next';
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
 import { Server } from 'node:http';
-import fs from 'node:fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || process.env.HOST || '0.0.0.0';
@@ -34,8 +27,7 @@ async function startServer() {
 
     server = createServer(async (req, res) => {
       try {
-        const parsedUrl = parse(req.url!, true);
-        await handle(req, res, parsedUrl);
+        await handle(req, res);
       } catch (err) {
         console.error('Error occurred handling', req.url, err);
         res.statusCode = 500;
