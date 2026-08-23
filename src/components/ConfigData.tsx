@@ -1,15 +1,16 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../redux';
 import { useAppDispatch } from '../redux/hooks';
 import { AppDispatch } from '@/redux/index';
 import { ConfigKeys, TEMP_CALC_CONSTANTS } from '@/reader/functions/types-constants/ConfigConstants';
-import { storeData, storeError } from '@/redux/configSlice';
+import { storeData } from '@/redux/configSlice';
 import { DEFAULT_UPDATE_TIMER } from '@/reader/functions/types-constants/TimerConstants';
 import Image from 'next/image';
 import { API } from '@/constants/apiPaths';
+import { useToast } from '@/components/ToastProvider';
 
 const ConfigData: React.FC = () => {
     const dispatch: AppDispatch = useAppDispatch();
@@ -21,33 +22,28 @@ const ConfigData: React.FC = () => {
     // Removed client-side slider updates; handled by server-side BackgroundService
     const [nextUpdate, setNextUpdate] = useState<number>(0);
     const lastUpdateTime = useRef<number>(Date.now());
+    const { showToast } = useToast();
 
-    useEffect(() => {
-        const loadConfigData = async () => {
-            try {
-                //                console.log('Fetching config data...');
-                const response = await fetch(API.CONFIG_READ);
-                const result = await response.json();
-                //                console.log('API Response:', result);
-
-                if (result.success && result.data) {
-                    dispatch(storeData(result.data));
-                } else {
-                    throw new Error(result.error || 'Failed to load config');
-                }
-            } catch (error) {
-                console.error('Error loading config:', error);
-                dispatch(storeError((error as Error).message));
+    const persistConfigValue = useCallback(async (key: ConfigKeys, value: string): Promise<boolean> => {
+        try {
+            const response = await fetch(API.CONFIG, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key, value: value.trim() }),
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success || !result.config) {
+                throw new Error(result.error || result.message || 'Failed to update config');
             }
-        };
-
-        // Load config data when component mounts
-        loadConfigData();
-    }, [dispatch]);
-
-    useEffect(() => {
-        //        console.log('Current config state:', config);
-    }, [config]);
+            dispatch(storeData(result.config));
+            showToast('Konfiguration gespeichert', 'success');
+            return true;
+        } catch (error) {
+            console.error('Error updating config:', error);
+            showToast(error instanceof Error ? error.message : 'Konfiguration speichern fehlgeschlagen', 'error');
+            return false;
+        }
+    }, [dispatch, showToast]);
 
     // EtaApi instance no longer needed on client for slider updates
 
@@ -114,30 +110,6 @@ const ConfigData: React.FC = () => {
         setEditValue('');
     };
 
-    const validateIpWithPort = (value: string): boolean => {
-        // Split IP and port
-        const [ip, port] = value.split(':');
-
-        // Validate IP
-        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-        if (!ipRegex.test(ip)) return false;
-
-        // Check IP octets
-        const octets = ip.split('.');
-        for (const octet of octets) {
-            const num = parseInt(octet, 10);
-            if (num < 0 || num > 255) return false;
-        }
-
-        // Validate port if present
-        if (port !== undefined) {
-            const portNum = parseInt(port, 10);
-            if (isNaN(portNum) || portNum < 1 || portNum > 65535) return false;
-        }
-
-        return true;
-    };
-
     const renderEditableValue = (
         key: ConfigKeys,
         label: string,
@@ -162,37 +134,8 @@ const ConfigData: React.FC = () => {
 
         const handleSaveValue = async () => {
             if (!isEditing) return;
-
-            try {
-                const valueToSave = valueConverter ? valueConverter.toStorage(editValue) : editValue;
-                const response = await fetch(API.CONFIG, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        key: isEditing,
-                        value: valueToSave.trim()
-                    }),
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || 'Failed to update config');
-                }
-
-                const result = await response.json();
-                if (result.success && result.config) {
-                    // POST response already contains the recomputed config (incl. slider/diff)
-                    dispatch(storeData(result.config));
-                    setIsEditing(null);
-                } else {
-                    throw new Error('Invalid response format');
-                }
-            } catch (error) {
-                console.error('Error updating config:', error);
-                alert('Failed to update config. Please try again.');
-            }
+            const valueToSave = valueConverter ? valueConverter.toStorage(editValue) : editValue;
+            if (await persistConfigValue(isEditing, valueToSave)) setIsEditing(null);
         };
 
         return (
@@ -279,7 +222,7 @@ const ConfigData: React.FC = () => {
         );
     };
 
-    const renderEditableText = (key: ConfigKeys, label: string, validator?: (value: string) => boolean) => {
+    const renderEditableText = (key: ConfigKeys, label: string) => {
         const isEditingThis = isEditing === key;
         const configValue = config.data[key] || '';
         const rawValue = typeof configValue === 'string' ? configValue.replace('*', '') : '';
@@ -293,39 +236,7 @@ const ConfigData: React.FC = () => {
         const handleSaveValue = async () => {
             if (!isEditing) return;
 
-            if (validator && !validator(editValue)) {
-                alert('Ungültige IP-Adresse. Format: xxx.xxx.xxx.xxx oder xxx.xxx.xxx.xxx:port');
-                return;
-            }
-
-            try {
-                const response = await fetch(API.CONFIG, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        key: isEditing,
-                        value: editValue.trim()
-                    }),
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || 'Failed to update config');
-                }
-
-                const result = await response.json();
-                if (result.success && result.config) {
-                    dispatch(storeData(result.config));
-                    setIsEditing(null);
-                } else {
-                    throw new Error('Invalid response format');
-                }
-            } catch (error) {
-                console.error('Error updating config:', error);
-                alert('Failed to update config. Please try again.');
-            }
+            if (await persistConfigValue(isEditing, editValue)) setIsEditing(null);
         };
 
         return (
@@ -344,7 +255,7 @@ const ConfigData: React.FC = () => {
                                         handleSaveValue();
                                     }
                                 }}
-                                className={`input w-full ${validator && !validator(editValue) ? 'input--invalid' : ''}`}
+                                className="input w-full"
                                 placeholder="xxx.xxx.xxx.xxx:port"
                             />
                             <button
@@ -404,35 +315,7 @@ const ConfigData: React.FC = () => {
         const handleSaveValue = async () => {
             if (!isEditing) return;
 
-            try {
-                const response = await fetch(API.CONFIG, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        key: ConfigKeys.T_DELTA,
-                        value: editValue.trim()
-                    }),
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || 'Failed to update config');
-                }
-
-                const result = await response.json();
-                if (result.success && result.config) {
-                    // POST response already contains the recomputed config (incl. slider/diff)
-                    dispatch(storeData(result.config));
-                    setIsEditing(null);
-                } else {
-                    throw new Error('Invalid response format');
-                }
-            } catch (error) {
-                console.error('Error updating config:', error);
-                alert('Failed to update config. Please try again.');
-            }
+            if (await persistConfigValue(ConfigKeys.T_DELTA, editValue)) setIsEditing(null);
         };
 
         return (
@@ -531,34 +414,7 @@ const ConfigData: React.FC = () => {
         const isEnabled = config.data[ConfigKeys.DELTA_OVERRIDE] === 'true';
 
         const handleToggle = async () => {
-            try {
-                const newValue = isEnabled ? 'false' : 'true';
-                const response = await fetch(API.CONFIG, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        key: ConfigKeys.DELTA_OVERRIDE,
-                        value: newValue
-                    }),
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || 'Failed to update delta override');
-                }
-
-                const result = await response.json();
-                if (result.success && result.config) {
-                    dispatch(storeData(result.config));
-                } else {
-                    throw new Error('Invalid response format');
-                }
-            } catch (error) {
-                console.error('Error updating delta override:', error);
-                alert('Failed to update delta override. Please try again.');
-            }
+            await persistConfigValue(ConfigKeys.DELTA_OVERRIDE, isEnabled ? 'false' : 'true');
         };
 
         return (
@@ -604,37 +460,8 @@ const ConfigData: React.FC = () => {
         const handleSaveValue = async () => {
             if (!isEditing) return;
 
-            try {
-                const minutes = parseInt(editValue, 10);
-                const valueToSave = String(minutes * 60000);
-                const response = await fetch(API.CONFIG, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        key: ConfigKeys.T_OVERRIDE,
-                        value: valueToSave.trim()
-                    }),
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || 'Failed to update config');
-                }
-
-                const result = await response.json();
-                if (result.success && result.config) {
-                    // POST response already contains the recomputed config (incl. slider/diff)
-                    dispatch(storeData(result.config));
-                    setIsEditing(null);
-                } else {
-                    throw new Error('Invalid response format');
-                }
-            } catch (error) {
-                console.error('Error updating config:', error);
-                alert('Failed to update config. Please try again.');
-            }
+            const minutes = parseInt(editValue, 10);
+            if (await persistConfigValue(ConfigKeys.T_OVERRIDE, String(minutes * 60000))) setIsEditing(null);
         };
 
         return (
@@ -783,7 +610,7 @@ const ConfigData: React.FC = () => {
                         </span>
                     </div>
                 </div>
-                {renderEditableText(ConfigKeys.S_ETA, 'Eta Server', validateIpWithPort)}
+                {renderEditableText(ConfigKeys.S_ETA, 'Eta Server')}
                 <div className="flex flex-col space-y-1">
                     <div className="flex justify-between items-center">
                         <span className="font-medium">ETA Konfiguration:</span>

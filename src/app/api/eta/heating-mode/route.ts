@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { ETA_MODE_BUTTONS, EtaButtons, EtaData, EtaModeButton, EtaPos, EtaText } from '@/reader/functions/types-constants/EtaConstants';
 import { getConfig, getNames2Id } from '@/utils/cache';
-import { HeatingButtonFlags, setHeatingMode } from '@/lib/heatingMode';
+import { setHeatingMode } from '@/lib/heatingMode';
 import { requireWriteAccess } from '@/utils/apiAuth';
-import { getServerStore } from '@/lib/backgroundService';
+import { BackgroundService, getServerStore } from '@/lib/backgroundService';
 import { storeData as storeEtaData } from '@/redux/etaSlice';
 
 function isEtaModeButton(value: unknown): value is EtaModeButton {
@@ -37,7 +37,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const targetButton = body?.targetButton;
-    const activeFlags = body?.activeFlags as HeatingButtonFlags | undefined;
     const isManual = Boolean(body?.isManual);
     if (!isEtaModeButton(targetButton)) {
       return NextResponse.json(
@@ -50,7 +49,6 @@ export async function POST(request: NextRequest) {
       targetButton,
       label: BUTTON_LABELS[targetButton],
       isManual,
-      activeFlags: activeFlags ?? null,
     });
 
     const [config, names2id] = await Promise.all([getConfig(), getNames2Id()]);
@@ -66,7 +64,6 @@ export async function POST(request: NextRequest) {
       targetButton,
       names2id,
       etaApi,
-      activeFlags,
     });
 
     const etaData = { ...store.getState().eta.data };
@@ -80,6 +77,9 @@ export async function POST(request: NextRequest) {
       };
     }
     store.dispatch(storeEtaData(etaData));
+    if (isManual) {
+      BackgroundService.getInstance().setManualOverride(targetButton !== EtaButtons.AA);
+    }
 
     console.info('[ETA heating-mode] Current button status after toggle', {
       targetButton,

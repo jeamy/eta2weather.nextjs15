@@ -459,14 +459,12 @@ eta2weather.nextjs15/
 │   │   │   ├── background/    # Background service status & control
 │   │   │   │   └── status/    # Real-time system status endpoint
 │   │   │   ├── config/        # Configuration management
-│   │   │   │   ├── read/      # Read current config
-│   │   │   │   └── route.ts   # Update config values
+│   │   │   │   └── route.ts   # Read and update config values
 │   │   │   ├── eta/          # ETA heating system integration
 │   │   │   │   ├── menu/      # ETA menu structure
 │   │   │   │   ├── raw/       # Raw ETA XML data
 │   │   │   │   ├── read/      # Processed ETA data
 │   │   │   │   ├── readBatchMenuData/ # Batch menu data
-│   │   │   │   ├── readMenuData/ # Single menu item
 │   │   │   │   └── update/    # ETA parameter updates
 │   │   │   ├── logs/         # System logging endpoints
 │   │   │   ├── names2id/     # Name-to-ID mapping management
@@ -486,10 +484,10 @@ eta2weather.nextjs15/
 │   │   ├── BackgroundSync.tsx   # Real-time data synchronization
 │   │   ├── ConfigData.tsx       # Enhanced configuration interface
 │   │   ├── EtaData.tsx         # ETA system monitoring & control
+│   │   ├── EtaDataProvider.tsx # Shared ETA menu provider
 │   │   ├── Header.tsx          # Navigation header with menu
 │   │   ├── HomeHero.tsx        # Dashboard hero section
-│   │   ├── MenuPopup.tsx       # Mobile navigation menu
-│   │   ├── Names2IdData.tsx    # Name mapping management
+│   │   ├── MenuPopup.tsx       # Batched ETA menu dialog
 │   │   ├── ToastProvider.tsx   # Toast notification system
 │   │   ├── WeatherCharts.tsx   # Interactive weather graphs
 │   │   ├── WifiAf83Data.tsx    # Weather station interface
@@ -513,7 +511,6 @@ eta2weather.nextjs15/
 │   │       ├── EtaData.ts      # ETA data processing
 │   │       ├── etaMenuParser.ts # ETA menu XML parser
 │   │       ├── WifiAf83Api.ts  # Weather station API client
-│   │       ├── readMenuData.ts # ETA menu data parser
 │   │       └── types-constants/ # TypeScript definitions
 │   │           ├── ConfigConstants.ts  # Configuration types
 │   │           ├── EtaConstants.ts     # ETA system types
@@ -663,13 +660,17 @@ The raw data interface features:
 
 ### Optional Write API Token
 
-Schreibende API-Routen bleiben ohne `API_WRITE_TOKEN` kompatibel zum lokalen LAN-Betrieb. Sobald `API_WRITE_TOKEN` gesetzt ist, muessen Clients bei Schreibzugriffen einen Header `x-api-token` oder `x-eta2weather-token` mit diesem Wert senden.
+Die integrierte Weboberflaeche darf schreibende Same-Origin-Anfragen senden. Externe Clients muessen `API_WRITE_TOKEN` konfigurieren und bei Schreibzugriffen den Header `x-api-token` oder `x-eta2weather-token` mitsenden. Die alte offene Betriebsart kann nur noch explizit mit `ALLOW_UNAUTHENTICATED_WRITES=true` aktiviert werden.
 
 Betroffene Routen:
 - `POST /api/config`
 - `POST /api/channelnames`
 - `POST /api/eta/update`
 - `POST /api/eta/heating-mode`
+
+### Optional Database Retention
+
+SQLite history is retained indefinitely by default. Set `DB_RETENTION_DAYS` to a positive number to remove older rows once per day; keep it at `0` to preserve all yearly partitions.
 
 ## API Documentation
 
@@ -679,7 +680,6 @@ Betroffene Routen:
 - `GET /api/eta/read`: Retrieves current ETA system data
 - `GET /api/eta/raw`: Fetches raw ETA system data with XML values
 - `GET /api/eta/menu`: Gets the ETA menu structure
-- `GET /api/eta/readMenuData`: Retrieves specific menu item data
 - `POST /api/eta/readBatchMenuData`: Batch retrieves menu data for multiple URIs
   ```typescript
   // Request body

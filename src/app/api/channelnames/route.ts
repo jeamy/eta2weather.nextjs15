@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConfig, updateConfig } from '@/utils/cache';
 import { requireWriteAccess } from '@/utils/apiAuth';
+import { validateConfigPatch } from '@/utils/configValidation';
+import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 
 export async function GET() {
   try {
@@ -25,15 +27,16 @@ export async function POST(request: NextRequest) {
     if (authError) return authError;
 
     const newChannelNames = await request.json();
-    
     const config = await getConfig();
-    
-    const configPatch = {
-      channelNames: {
-        ...(config.channelNames || {}),
-        ...newChannelNames
-      }
-    };
+    const validation = validateConfigPatch(ConfigKeys.CHANNEL_NAMES, {
+      ...(config.channelNames || {}),
+      ...newChannelNames,
+    });
+    if (!validation.success) {
+      return NextResponse.json({ success: false, error: validation.error }, { status: 400 });
+    }
+
+    const configPatch = { [ConfigKeys.CHANNEL_NAMES]: validation.value };
     
     // Update config using cache utility
     await updateConfig(configPatch);

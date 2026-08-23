@@ -3,7 +3,18 @@ import { ETA_MODE_BUTTONS, EtaButtons, EtaModeButton, EtaPos } from '@/reader/fu
 import { EtaConstants, Names2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 
 export type HeatingButtonIds = Record<EtaModeButton, string>;
-export type HeatingButtonFlags = Partial<Record<EtaModeButton, boolean>>;
+
+async function writeHeatingButton(
+  etaApi: EtaApi,
+  id: string,
+  value: EtaPos,
+  button: EtaModeButton,
+): Promise<void> {
+  const response = await etaApi.setUserVar(id, value, '0', '0');
+  if (response.error || !response.result) {
+    throw new Error(`Failed to set heating button ${button}: ${response.error || 'empty ETA response'}`);
+  }
+}
 
 const BUTTON_CONSTANTS: Record<EtaModeButton, EtaConstants> = {
   [EtaButtons.HT]: EtaConstants.HEIZENTASTE,
@@ -29,7 +40,6 @@ export async function setHeatingMode(options: {
   targetButton: EtaModeButton;
   names2id: Names2Id;
   etaApi: EtaApi;
-  activeFlags?: HeatingButtonFlags;
   delayMs?: number;
   sleep?: (ms: number) => Promise<void>;
   log?: (message: string) => void;
@@ -38,7 +48,6 @@ export async function setHeatingMode(options: {
     targetButton,
     names2id,
     etaApi,
-    activeFlags = {},
     delayMs = 0,
     sleep = async () => undefined,
     log,
@@ -55,25 +64,13 @@ export async function setHeatingMode(options: {
     if (button === targetButton) {
       continue;
     }
-    if (activeFlags[button] === false) {
-      continue;
-    }
-    await etaApi.setUserVar(buttonIds[button], EtaPos.AUS, '0', '0');
+    await writeHeatingButton(etaApi, buttonIds[button], EtaPos.AUS, button);
     await wait();
   }
 
   log?.(`Activating ${targetButton}`);
-  await etaApi.setUserVar(buttonIds[targetButton], EtaPos.EIN, '0', '0');
+  await writeHeatingButton(etaApi, buttonIds[targetButton], EtaPos.EIN, targetButton);
   await wait();
-
-  log?.(`Ensuring only ${targetButton} remains active`);
-  for (const button of ETA_MODE_BUTTONS) {
-    if (button === targetButton) {
-      continue;
-    }
-    await etaApi.setUserVar(buttonIds[button], EtaPos.AUS, '0', '0');
-    await wait();
-  }
 
   return buttonIds;
 }

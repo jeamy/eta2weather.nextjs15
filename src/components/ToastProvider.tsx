@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 export type ToastType = 'success' | 'error' | 'info';
 
@@ -18,17 +18,25 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 
 export default function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [seq, setSeq] = useState(1);
+  const timeoutsRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => () => {
+    for (const timeout of timeoutsRef.current) window.clearTimeout(timeout);
+    timeoutsRef.current.clear();
+  }, []);
 
   const remove = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   const showToast = useCallback((message: string, type: ToastType = 'info', durationMs = 3000) => {
-    setSeq((s) => s + 1);
     const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, type, message }]);
-    window.setTimeout(() => remove(id), durationMs);
+    const timeout = window.setTimeout(() => {
+      timeoutsRef.current.delete(timeout);
+      remove(id);
+    }, durationMs);
+    timeoutsRef.current.add(timeout);
   }, [remove]);
 
   const value = useMemo(() => ({ showToast }), [showToast]);

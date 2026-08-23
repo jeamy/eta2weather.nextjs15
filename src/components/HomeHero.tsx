@@ -1,13 +1,11 @@
 "use client";
 
-import React, { useMemo, useEffect, useRef } from "react";
-import { useSelector, useDispatch } from "react-redux";
+import { useMemo } from "react";
+import { useSelector } from "react-redux";
 import { RootState } from "@/redux";
-import { storeData } from "@/redux/configSlice";
 import { ConfigKeys, TEMP_CALC_CONSTANTS } from "@/reader/functions/types-constants/ConfigConstants";
 import { ETA_MODE_BUTTONS, EtaModeButton, EtaButtons, EtaPos } from "@/reader/functions/types-constants/EtaConstants";
 import { EtaConstants as EtaConstKeys, defaultNames2Id } from "@/reader/functions/types-constants/Names2IDconstants";
-import { API } from "@/constants/apiPaths";
 import { parseNum } from "@/utils/numberParser";
 
 function formatTime(ts: number): string {
@@ -24,11 +22,9 @@ function formatTime(ts: number): string {
 }
 
 export default function HomeHero() {
-  const dispatch = useDispatch();
   const wifi = useSelector((s: RootState) => s.wifiAf83.data);
   const config = useSelector((s: RootState) => s.config.data);
   const eta = useSelector((s: RootState) => s.eta.data);
-  const lastDiffUpdateRef = useRef<number>(0);
 
   const sliderPercent = useMemo(() => {
     const v = Number(config?.[ConfigKeys.T_SLIDER] ?? 0);
@@ -60,7 +56,7 @@ export default function HomeHero() {
   const mode = useMemo(() => {
     // Determine if AA (Auto) is active or one of manual keys (HT, KT, DT, GT)
     let active: string | null = null;
-    for (const [uri, item] of Object.entries(eta || {})) {
+    for (const item of Object.values(eta || {})) {
       if (!item?.short) continue;
       const isButton = ETA_MODE_BUTTONS.includes(item.short as EtaModeButton);
       if (isButton && item.value === EtaPos.EIN) {
@@ -104,6 +100,8 @@ export default function HomeHero() {
     return Math.round(diff * 10) / 10; // Round to 0.1°C to avoid floating point precision issues
   }, [etaOutdoor, wifiOutdoor]);
 
+  const deltaOverrideEnabled = config?.[ConfigKeys.DELTA_OVERRIDE] === 'true';
+
   const schaltzustand = useMemo(() => {
     try {
       // Find SZ (Schaltzustand) entry
@@ -119,81 +117,6 @@ export default function HomeHero() {
       return null;
     }
   }, [eta]);
-
-  const deltaOverrideEnabled = useMemo(() => {
-    const enabled = config?.[ConfigKeys.DELTA_OVERRIDE] === 'true';
-    return enabled;
-  }, [config]);
-
-  // Auto-update delta temperature based on outdoor diff
-  useEffect(() => {
-   
-    // CRITICAL: Only update if BOTH ETA and WiFi outdoor values are available
-    if (deltaOverrideEnabled || outdoorDiffSigned == null || etaOutdoor == null || wifiOutdoor == null) {
-      return;
-    }
-    
-    const now = Date.now();
-    const timeSinceLastUpdate = now - lastDiffUpdateRef.current;
-    
-    // Throttle updates to every 30 seconds
-    if (timeSinceLastUpdate < 30000) {
-      return;
-    }
-    
-    const currentDelta = Number(config?.[ConfigKeys.T_DELTA] ?? 0);
-    const newDelta = Math.round(outdoorDiffSigned * 10) / 10; // Round to 0.1°C
-    const deltaChange = Math.round(Math.abs(newDelta - currentDelta) * 10) / 10; // Round to avoid floating point precision issues
-    
-    // Additional safety check: ensure values are realistic (between -50°C and +50°C)
-    if (Math.abs(etaOutdoor) > 50 || Math.abs(wifiOutdoor) > 50) {
-      return;
-    }
-    
-    // Additional safety check3: ensure delta change is not too extreme (max ±MAX_DELTA_VALUE°C)
-    if (Math.abs(newDelta) > TEMP_CALC_CONSTANTS.MAX_DELTA_VALUE) {
-      console.log(`Delta update blocked: |${newDelta}| > ${TEMP_CALC_CONSTANTS.MAX_DELTA_VALUE}°C`);
-      return;
-    }
-    
-    // Only update if difference is significant (>= 0.1°C) - reduced threshold
-    if (deltaChange >= 0.1) {
-      lastDiffUpdateRef.current = now;
-      
-      // Update config via API with AbortController for cleanup
-      const controller = new AbortController();
-      fetch(API.CONFIG, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          key: ConfigKeys.T_DELTA,
-          value: newDelta.toString()
-        }),
-        signal: controller.signal
-      })
-      .then(response => response.json())
-      .then(result => {
-        if (result.success && result.config) {
-          console.log('Delta temperature updated successfully:', result.config[ConfigKeys.T_DELTA]);
-          dispatch(storeData(result.config));
-        } else {
-          console.error('Failed to update delta temperature:', result);
-        }
-      })
-      .catch(error => {
-        if (error.name !== 'AbortError') {
-          console.error('Error updating delta temperature:', error);
-        }
-      });
-      
-      // Cleanup function to abort fetch if component unmounts
-      return () => {
-        controller.abort();
-      };
-    }
-  }, [outdoorDiffSigned, deltaOverrideEnabled, config, dispatch, etaOutdoor, wifiOutdoor]);
 
   return (
     <div className="card" aria-label="Übersicht">

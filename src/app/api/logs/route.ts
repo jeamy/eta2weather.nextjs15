@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getLogFiles } from '@/utils/logging';
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        const requestedLimit = Number(new URL(request.url).searchParams.get('limit') || 1000);
+        const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(Math.trunc(requestedLimit), 5000)) : 1000;
         // Get logs for all types
         const [ecowittLogs, etaLogs, configLogs, tempDiffLogs, min_temp_status] = await Promise.all([
-            getLogFiles('ecowitt'),
-            getLogFiles('eta'),
-            getLogFiles('config'),
-            getLogFiles('temp_diff'),
-            getLogFiles('min_temp_status')
+            getLogFiles('ecowitt', limit),
+            getLogFiles('eta', limit),
+            getLogFiles('config', limit),
+            getLogFiles('temp_diff', limit),
+            getLogFiles('min_temp_status', limit)
         ]);
 
         // Format log entries
@@ -17,7 +19,10 @@ export async function GET() {
             return logs.map(logPath => {
                 const pathParts = logPath.split('/');
                 const fileName = pathParts[pathParts.length - 1];
-                const [hour, minute] = fileName.split('.')[0].split('-');
+                const timeMatch = fileName.match(/^(\d{1,2})-(\d{1,2})(?:-(\d{1,2}))?/);
+                const hour = timeMatch?.[1] || '0';
+                const minute = timeMatch?.[2] || '0';
+                const second = timeMatch?.[3] || '0';
                 const year = pathParts[pathParts.length - 4];  // Get year from path
                 const month = pathParts[pathParts.length - 3]; // Get month from path
                 const day = pathParts[pathParts.length - 2];   // Get day from path
@@ -27,9 +32,10 @@ export async function GET() {
                 const paddedDay = day.padStart(2, '0');
                 const paddedHour = hour.padStart(2, '0');
                 const paddedMinute = minute.padStart(2, '0');
+                const paddedSecond = second.padStart(2, '0');
                 
                 // Create ISO date string
-                const dateStr = `${year}-${paddedMonth}-${paddedDay}T${paddedHour}:${paddedMinute}:00`;
+                const dateStr = `${year}-${paddedMonth}-${paddedDay}T${paddedHour}:${paddedMinute}:${paddedSecond}`;
                 
                 return {
                     path: logPath,
@@ -38,7 +44,7 @@ export async function GET() {
                     year,
                     month: paddedMonth,
                     day: paddedDay,
-                    time: `${paddedHour}:${paddedMinute}`
+                    time: `${paddedHour}:${paddedMinute}:${paddedSecond}`
                 };
             });
         };

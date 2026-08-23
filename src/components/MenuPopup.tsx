@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { MenuNode } from '../types/menu';
 import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { formatValue } from '@/utils/formatters';
-import { API } from '@/constants/apiPaths';
+import { useEtaData } from '@/hooks/useEtaData';
+import { getAllUris } from '@/utils/etaUtils';
 
 interface MenuPopupProps {
   isOpen: boolean;
@@ -14,52 +15,14 @@ interface MenuPopupProps {
 }
 
 export default function MenuPopup({ isOpen, onClose, title, menuItems }: MenuPopupProps) {
-  const [values, setValues] = useState<Record<string, ParsedXmlData>>({});
-  const [loading, setLoading] = useState<Record<string, boolean>>({});
-  const [error, setError] = useState<Record<string, string>>({});
-
-  const fetchItem = useCallback(async (item: MenuNode) => {
-    if (item.uri) {
-      try {
-        setLoading(prev => ({ ...prev, [item.uri]: true }));
-        setError(prev => ({ ...prev, [item.uri]: '' }));
-        
-        const response = await fetch(`${API.ETA_READ_MENU_DATA}?uri=${encodeURIComponent(item.uri)}`);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success && result.data) {
-          setValues(prev => ({
-            ...prev,
-            [item.uri]: result.data
-          }));
-        } else {
-          throw new Error(result.error || 'Failed to fetch data');
-        }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-        setError(prev => ({ ...prev, [item.uri]: errorMessage }));
-        console.error(`Error fetching value for ${item.uri}:`, error);
-      } finally {
-        setLoading(prev => ({ ...prev, [item.uri]: false }));
-      }
-    }
-    
-    if (item.children && item.children.length > 0) {
-      await Promise.all(item.children.map(fetchItem));
-    }
-  }, []);
+  const { values, loading, error, fetchValues, cleanupAllAbortControllers } = useEtaData();
 
   useEffect(() => {
     if (isOpen && menuItems.length > 0) {
-      setValues({}); // Reset values when opening
-      setError({}); // Reset errors when opening
-      Promise.all(menuItems.map(fetchItem));
+      void fetchValues(getAllUris(menuItems), { chunkSize: 100, concurrency: 3 });
     }
-  }, [isOpen, menuItems, fetchItem]);
+    return cleanupAllAbortControllers;
+  }, [isOpen, menuItems, fetchValues, cleanupAllAbortControllers]);
 
   const renderValue = useCallback((data: ParsedXmlData) => {
     const { text, color } = formatValue(data);

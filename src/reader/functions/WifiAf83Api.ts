@@ -11,7 +11,6 @@ type ApiResponse<T = any> = {
 export class WifiAf83Api {
   private readonly ecoCon: EcoCon;
   private readonly baseUrl: string;
-  private readonly params: URLSearchParams;
   private readonly all: URLSearchParams;
   private abortControllers: Set<AbortController> = new Set();
   private isDisposed: boolean = false;
@@ -34,11 +33,6 @@ export class WifiAf83Api {
       rainfall_unitid: '12',
       solar_irradiance_unitid: '16'
     };
-
-    this.params = new URLSearchParams({
-      ...commonParams,
-      call_back: 'indoor.temperature,outdoor.temperature',
-    });
 
     this.all = new URLSearchParams({
       ...commonParams,
@@ -158,22 +152,6 @@ export class WifiAf83Api {
     timeoutMs: number = DEFAULT_TIMEOUT_MS
   ): Promise<any> {
     const result = await this.fetchData(this.all, signal, timeoutMs);
-
-    if (result.error) {
-      throw new Error(result.error);
-    }
-
-    return result.data;
-  }
-
-  /**
-   * Get filtered realtime data (indoor/outdoor temperature)
-   */
-  public async getRealtime(
-    signal?: AbortSignal,
-    timeoutMs: number = DEFAULT_TIMEOUT_MS
-  ): Promise<any> {
-    const result = await this.fetchData(this.params, signal, timeoutMs);
 
     if (result.error) {
       throw new Error(result.error);

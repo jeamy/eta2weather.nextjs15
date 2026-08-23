@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { MenuNode } from '@/types/menu'
 import React from 'react'
 import useSWR from 'swr'
+import { API } from '@/constants/apiPaths'
 
 interface RawData {
   menuItems: MenuNode[]
@@ -16,19 +17,12 @@ interface ParsedValue {
   [key: string]: any
 }
 
-interface CachedData {
-  data: RawData
-  timestamp: number
-}
-
-// Cache duration in milliseconds (1 minute)
-const CACHE_DURATION = 60 * 1000
+const REFRESH_INTERVAL = 5 * 60 * 1000
 
 export default function RawEtaPage() {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [searchTerm, setSearchTerm] = useState('')
   const [lastFetch, setLastFetch] = useState<number>(0)
-  const [fallbackData, setFallbackData] = useState<RawData | undefined>(undefined)
   // Simple cache for parsed XML to avoid re-parsing on toggle
   const parseCacheRef = useRef<Map<string, ParsedValue>>(new Map())
 
@@ -41,28 +35,13 @@ export default function RawEtaPage() {
     return result.data as RawData
   }, [])
 
-  // Load fallback snapshot from localStorage on mount
-  useEffect(() => {
-    const cachedStr = localStorage.getItem('rawEtaData')
-    if (cachedStr) {
-      try {
-        const cached: CachedData = JSON.parse(cachedStr)
-        setFallbackData(cached.data)
-        setLastFetch(cached.timestamp)
-      } catch (error) {
-        console.warn('Error reading cache:', error)
-      }
-    }
-  }, [])
-
   const { data, error, isLoading, mutate, isValidating } = useSWR<RawData>(
-    '/api/eta/raw',
+    API.ETA_RAW,
     fetcher,
     {
-      refreshInterval: CACHE_DURATION,
+      refreshInterval: REFRESH_INTERVAL,
       revalidateOnFocus: true,
-      dedupingInterval: 30000,
-      fallbackData,
+      dedupingInterval: 60000,
     }
   )
 
@@ -71,17 +50,10 @@ export default function RawEtaPage() {
     parseCacheRef.current.clear()
   }, [data])
 
-  // Persist fresh data to localStorage with timestamp
+  // Keep only the refresh timestamp locally; SWR owns the in-memory payload.
   useEffect(() => {
     if (data) {
-      const now = Date.now()
-      setLastFetch(now)
-      const cacheData: CachedData = { data, timestamp: now }
-      try {
-        localStorage.setItem('rawEtaData', JSON.stringify(cacheData))
-      } catch (error) {
-        console.warn('Error writing cache:', error)
-      }
+      setLastFetch(Date.now())
     }
   }, [data])
 

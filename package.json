@@ -6,6 +6,9 @@
     "dev": "tsx watch server.ts",
     "build": "next build --webpack",
     "start": "cross-env NODE_ENV=production tsx server.ts",
+    "test:backend": "tsx src/lib/controlLogic.test.ts && tsx src/lib/heatingMode.test.ts && tsx src/lib/etaModeState.test.ts && tsx src/lib/backgroundService.test.ts && tsx src/lib/database/dbHelpers.test.ts && tsx src/utils/apiAuth.test.ts && tsx src/utils/logging.test.ts && npm run test:integration",
+    "test:integration": "tsx src/lib/database/database.integration.test.ts && tsx src/app/api/apiRoutes.integration.test.ts",
+    "test:frontend": "tsx src/utils/frontendLogic.test.ts",
     "lint": "eslint .",
     "migrate:to-sqlite": "tsx src/scripts/migrateToSqlite.ts",
     "migrate:verify": "tsx src/scripts/verifySqliteMigration.ts"
@@ -35,7 +38,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "autoprefixer": "^10.5.0",
-    "eslint": "^10.4.0",
+    "eslint": "^9.39.1",
     "eslint-config-next": "16.2.6",
     "postcss": "^8.5.14",
     "tailwindcss": "^4.3.0",

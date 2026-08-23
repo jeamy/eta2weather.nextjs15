@@ -31,11 +31,7 @@ interface WeatherData {
   };
 }
 
-interface WeatherPageProps {
-  // Add any props that WeatherPage component might receive
-}
-
-export default function WeatherPage(props: WeatherPageProps) {
+export default function WeatherPage() {
   const [timeRange, setTimeRange] = useState<string>('24h');
   const mainChartRef = useRef<ChartJS<'line'> | null>(null);
   const channelTempChartRef = useRef<ChartJS<'line'> | null>(null);
@@ -61,7 +57,7 @@ export default function WeatherPage(props: WeatherPageProps) {
       dedupingInterval: 30000,
     });
 
-  const { data: channelNames, error: channelError, isLoading: isLoadingChannels } =
+  const { data: channelNames, error: channelError } =
     useSWR<Record<string, string>>(API.CHANNEL_NAMES, fetcher, {
       revalidateOnFocus: false,
     });
@@ -133,6 +129,9 @@ export default function WeatherPage(props: WeatherPageProps) {
 
   return (
     <div className="p-4">
+      {channelError && (
+        <div className="alert alert--warning mb-3">Kanalnamen konnten nicht geladen werden.</div>
+      )}
       <WeatherCharts
         weatherData={weatherData || []}
         timeRange={timeRange}

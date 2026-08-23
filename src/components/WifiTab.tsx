@@ -120,7 +120,7 @@ function WifiTab({ data }: WifiTabProps) {
     return () => {
       cleanupAbortController();
     };
-  }, [activeTab, channelsTabIndex, channelNames, cleanupAbortController]);
+  }, [activeTab, channelsTabIndex, channelNames, cleanupAbortController, showToast]);
 
   const handleEditStart = useCallback((channelKey: string) => {
     setEditingChannel(channelKey);
@@ -159,7 +159,7 @@ function WifiTab({ data }: WifiTabProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [editingChannel, editValue, channelNames]);
+  }, [editingChannel, editValue, channelNames, showToast]);
 
   const handleCancel = useCallback(() => {
     setEditingChannel(null);
@@ -182,6 +182,7 @@ function WifiTab({ data }: WifiTabProps) {
           />
           <button
             onClick={handleSave}
+            disabled={isLoading}
             className="text-green-600 hover:text-green-800 px-1"
             title="Save"
           >
@@ -215,7 +216,7 @@ function WifiTab({ data }: WifiTabProps) {
     );
   };
 
-  const renderValue = (key: string, value: any) => {
+  const renderValue = (value: any) => {
     if (typeof value === 'object') {
       if (value.value !== undefined && value.unit !== undefined) {
         return `${value.value} ${value.unit}`;
@@ -247,6 +248,7 @@ function WifiTab({ data }: WifiTabProps) {
       <div className="card__header">
         <h2 className="text-lg font-semibold">WiFi Data</h2>
       </div>
+      {error && <div className="alert alert--error mb-3">{error}</div>}
       <div>
         <div className="tabs__list tabs__list--sticky" role="tablist" aria-label="WiFi categories">
           {categoryEntries.map(([category], index) => (
@@ -285,7 +287,7 @@ function WifiTab({ data }: WifiTabProps) {
                         {renderChannelName(channelKey)} &nbsp;
                       </h3>
                       <div className="space-y-1">
-                        {renderValue(channelKey, channelValue)}
+                        {renderValue(channelValue)}
                       </div>
                     </div>
                   ))
@@ -299,7 +301,7 @@ function WifiTab({ data }: WifiTabProps) {
                           {titleTranslation} &nbsp;
                         </h3>
                         <div className="mt-2 text-sm text-gray-500 space-y-1">
-                          {renderValue(key, value)}
+                          {renderValue(value)}
                         </div>
                       </div>
                     );

@@ -11,7 +11,7 @@ export interface EtaDataState {
 export type EtaFetchOptions = { chunkSize?: number; concurrency?: number };
 
 export interface EtaFetchHookResult extends EtaDataState {
-  fetchValues: (uris: string[], options?: EtaFetchOptions) => Promise<void>;
+  fetchValues: (uris: string[], options?: EtaFetchOptions) => Promise<boolean>;
   cleanupAllAbortControllers: () => void;
 }
 
@@ -103,6 +103,7 @@ export const batchFetchEtaDataInChunks = async (
 
   const results: Record<string, ParsedXmlData> = {};
   let index = 0;
+  let failedChunks = 0;
 
   const worker = async () => {
     while (index < chunks.length) {
@@ -116,8 +117,7 @@ export const batchFetchEtaDataInChunks = async (
       } catch (err) {
         // Continue on error of a single chunk unless aborted
         if (abortSignal && (abortSignal as any).aborted) break;
-        // Swallow to allow other chunks to continue
-        // Missing URIs will be detected by caller if needed
+        failedChunks += 1;
       }
     }
   };
@@ -125,6 +125,10 @@ export const batchFetchEtaDataInChunks = async (
   // Start limited number of workers
   const workers = Array.from({ length: Math.min(concurrency, chunks.length) }, () => worker());
   await Promise.all(workers);
+
+  if (failedChunks === chunks.length && !abortSignal?.aborted) {
+    throw new Error('All ETA batch requests failed');
+  }
 
   return results;
 };
@@ -205,8 +209,6 @@ export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, P
     node.children?.forEach(collectDayNodes);
   };
   collectDayNodes(heizzeitenNode);
-
-  const availableDays = allDayNodes.map(n => n.name);
 
   const dayNode = allDayNodes.find(n => n.name === currentDayName);
   if (!dayNode) {

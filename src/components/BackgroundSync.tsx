@@ -6,6 +6,7 @@ import { storeData as storeConfigData } from '@/redux/configSlice';
 import { storeData as storeEtaData } from '@/redux/etaSlice';
 import { storeData as storeWifiAf83Data } from '@/redux/wifiAf83Slice';
 import { storeData as storeNames2IdData } from '@/redux/names2IdSlice';
+import { storeData as storeControlData } from '@/redux/controlSlice';
 import { RootState } from '@/redux';
 import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
 import { DEFAULT_UPDATE_TIMER, MIN_API_INTERVAL } from '@/reader/functions/types-constants/TimerConstants';
@@ -15,19 +16,18 @@ const BackgroundSync: React.FC = () => {
   const dispatch = useDispatch();
   const config = useSelector((state: RootState) => state.config);
   const lastConfigRef = useRef(config.data);
-  const isFirstMount = useRef(true);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchBackgroundData = useCallback(async () => {
+    let controller: AbortController | null = null;
     try {
       // Abort any in-flight request before starting a new one
       if (abortRef.current) {
         abortRef.current.abort();
-        abortRef.current = null;
       }
-      const controller = new AbortController();
+      controller = new AbortController();
       abortRef.current = controller;
       const response = await fetch(API.BACKGROUND_STATUS, { signal: controller.signal });
       const result = await response.json();
@@ -69,6 +69,12 @@ const BackgroundSync: React.FC = () => {
         if (result.data.names2Id) {
           dispatch(storeNames2IdData(result.data.names2Id));
         }
+        if (result.data.control) {
+          dispatch(storeControlData({
+            manualOverride: Boolean(result.data.control.manualOverride),
+            manualOverrideTime: result.data.control.manualOverrideTime ?? null,
+          }));
+        }
       }
     } catch (error) {
       // Ignore aborted fetches
@@ -76,70 +82,35 @@ const BackgroundSync: React.FC = () => {
       console.error('Error fetching background data:', error);
     } finally {
       // Clear reference after request completes
-      if (abortRef.current) {
+      if (controller && abortRef.current === controller) {
         abortRef.current = null;
       }
     }
   }, [dispatch]);
 
-  useEffect(() => {
-    // Only set up the interval if this is the first mount
-    if (isFirstMount.current) {
-      isFirstMount.current = false;
-
-      // Calculate update interval from config, ensuring it's not less than MIN_API_INTERVAL
-      const updateTimer = Math.max(
-        parseInt(config.data[ConfigKeys.T_UPDATE_TIMER], 10) || DEFAULT_UPDATE_TIMER,
-        MIN_API_INTERVAL
-      );
-
-      // Fetch immediately
-      fetchBackgroundData();
-
-      // Then fetch periodically
-      intervalRef.current = setInterval(fetchBackgroundData, updateTimer);
-
-      // Cleanup function
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        if (retryTimeoutRef.current) {
-          clearTimeout(retryTimeoutRef.current);
-          retryTimeoutRef.current = null;
-        }
-        // Abort any in-flight request on unmount
-        if (abortRef.current) {
-          abortRef.current.abort();
-          abortRef.current = null;
-        }
-      };
-    }
-  }, [fetchBackgroundData]); // Only depend on fetchBackgroundData, not config.data
-
-  // Handle timer updates - only when timer value actually changes
   const updateTimerValue = Math.max(
     parseInt(config.data[ConfigKeys.T_UPDATE_TIMER], 10) || DEFAULT_UPDATE_TIMER,
     MIN_API_INTERVAL
   );
-  const lastTimerRef = useRef(updateTimerValue);
 
   useEffect(() => {
-    if (!isFirstMount.current && intervalRef.current && lastTimerRef.current !== updateTimerValue) {
-      console.log(`Timer changed from ${lastTimerRef.current}ms to ${updateTimerValue}ms, restarting interval...`);
-      lastTimerRef.current = updateTimerValue;
+    void fetchBackgroundData();
+    intervalRef.current = setInterval(fetchBackgroundData, updateTimerValue);
 
-      clearInterval(intervalRef.current);
-      // Abort any in-flight request when resetting
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
       if (abortRef.current) {
         abortRef.current.abort();
         abortRef.current = null;
       }
-      intervalRef.current = setInterval(fetchBackgroundData, updateTimerValue);
-      // Trigger an immediate fetch after resetting to avoid waiting a full interval
-      fetchBackgroundData();
-    }
+    };
   }, [updateTimerValue, fetchBackgroundData]);
 
   // Refresh immediately when tab becomes visible, window gains focus, or connection returns

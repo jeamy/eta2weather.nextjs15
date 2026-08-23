@@ -12,7 +12,7 @@ export interface ControlInput {
     indoorTemp: number;
     minTemp: number;
     sliderPos: number;
-    currentActiveButton: EtaModeButton;
+    currentActiveButton: EtaModeButton | null;
     lastTempState: ControlState;
     manualOverrideDurationMs: number;
     currentTime: number;
@@ -53,13 +53,15 @@ export function determineControlAction(input: ControlInput): ControlResult {
 
     // Check if manual override is still active
     let isManualOverride = false;
+    let manualOverrideExpired = false;
     if (newState.manualOverride && newState.manualOverrideTime) {
         const timeSinceOverride = currentTime - newState.manualOverrideTime;
-        if (timeSinceOverride > manualOverrideDurationMs) {
+        if (timeSinceOverride >= manualOverrideDurationMs) {
             logs.push('Manual override timeout expired');
             newState.manualOverride = false;
             newState.manualOverrideTime = null;
             isManualOverride = false;
+            manualOverrideExpired = true;
         } else {
             isManualOverride = true;
             logs.push(`Manual override still active (${Math.round(timeSinceOverride / 1000)}s / ${Math.round(manualOverrideDurationMs / 1000)}s)`);
@@ -96,7 +98,7 @@ export function determineControlAction(input: ControlInput): ControlResult {
     }
 
     // CRITICAL FIX: If button mismatch detected and NOT in override, assume user pressed button -> ENTER override
-    if (buttonMismatch && !isManualOverride && !stateChanged) {
+    if (currentActiveButton !== null && buttonMismatch && !isManualOverride && !stateChanged && !manualOverrideExpired) {
         logs.push(`⚠️ Manual override detected! User changed button to ${currentActiveButton} (expected ${expectedButton}). Entering override mode.`);
         newState.manualOverride = true;
         newState.manualOverrideTime = currentTime;

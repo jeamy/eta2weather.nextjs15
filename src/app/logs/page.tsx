@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { API } from '@/constants/apiPaths';
 import Link from 'next/link';
 
@@ -14,13 +14,18 @@ interface LogFile {
     time: string;
 }
 
-interface GroupedLogs {
-    [year: string]: {
-        [month: string]: {
-            [day: string]: LogFile[];
-        };
-    };
-}
+type GroupedLogs = Record<string, Record<string, Record<string, Record<string, LogFile[]>>>>;
+
+const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+const ChevronIcon = ({ expanded }: { expanded: boolean }) => (
+    <svg className={`w-4 h-4 transition-transform ${expanded ? 'transform rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
+);
 
 export default function LogsPage() {
     const [logs, setLogs] = useState<LogFile[]>([]);
@@ -29,10 +34,12 @@ export default function LogsPage() {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        const controller = new AbortController();
         const fetchLogs = async () => {
             setIsLoading(true);
             try {
-                const response = await fetch(API.LOGS);
+                const response = await fetch(`${API.LOGS}?limit=500`, { signal: controller.signal });
+                if (!response.ok) throw new Error(`Log request failed: ${response.status}`);
                 const data = await response.json();
                 if (Array.isArray(data)) {
                     setLogs(data);
@@ -40,58 +47,40 @@ export default function LogsPage() {
                     console.error('Invalid log data format:', data);
                 }
             } catch (error) {
-                console.error('Error fetching logs:', error);
+                if ((error as Error).name !== 'AbortError') console.error('Error fetching logs:', error);
             } finally {
-                setIsLoading(false);
+                if (!controller.signal.aborted) setIsLoading(false);
             }
         };
 
-        fetchLogs();
+        void fetchLogs();
+        return () => controller.abort();
     }, []);
 
-    const toggleNode = (nodeId: string) => {
-        const newExpandedNodes = new Set(expandedNodes);
-        if (expandedNodes.has(nodeId)) {
-            newExpandedNodes.delete(nodeId);
-        } else {
-            newExpandedNodes.add(nodeId);
-        }
-        setExpandedNodes(newExpandedNodes);
-    };
+    const toggleNode = useCallback((nodeId: string) => {
+        setExpandedNodes(previous => {
+            const next = new Set(previous);
+            if (next.has(nodeId)) next.delete(nodeId);
+            else next.add(nodeId);
+            return next;
+        });
+    }, []);
 
-    const filteredLogs = selectedType === 'all' 
-        ? logs 
-        : logs.filter(log => log.type === selectedType);
-
-    // Group logs by type, year, month, day
-    const groupedLogs = filteredLogs.reduce((acc, log) => {
-        if (!acc[log.type]) acc[log.type] = {};
-        if (!acc[log.type][log.year]) acc[log.type][log.year] = {};
-        if (!acc[log.type][log.year][log.month]) acc[log.type][log.year][log.month] = {};
-        if (!acc[log.type][log.year][log.month][log.day]) acc[log.type][log.year][log.month][log.day] = [];
-
-        acc[log.type][log.year][log.month][log.day].push(log);
-        return acc;
-    }, {} as Record<string, GroupedLogs>);
-
-    const ChevronIcon = ({ expanded }: { expanded: boolean }) => (
-        <svg
-            className={`w-4 h-4 transition-transform ${expanded ? 'transform rotate-90' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-        >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-    );
+    const groupedLogs = useMemo(() => {
+        const filteredLogs = selectedType === 'all' ? logs : logs.filter(log => log.type === selectedType);
+        return filteredLogs.reduce<GroupedLogs>((acc, log) => {
+            acc[log.type] ??= {};
+            acc[log.type][log.year] ??= {};
+            acc[log.type][log.year][log.month] ??= {};
+            acc[log.type][log.year][log.month][log.day] ??= [];
+            acc[log.type][log.year][log.month][log.day].push(log);
+            return acc;
+        }, {});
+    }, [logs, selectedType]);
 
     // Get month name
     const getMonthName = (month: string) => {
-        const monthNames = [
-            'January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December'
-        ];
-        return monthNames[parseInt(month, 10) - 1] || month;
+        return MONTH_NAMES[parseInt(month, 10) - 1] || month;
     };
 
     return (
@@ -166,9 +155,9 @@ export default function LogsPage() {
                                                         
                                                         {expandedNodes.has(`${type}-${year}-${month}-${day}`) && (
                                                             <div className="ml-6 mt-1">
-                                                                {logs.sort((a, b) => b.time.localeCompare(a.time)).map((log, index) => (
+                                                                {logs.map((log) => (
                                                                     <div 
-                                                                        key={index}
+                                                                        key={log.path}
                                                                         className="flex justify-between items-center px-2 py-1 rounded text-sm hover:bg-gray-100"
                                                                     >
                                                                         <span className="text-gray-600">

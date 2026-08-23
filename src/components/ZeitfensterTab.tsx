@@ -322,7 +322,7 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
     } finally {
       setSaving(prev => ({ ...prev, [uri]: false }));
     }
-  }, [fetchValues]);
+  }, [fetchValues, showToast]);
 
   const handleTimeChange = useCallback((uri: string, field: 'start' | 'end', value: string) => {
     const window = tagFenster.flatMap(d => d.windows).find(w => w.uri === uri);

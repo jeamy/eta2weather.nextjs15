@@ -5,63 +5,14 @@ import EtaData from "@/components/EtaData";
 import WifiAf83Data from "@/components/WifiAf83Data";
 import EtaTab from '@/components/EtaTab';
 import WifiTab from '@/components/WifiTab';
-import { HeizkreisTab } from '@/components/HeizkreisTab';
 import ZeitfensterTab from '@/components/ZeitfensterTab';
-import { useEffect, useState, useRef } from "react";
-import { API } from '@/constants/apiPaths';
-import { MenuNode } from "@/types/menu";
 import HomeHero from "@/components/HomeHero";
+import { useAppSelector } from '@/redux/hooks';
+import { useEtaMenu } from '@/components/EtaDataProvider';
 
 export default function Home() {
-  const [menuItems, setMenuItems] = useState<MenuNode[]>([]);
-  const [wifiData, setWifiData] = useState<any>(null);
-  const prevWifiJsonRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const fetchMenuItems = async () => {
-      try {
-        const response = await fetch(API.ETA_MENU);
-        const result = await response.json();
-        if (result.success && Array.isArray(result.data)) {
-          setMenuItems(result.data);
-        } else {
-          console.error('Invalid menu data format:', result);
-        }
-      } catch (error) {
-        console.error('Error fetching menu items:', error);
-      }
-    };
-    fetchMenuItems();
-  }, []);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch(API.WIFI_AF83_ALL);
-        const {success, data} = await response.json();
-        if (!success) return;
-
-        // Only update state if data actually changed (reduce re-renders)
-        try {
-          const json = JSON.stringify(data);
-          if (prevWifiJsonRef.current === json) {
-            return;
-          }
-          prevWifiJsonRef.current = json;
-        } catch {
-          // Fallback: if stringify fails, proceed to set state
-        }
-
-        setWifiData(data);
-      } catch (error) {
-        console.error('Error fetching weather data:', error);
-      }
-    };
-
-    fetchData();
-    const interval = setInterval(fetchData, 60000); // Update every 60 seconds
-    return () => clearInterval(interval);
-  }, []);
+  const menuItems = useEtaMenu();
+  const wifiData = useAppSelector(state => state.wifiAf83.data.allData);
   return (
     <div className="home">
       <div className="container">
@@ -81,7 +32,7 @@ export default function Home() {
             </div>
             <div className="home__colStack">
               <div className="card">
-                <WifiTab data={wifiData} />
+                <WifiTab data={wifiData ?? undefined} />
               </div>
               <div className="card">
                 <ZeitfensterTab menuItems={menuItems} />

@@ -150,26 +150,3 @@ export const fetchEtaData = async (
         etaApi.dispose();
     }
 };
-
-/**
- * Legacy function for backward compatibility
- * @deprecated Use fetchUserVar directly instead
- */
-export const prepareAndFetchGetUserVar = async (
-    shortkey: string,
-    data: EtaData,
-    names2id: Names2Id,
-    etaApi: EtaApi
-): Promise<void> => {
-    const result = await fetchUserVar(shortkey, names2id, etaApi);
-
-    if (result) {
-        // Use URI as key, fallback to ID if URI is empty
-        const key = result.uri || result.id;
-        if (key) {
-            data[key] = result;
-        } else if (DEBUG) {
-            console.warn(`[EtaData] No URI or ID for ${shortkey}, skipping`);
-        }
-    }
-};

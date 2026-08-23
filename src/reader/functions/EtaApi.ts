@@ -1,4 +1,5 @@
 const DEBUG = process.env.NODE_ENV === 'development';
+const DEFAULT_TIMEOUT_MS = 8000;
 
 // Response type
 type ApiResponse = {
@@ -117,11 +118,15 @@ export class EtaApi {
         this.abortControllers.add(internalController);
 
         // Link external signal to internal controller
+        const onAbort = () => internalController.abort();
         if (signal) {
-            signal.addEventListener('abort', () => {
+            if (signal.aborted) {
                 internalController.abort();
-            }, { once: true });
+            } else {
+                signal.addEventListener('abort', onAbort, { once: true });
+            }
         }
+        const timeoutId = setTimeout(() => internalController.abort(), DEFAULT_TIMEOUT_MS);
 
         try {
             if (DEBUG && body) {
@@ -172,6 +177,8 @@ export class EtaApi {
             };
         } finally {
             // Always cleanup
+            clearTimeout(timeoutId);
+            signal?.removeEventListener('abort', onAbort);
             this.abortControllers.delete(internalController);
         }
     }

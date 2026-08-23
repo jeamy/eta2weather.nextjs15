@@ -22,6 +22,7 @@ import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { de } from 'date-fns/locale';
 import 'chartjs-adapter-date-fns';
 import { TimeScale, TimeSeriesScale } from 'chart.js';
+import { collectWeatherChannels, reconcileVisibleChannels } from '@/utils/weatherChartUtils';
 
 // Register Chart.js components
 Chart.register(
@@ -100,8 +101,6 @@ export default function WeatherCharts({
   channelNames
 }: WeatherChartsProps) {
   
-  type ChartRef = ChartJS<'line'> | null;
-
   // Memoize time range buttons to prevent unnecessary re-renders
   const TimeRangeButtons = useMemo(() => {
     const timeRanges: { value: string; label: string }[] = [
@@ -131,7 +130,7 @@ export default function WeatherCharts({
   }, [timeRange, onTimeRangeChange]);
 
   // Memoize reset zoom buttons
-  const ResetZoomButton = useCallback(({ chartRef: _chartRef }: { chartRef: React.RefObject<ChartRef> }) => (
+  const ResetZoomButton = useCallback(() => (
     <button
       onClick={() => resetZoom()}
       className="ml-2 p-1 rounded hover:bg-gray-100 transition-colors"
@@ -143,27 +142,21 @@ export default function WeatherCharts({
 
   // Memoize channels array with specific order
   const channels = useMemo(() => {
-    // Find first entry that has channels and derive keys
-    const withChannels = weatherData.find((d) => d.channels && Object.keys(d.channels).length > 0);
-    const keys = withChannels ? Object.keys(withChannels.channels) : [];
-    return keys.sort((a, b) => {
-      const an = parseInt(a.replace('ch', ''), 10) || 0;
-      const bn = parseInt(b.replace('ch', ''), 10) || 0;
-      return an - bn;
-    });
+    return collectWeatherChannels(weatherData);
   }, [weatherData]);
 
   // Visible channel selection to reduce clutter
-  const [visibleChannels, setVisibleChannels] = useState<string[]>([]);
+  const [visibleChannels, setVisibleChannels] = useState<string[] | null>(null);
   useEffect(() => {
-    if (channels.length && visibleChannels.length === 0) {
-      setVisibleChannels(channels.slice(0, Math.min(4, channels.length)));
-    }
-  }, [channels, visibleChannels.length]);
+    if (!channels.length) return;
+    setVisibleChannels(previous => reconcileVisibleChannels(channels, previous));
+  }, [channels]);
+
+  const selectedChannels = useMemo(() => visibleChannels ?? [], [visibleChannels]);
 
   const handleToggleChannel = useCallback((ch: string) => {
     setVisibleChannels((prev) =>
-      prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]
+      (prev ?? []).includes(ch) ? (prev ?? []).filter((c) => c !== ch) : [...(prev ?? []), ch]
     );
   }, []);
 
@@ -186,7 +179,7 @@ export default function WeatherCharts({
         {channels.map((ch) => {
           const upperChannel = 'CH' + ch.substring(2).toUpperCase();
           const displayName = channelNames[upperChannel] || upperChannel;
-          const checked = visibleChannels.includes(ch);
+          const checked = selectedChannels.includes(ch);
           return (
             <label key={ch} className="inline-flex items-center gap-1 text-sm cursor-pointer">
               <input
@@ -201,11 +194,11 @@ export default function WeatherCharts({
         })}
       </div>
     </div>
-  ), [channels, channelNames, visibleChannels, handleToggleChannel, handleSelectAllChannels, handleSelectNoneChannels]);
+  ), [channels, channelNames, selectedChannels, handleToggleChannel, handleSelectAllChannels, handleSelectNoneChannels]);
 
   // Create channel datasets with temperature or humidity data
   const createChannelDatasets = useCallback((channels: string[], type: 'temperature' | 'humidity') => {
-    const selected = channels.filter((c) => visibleChannels.includes(c));
+    const selected = channels.filter((c) => selectedChannels.includes(c));
     const isLongRange = timeRange !== '24h';
     const pointRadius = isLongRange ? 0 : 1;
     const pointHoverRadius = isLongRange ? 2 : 3;
@@ -238,7 +231,7 @@ export default function WeatherCharts({
       labels: weatherData.map((data) => data.timestamp),
       datasets,
     };
-  }, [weatherData, channelNames, visibleChannels, timeRange]);
+  }, [weatherData, channelNames, selectedChannels, timeRange]);
 
   // Memoize main chart data with indoor data and pressure
   const mainChartDataUpdated = useMemo(() => {
@@ -574,12 +567,14 @@ export default function WeatherCharts({
 
   return (
     <div className="space-y-8">
-      {TimeRangeButtons}
+      <div className="flex items-start justify-between gap-2">
+        {TimeRangeButtons}
+        <ResetZoomButton />
+      </div>
       
       <div className="bg-white rounded-lg shadow-lg p-4">
         <div className="flex items-center mb-4">
           <h2 className="text-xl font-semibold flex-grow">Hauptsensoren</h2>
-          <ResetZoomButton chartRef={mainChartRef} />
         </div>
         <div className="relative aspect-[21/9]">
           <Line ref={mainChartRef} options={mainChartOptionsUpdated} data={mainChartDataUpdated} />
@@ -589,7 +584,6 @@ export default function WeatherCharts({
       <div className="bg-white rounded-lg shadow-lg p-4">
         <div className="flex items-center mb-4">
           <h2 className="text-xl font-semibold flex-grow">Temperatur</h2>
-          <ResetZoomButton chartRef={channelTempChartRef} />
         </div>
         {ChannelSelector}
         <div className="relative aspect-[21/9]">
@@ -600,9 +594,7 @@ export default function WeatherCharts({
       <div className="bg-white rounded-lg shadow-lg p-4">
         <div className="flex items-center mb-4">
           <h2 className="text-xl font-semibold flex-grow">Luftfeuchtigkeit</h2>
-          <ResetZoomButton chartRef={channelHumidityChartRef} />
         </div>
-        {ChannelSelector}
         <div className="relative aspect-[21/9]">
           <Line ref={channelHumidityChartRef} options={channelHumidityChartOptionsUpdated} data={createChannelDatasets(channels, 'humidity')} />
         </div>

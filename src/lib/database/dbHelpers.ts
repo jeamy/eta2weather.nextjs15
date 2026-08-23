@@ -1,14 +1,34 @@
 import { DatabaseService } from './sqliteService';
+import { getLogExtension, isLogType, LOG_TABLES, LogType } from '../logTypes';
+import { extractWeatherChannels } from '@/utils/weatherData';
 
-export type TimeRange = '24h' | '7d' | '1m';
-const VALID_LOG_TABLES = new Set([
-    'ecowitt_logs',
-    'eta_logs',
-    'config_logs',
-    'temp_diff_logs',
-    'min_temp_status_logs'
-]);
+export const TIME_RANGES = ['24h', '7d', '30d', '1m'] as const;
+export type TimeRange = typeof TIME_RANGES[number];
 
+export function isTimeRange(value: string): value is TimeRange {
+    return TIME_RANGES.includes(value as TimeRange);
+}
+
+export function getTimeRangeHours(range: TimeRange, now: Date = new Date()): number {
+    switch (range) {
+        case '24h': return 24;
+        case '7d': return 7 * 24;
+        case '30d': return 30 * 24;
+        case '1m': {
+            const originalDay = now.getDate();
+            const oneMonthAgo = new Date(now);
+            oneMonthAgo.setDate(1);
+            oneMonthAgo.setMonth(now.getMonth() - 1);
+            const lastDayOfTargetMonth = new Date(
+                oneMonthAgo.getFullYear(),
+                oneMonthAgo.getMonth() + 1,
+                0,
+            ).getDate();
+            oneMonthAgo.setDate(Math.min(originalDay, lastDayOfTargetMonth));
+            return Math.floor((now.getTime() - oneMonthAgo.getTime()) / (1000 * 60 * 60));
+        }
+    }
+}
 export class DatabaseHelpers {
     private db: DatabaseService;
     private static initPromise: Promise<void> | null = null;
@@ -28,16 +48,17 @@ export class DatabaseHelpers {
         await DatabaseHelpers.initPromise;
     }
 
-    async getWeatherData(range: TimeRange): Promise<any[]> {
+    async getWeatherData(range: TimeRange, now: Date = new Date()): Promise<any[]> {
         await this.ensureInitialized();
-        const hours = this.getRangeHours(range);
-        const startDate = new Date(Date.now() - hours * 60 * 60 * 1000);
-        const endDate = new Date();
+        const hours = getTimeRangeHours(range, now);
+        const startDate = new Date(now.getTime() - hours * 60 * 60 * 1000);
+        const endDate = new Date(now);
 
         // Determine which years we need to query
         const startYear = startDate.getFullYear();
         const endYear = endDate.getFullYear();
         const yearsToQuery: number[] = [];
+        const availableYears = new Set(this.db.getAllAvailableYears());
 
         for (let year = startYear; year <= endYear; year++) {
             yearsToQuery.push(year);
@@ -50,6 +71,7 @@ export class DatabaseHelpers {
 
         // Query each year's DB
         for (const year of yearsToQuery) {
+            if (!availableYears.has(year)) continue;
             try {
                 const yearDb = this.db.getDbForYear(year);
                 const alias = year === this.db.getCurrentYear() ? '' : `db_${year}.`;
@@ -68,7 +90,7 @@ export class DatabaseHelpers {
                     allRows.push(row);
                 }
             } catch (error) {
-                console.error(`Error querying year ${year}:`, error);
+                throw new Error(`Error querying weather data for year ${year}`, { cause: error });
             }
         }
 
@@ -86,167 +108,75 @@ export class DatabaseHelpers {
                     temperature: data.indoor?.temperature?.value,
                     humidity: data.indoor?.humidity?.value
                 },
-                channels: this.extractChannels(data)
+                channels: extractWeatherChannels(data)
             };
         });
-    }
-
-    private extractChannels(data: any): Record<string, { temperature: number; humidity: number }> {
-        const channels: Record<string, { temperature: number; humidity: number }> = {};
-        [1, 2, 3, 5, 6, 7, 8].forEach(idx => {
-            const ch = data[`temp_and_humidity_ch${idx}`];
-            const t = ch?.temperature?.value;
-            const h = ch?.humidity?.value;
-            const tf = t !== undefined && t !== null && t !== '' ? parseFloat(String(t)) : NaN;
-            const hf = h !== undefined && h !== null && h !== '' ? parseFloat(String(h)) : NaN;
-            if (Number.isFinite(tf) && Number.isFinite(hf)) {
-                channels[`ch${idx}`] = { temperature: tf, humidity: hf };
-            }
-        });
-        return channels;
-    }
-
-    private getRangeHours(range: TimeRange): number {
-        switch (range) {
-            case '24h': return 24;
-            case '7d': return 7 * 24;
-            case '1m': {
-                // Calculate actual month duration dynamically
-                const now = new Date();
-                const oneMonthAgo = new Date(now);
-                oneMonthAgo.setMonth(now.getMonth() - 1);
-                return Math.floor((now.getTime() - oneMonthAgo.getTime()) / (1000 * 60 * 60));
-            }
-            default: return 24;
-        }
     }
 
     private getSampleRate(range: TimeRange): number {
         switch (range) {
             case '24h': return 1;
             case '7d': return 3;
+            case '30d': return 6;
             case '1m': return 6;
             default: return 1;
         }
     }
 
-    async getLogsAsFilePaths(type: string): Promise<string[]> {
+    async getLogsAsFilePaths(type: string, limit = 1000): Promise<string[]> {
         await this.ensureInitialized();
 
-        // Supported types
-        const validTypes = ['ecowitt', 'eta', 'config', 'temp_diff', 'min_temp_status'];
-        if (!validTypes.includes(type)) {
+        if (!isLogType(type)) {
             console.warn(`getLogsAsFilePaths not supported for type: ${type}`);
             return [];
         }
+        const safeLimit = Math.max(1, Math.min(Math.trunc(limit), 5000));
 
-        const table = `${type}_logs`;
-        const allRows: any[] = [];
+        const table = LOG_TABLES[type];
+        const allRows: Array<{ id: number; timestamp: string }> = [];
         const years = this.db.getAllAvailableYears();
 
-        // Check if this is a table with explicit date columns or just timestamp
-        const hasExplicitDateColumns = ['ecowitt', 'eta', 'config'].includes(type);
-
         for (const year of years) {
+            if (allRows.length >= safeLimit) break;
             try {
                 const yearDb = this.db.getDbForYear(year);
                 const alias = year === this.db.getCurrentYear() ? '' : `db_${year}.`;
-
-                let query = '';
-                if (hasExplicitDateColumns) {
-                    query = `
-                        SELECT year, month, day, hour, minute 
-                        FROM ${alias}${table} 
-                        ORDER BY year DESC, month DESC, day DESC, hour DESC, minute DESC
-                    `;
-                } else {
-                    // Extract date components from timestamp for tables that don't have them explicitly
-                    // SQLite strftime returns strings, so we cast to integer for consistency
-                    query = `
-                        SELECT 
-                            CAST(strftime('%Y', timestamp) AS INTEGER) as year,
-                            CAST(strftime('%m', timestamp) AS INTEGER) as month,
-                            CAST(strftime('%d', timestamp) AS INTEGER) as day,
-                            CAST(strftime('%H', timestamp) AS INTEGER) as hour,
-                            CAST(strftime('%M', timestamp) AS INTEGER) as minute
-                        FROM ${alias}${table}
-                        ORDER BY timestamp DESC
-                    `;
-                }
-
-                const rows = yearDb.prepare(query).all();
-                // Avoid stack overflow with large arrays
-                for (const row of rows) {
-                    allRows.push(row);
-                }
+                const remaining = safeLimit - allRows.length;
+                const rows = yearDb.prepare(`
+                    SELECT id, timestamp
+                    FROM ${alias}${table}
+                    ORDER BY timestamp DESC
+                    LIMIT ?
+                `).all(remaining) as Array<{ id: number; timestamp: string }>;
+                allRows.push(...rows);
             } catch (error) {
                 console.error(`Error querying logs for year ${year}:`, error);
             }
         }
 
-        // Sort combined results
-        allRows.sort((a: any, b: any) => {
-            if (a.year !== b.year) return b.year - a.year;
-            if (a.month !== b.month) return b.month - a.month;
-            if (a.day !== b.day) return b.day - a.day;
-            if (a.hour !== b.hour) return b.hour - a.hour;
-            return b.minute - a.minute;
-        });
+        allRows.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
-        return allRows.map((row: any) => {
-            const ext = type === 'config' ? 'json' : ['temp_diff', 'min_temp_status'].includes(type) ? 'jsonl' : 'xml';
-            const month = String(row.month).padStart(2, '0');
-            const day = String(row.day).padStart(2, '0');
-            const hour = String(row.hour).padStart(2, '0');
-            const minute = String(row.minute).padStart(2, '0');
-            return `${type}/${row.year}/${month}/${day}/${hour}-${minute}.${ext}`;
+        return allRows.map(row => {
+            const date = new Date(row.timestamp);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hour = String(date.getHours()).padStart(2, '0');
+            const minute = String(date.getMinutes()).padStart(2, '0');
+            const second = String(date.getSeconds()).padStart(2, '0');
+            return `${type}/${year}/${month}/${day}/${hour}-${minute}-${second}-id${row.id}.${getLogExtension(type)}`;
         });
     }
 
-    async count(table: string): Promise<number> {
+    async getLogEntry(type: LogType, year: number, id: number): Promise<Record<string, unknown> | null> {
         await this.ensureInitialized();
-        if (!VALID_LOG_TABLES.has(table)) {
-            throw new Error(`Unsupported log table: ${table}`);
-        }
-        const years = this.db.getAllAvailableYears();
-        let totalCount = 0;
-
-        for (const year of years) {
-            try {
-                const yearDb = this.db.getDbForYear(year);
-                const alias = year === this.db.getCurrentYear() ? '' : `db_${year}.`;
-                const result = yearDb.prepare(`SELECT COUNT(*) as count FROM ${alias}${table}`).get() as any;
-                totalCount += result?.count || 0;
-            } catch (error) {
-                console.error(`Error counting for year ${year}:`, error);
-            }
+        if (!Number.isInteger(id) || id < 1 || !Number.isInteger(year) || year < 2000 || year > 2100) {
+            return null;
         }
 
-        return totalCount;
+        const yearDb = this.db.getDbForYear(year);
+        const alias = year === this.db.getCurrentYear() ? '' : `db_${year}.`;
+        return (yearDb.prepare(`SELECT * FROM ${alias}${LOG_TABLES[type]} WHERE id = ?`).get(id) as Record<string, unknown> | undefined) ?? null;
     }
 
-    async getAllTimestamps(table: string): Promise<string[]> {
-        await this.ensureInitialized();
-        if (!VALID_LOG_TABLES.has(table)) {
-            throw new Error(`Unsupported log table: ${table}`);
-        }
-        const years = this.db.getAllAvailableYears();
-        const allTimestamps: string[] = [];
-
-        for (const year of years) {
-            try {
-                const yearDb = this.db.getDbForYear(year);
-                const alias = year === this.db.getCurrentYear() ? '' : `db_${year}.`;
-                const rows = yearDb.prepare(`SELECT timestamp FROM ${alias}${table} ORDER BY timestamp`).all();
-                // Avoid stack overflow with large arrays
-                for (const row of rows) {
-                    allTimestamps.push((row as any).timestamp);
-                }
-            } catch (error) {
-                console.error(`Error getting timestamps for year ${year}:`, error);
-            }
-        }
-
-        return allTimestamps.sort();
-    }
 }

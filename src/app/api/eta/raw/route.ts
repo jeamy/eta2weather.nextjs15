@@ -5,28 +5,33 @@ import { MenuNode } from '@/types/menu';
 import { getAllUris } from '@/utils/etaUtils';
 import { parseEtaMenuXml } from '@/reader/functions/etaMenuParser';
 
-async function getMenuItems(etaApi: EtaApi): Promise<MenuNode[]> {
-  const response = await etaApi.getMenu();
+async function getMenuItems(etaApi: EtaApi, signal?: AbortSignal): Promise<MenuNode[]> {
+  const response = await etaApi.getMenu(signal);
   if (response.error || !response.result) {
     throw new Error(response.error || 'Failed to fetch menu items');
   }
   return parseEtaMenuXml(response.result);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   let etaApi: EtaApi | null = null;
   try {
     const config = await getConfig();
     etaApi = new EtaApi(config.s_eta);
-    const menuItems = await getMenuItems(etaApi);
+    const menuItems = await getMenuItems(etaApi, request.signal);
     
     // Collect all URIs from menu items
     const rawData: Record<string, any> = {};
     
-    for (const uri of getAllUris(menuItems)) {
-      const response = await etaApi.getUserVar(uri);
-      if (response.result) {
-        rawData[uri] = response.result;
+    const uris = getAllUris(menuItems).slice(0, 1000);
+    const batchSize = 5;
+    for (let i = 0; i < uris.length; i += batchSize) {
+      const batch = uris.slice(i, i + batchSize);
+      const responses = await Promise.all(batch.map(async uri => ({ uri, response: await etaApi!.getUserVar(uri, request.signal) })));
+      for (const { uri, response } of responses) {
+        if (response.result) {
+          rawData[uri] = response.result;
+        }
       }
     }
     

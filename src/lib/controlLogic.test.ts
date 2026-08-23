@@ -56,6 +56,18 @@ function runTests() {
         assert(result.newState.initialized === true, 'Should mark state initialized');
     }
 
+    // Test 1c: An all-off device state must be repaired, not treated as AA.
+    {
+        const input: ControlInput = {
+            ...baseInput,
+            currentActiveButton: null
+        };
+        const result = determineControlAction(input);
+        assert(result.action === 'SWITCH_BUTTON', 'Should repair a missing active heating mode');
+        assert(result.targetButton === EtaButtons.AA, 'Should restore the expected mode when all buttons are off');
+        assert(result.newState.manualOverride === false, 'Should not treat an all-off state as a manual override');
+    }
+
     // Test 2: Temperature drops below min -> Switch to KT
     {
         const input: ControlInput = { ...baseInput, indoorTemp: 19 };
@@ -111,6 +123,26 @@ function runTests() {
         assert(result.action === 'SWITCH_BUTTON', 'Should switch after override expires');
         assert(result.targetButton === EtaButtons.KT, 'Should target KT');
         assert(result.newState.manualOverride === false, 'Should clear manualOverride flag');
+    }
+
+    // Test 5b: An expired override must not immediately renew itself when the
+    // underlying temperature/slider state stayed unchanged.
+    {
+        const stateInOverride: ControlState = {
+            ...baseState,
+            manualOverride: true,
+            manualOverrideTime: 1000000
+        };
+        const input: ControlInput = {
+            ...baseInput,
+            currentActiveButton: EtaButtons.KT,
+            lastTempState: stateInOverride,
+            currentTime: 1000000 + 3600000
+        };
+        const result = determineControlAction(input);
+        assert(result.action === 'SWITCH_BUTTON', 'Should restore the expected button after override expiry without a state change');
+        assert(result.targetButton === EtaButtons.AA, 'Should restore AA after the stable override expires');
+        assert(result.newState.manualOverride === false, 'Should not renew an expired override');
     }
 
     // Test 6: Slider Negative -> Switch to GT

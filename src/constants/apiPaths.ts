@@ -8,46 +8,14 @@ export const API = {
   ETA_UPDATE: '/api/eta/update',
   ETA_HEATING_MODE: '/api/eta/heating-mode',
   ETA_READ_BATCH_MENU_DATA: '/api/eta/readBatchMenuData',
-  ETA_READ_MENU_DATA: '/api/eta/readMenuData',
   ETA_RAW: '/api/eta/raw',
 
-  // WiFi AF83
-  WIFI_AF83_ALL: '/api/wifiaf83/all',
-  WIFI_AF83_READ: '/api/wifiaf83/read',
-
   // Config
-  CONFIG_READ: '/api/config/read',
   CONFIG: '/api/config',
 
   // Misc
   LOGS: '/api/logs',
-  NAMES2ID_READ: '/api/names2id/read',
   BACKGROUND_STATUS: '/api/background/status',
   CHANNEL_NAMES: '/api/channelnames',
   WEATHER: '/api/weather',
-  HEALTH: '/api/health',
 } as const;
-
-export type ApiPathKey = keyof typeof API;
-export type ApiPathValue = typeof API[ApiPathKey];
-
-// Named exports for convenience
-export const {
-  ETA_MENU,
-  ETA_READ,
-  ETA_UPDATE,
-  ETA_HEATING_MODE,
-  ETA_READ_BATCH_MENU_DATA,
-  ETA_READ_MENU_DATA,
-  ETA_RAW,
-  WIFI_AF83_ALL,
-  WIFI_AF83_READ,
-  CONFIG_READ,
-  CONFIG,
-  LOGS,
-  NAMES2ID_READ,
-  BACKGROUND_STATUS,
-  CHANNEL_NAMES,
-  WEATHER,
-  HEALTH,
-} = API;

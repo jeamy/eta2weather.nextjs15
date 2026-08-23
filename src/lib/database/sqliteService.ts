@@ -57,7 +57,9 @@ export class DatabaseService {
 
         // Close current DB if switching
         if (this.currentDb && this.currentYear !== year) {
+            this.detachAllYears();
             this.currentDb.close();
+            this.attachedDbs.clear();
         }
 
         this.currentDb = new Database(dbPath);

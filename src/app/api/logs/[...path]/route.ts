@@ -1,9 +1,50 @@
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { DatabaseHelpers } from '@/lib/database/dbHelpers';
+import { isLogType } from '@/lib/logTypes';
+import { formatLogData } from '@/utils/logging';
+
+async function getDatabaseLog(pathSegments: string[]): Promise<NextResponse | null> {
+  if (pathSegments.length !== 5 || !isLogType(pathSegments[0])) return null;
+  const year = Number(pathSegments[1]);
+  const idMatch = pathSegments[4].match(/-id(\d+)\.(?:xml|json|jsonl)$/);
+  if (!Number.isInteger(year) || !idMatch) return null;
+
+  const type = pathSegments[0];
+  const entry = await new DatabaseHelpers().getLogEntry(type, year, Number(idMatch[1]));
+  if (!entry || typeof entry.timestamp !== 'string') return null;
+
+  let data: Record<string, unknown>;
+  if (type === 'ecowitt' || type === 'eta' || type === 'config') {
+    if (typeof entry.data !== 'string') return null;
+    data = JSON.parse(entry.data) as Record<string, unknown>;
+  } else if (type === 'temp_diff') {
+    data = {
+      diff: entry.diff,
+      sliderPosition: entry.slider_position,
+      t_soll: entry.t_soll,
+      t_delta: entry.t_delta,
+      indoor_temp: entry.indoor_temp,
+    };
+  } else {
+    data = { diff: entry.diff, status: entry.status };
+  }
+
+  const headers = new Headers({ 'Cache-Control': 'no-store' });
+  headers.set(
+    'Content-Type',
+    type === 'config'
+      ? 'application/json; charset=utf-8'
+      : type === 'temp_diff' || type === 'min_temp_status'
+        ? 'application/x-ndjson; charset=utf-8'
+        : 'application/xml; charset=utf-8',
+  );
+  return new NextResponse(formatLogData(type, data, new Date(entry.timestamp)), { status: 200, headers });
+}
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ path: string[] }> }
 ): Promise<NextResponse> {
   const { path: pathSegments } = await params;
@@ -34,8 +75,17 @@ export async function GET(
       );
     }
 
-    // Read the file as Buffer to allow BOM removal/sanitization for XML
-    const fileBuffer = await fs.readFile(filePath);
+    // Prefer legacy/fallback files when present; new SQLite-backed paths carry
+    // an explicit row id and are rendered directly from the database.
+    let fileBuffer: Buffer;
+    try {
+      fileBuffer = await fs.readFile(filePath);
+    } catch (error: any) {
+      if (error?.code !== 'ENOENT') throw error;
+      const databaseLog = await getDatabaseLog(pathSegments);
+      if (databaseLog) return databaseLog;
+      throw error;
+    }
 
     // Set appropriate headers based on file extension
     const headers = new Headers({
@@ -105,6 +155,9 @@ export async function GET(
         status: 200,
         headers,
       });
+    } else if (filePath.endsWith('.jsonl')) {
+      headers.set('Content-Type', 'application/x-ndjson; charset=utf-8');
+      return new NextResponse(fileBuffer.toString('utf-8'), { status: 200, headers });
     }
 
     // Default: serve as text for unknown extensions

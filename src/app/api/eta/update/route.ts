@@ -3,37 +3,6 @@ import { EtaApi } from '@/reader/functions/EtaApi';
 import { getConfig } from '@/utils/cache';
 import { requireWriteAccess } from '@/utils/apiAuth';
 
-function normalizeId(rawId: string): string {
-  if (!rawId) {
-    return rawId;
-  }
-
-  let id = rawId.trim();
-
-  // If a full URL was passed accidentally, extract the path part
-  if (id.startsWith('http')) {
-    try {
-      const url = new URL(id);
-      id = url.pathname || id;
-    } catch {
-      // Ignore URL parsing errors and fall back to the original id
-    }
-  }
-
-  // Strip query string / hash if present
-  id = id.split('?')[0].split('#')[0];
-
-  // If the ID already contains the user/var prefix, remove it so EtaApi can add it once
-  id = id.replace(/^\/?user\/var\/+/, '/');
-
-  // Ensure the ID starts with a single leading slash (EtaApi will remove it internally)
-  if (!id.startsWith('/')) {
-    id = `/${id}`;
-  }
-
-  return id;
-}
-
 export async function POST(request: NextRequest) {
   let etaApi: EtaApi | null = null;
 
@@ -43,15 +12,10 @@ export async function POST(request: NextRequest) {
 
     // Get config from cache
     const config = await getConfig();
-    console.log(`[API] Loaded config s_eta: ${config.s_eta}`);
-
     const body = await request.json();
     const { id, value, begin = "0", end = "0" } = body;
-    const normalizedId = normalizeId(id);
 
-    console.log(`Setting value for ID ${normalizedId} (raw: ${id}) to value: ${value}, begin: ${begin}, end: ${end}`);
-
-    if (!normalizedId || value === undefined || value === null) {
+    if (typeof id !== 'string' || !id.trim() || value === undefined || value === null) {
       return NextResponse.json(
         { error: 'Missing required parameters' },
         { status: 400 }
@@ -66,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     etaApi = new EtaApi(config.s_eta);
-    const result = await etaApi.setUserVar(normalizedId, value, begin, end);
+    const result = await etaApi.setUserVar(id, String(value), String(begin), String(end));
 
     if (result.error) {
       console.error('ETA API error result:', result);

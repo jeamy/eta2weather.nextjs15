@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
-import { batchFetchEtaDataInChunks, EtaDataState, EtaFetchHookResult, EtaFetchOptions } from '@/utils/etaUtils';
+import { batchFetchEtaDataInChunks, EtaFetchHookResult, EtaFetchOptions } from '@/utils/etaUtils';
 
 export const useEtaData = (): EtaFetchHookResult => {
   const [values, setValues] = useState<Record<string, ParsedXmlData>>({});
@@ -26,7 +26,7 @@ export const useEtaData = (): EtaFetchHookResult => {
   }, [cleanupAllAbortControllers]);
 
   const fetchValues = useCallback(async (uris: string[], options?: EtaFetchOptions) => {
-    if (!uris.length) return;
+    if (!uris.length) return true;
 
     // Cleanup any existing fetch
     cleanupAbortController();
@@ -35,12 +35,9 @@ export const useEtaData = (): EtaFetchHookResult => {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    // Set loading true and clear previous errors for these URIs in a single pass
-    setLoading(prev => {
-      const next = { ...prev };
-      uris.forEach(uri => { next[uri] = true; });
-      return next;
-    });
+    // A hook instance owns one active request. Replacing the loading map keeps
+    // an aborted, superseded request from leaving unrelated stale flags behind.
+    setLoading(Object.fromEntries(uris.map(uri => [uri, true])));
     setError(prev => {
       const next = { ...prev };
       uris.forEach(uri => { delete next[uri]; });
@@ -55,7 +52,9 @@ export const useEtaData = (): EtaFetchHookResult => {
 
       if (!abortController.signal.aborted) {
         setValues(prev => ({ ...prev, ...result }));
+        return true;
       }
+      return false;
     } catch (error) {
       if (!abortController.signal.aborted) {
         const errorMessage = error instanceof Error ? error.message : 'An error occurred';
@@ -65,15 +64,16 @@ export const useEtaData = (): EtaFetchHookResult => {
           return next;
         });
       }
+      return false;
     } finally {
-      if (!abortController.signal.aborted) {
+      if (abortControllerRef.current === abortController) {
         setLoading(prev => {
           const next = { ...prev };
           uris.forEach(uri => { next[uri] = false; });
           return next;
         });
+        abortControllerRef.current = null;
       }
-      cleanupAbortController();
     }
   }, [cleanupAbortController]);
 

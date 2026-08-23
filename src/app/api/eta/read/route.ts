@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
-import { ETA_MODE_BUTTONS, EtaModeButton, EtaButtons, EtaPos } from '@/reader/functions/types-constants/EtaConstants';
 import { getServerStore } from '@/lib/backgroundService';
 import { fetchEtaData } from '@/reader/functions/EtaData';
-import { defaultNames2Id } from '@/reader/functions/types-constants/Names2IDconstants';
-import { getConfig } from '@/utils/cache';
+import { getConfig, getNames2Id } from '@/utils/cache';
 import { storeData as storeEtaData } from '@/redux/etaSlice';
+import { normalizeEtaButtonState } from '@/lib/etaModeState';
 
 export async function GET() {
   try {
@@ -14,61 +13,13 @@ export async function GET() {
 
     if (Object.keys(etaData).length === 0) {
       const config = await getConfig();
-      etaData = await fetchEtaData(config, defaultNames2Id);
+      etaData = await fetchEtaData(config, await getNames2Id());
       if (Object.keys(etaData).length > 0) {
         store.dispatch(storeEtaData(etaData));
       }
     }
 
-    // CRITICAL: Enforce mode button invariants at API level
-    // Find currently active button (manual buttons have priority over AA)
-    let activeButton: EtaButtons | null = null;
-
-    // First, check for active non-auto mode buttons (HT, KT, GT, DT)
-    for (const item of Object.values(etaData)) {
-      if (ETA_MODE_BUTTONS.includes(item.short as EtaModeButton) &&
-        item.value === EtaPos.EIN &&
-        item.short !== EtaButtons.AA) {
-        activeButton = item.short as EtaButtons;
-        break;
-      }
-    }
-
-    // If no manual button found, check if AA is active
-    if (!activeButton) {
-      for (const item of Object.values(etaData)) {
-        if (item.short === EtaButtons.AA && item.value === EtaPos.EIN) {
-          activeButton = EtaButtons.AA;
-          break;
-        }
-      }
-    }
-
-    // If still no button found, default to AA
-    if (!activeButton) {
-      activeButton = EtaButtons.AA;
-    }
-
-    // Enforce invariant: Only ONE button can be active
-    Object.entries(etaData).forEach(([uri, item]) => {
-      if (ETA_MODE_BUTTONS.includes(item.short as EtaModeButton)) {
-        if (item.short === activeButton) {
-          // This is the active button - ensure it's ON
-          etaData[uri] = {
-            ...item,
-            value: EtaPos.EIN,
-            strValue: 'Ein',
-          };
-        } else {
-          // All other buttons must be OFF
-          etaData[uri] = {
-            ...item,
-            value: EtaPos.AUS,
-            strValue: 'Aus',
-          };
-        }
-      }
-    });
+    etaData = normalizeEtaButtonState(etaData);
 
     return NextResponse.json({ success: true, data: etaData, config: state.config.data });
   } catch (error) {

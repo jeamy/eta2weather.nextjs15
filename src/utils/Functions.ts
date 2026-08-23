@@ -16,12 +16,6 @@ type EtaValues = {
     vorlauftemp?: number;
 };
 
-type TempDiff = {
-    diff: number | null;
-    twa: number;
-    twi: number;
-};
-
 export function calculateNewSliderPosition({ einaus, schaltzustand, heizentaste, kommentaste, vorlauftemp }: EtaValues, diff: number): { base: string; final: string } {
 
     //    console.log(`
@@ -104,10 +98,6 @@ export function calculateMinTempDiff(indoorTemp: number, minTemp: string): numbe
     return Number((indoorTemp - minTempNum).toFixed(1));
 }
 
-export interface EtaApiInterface {
-    setUserVar: (id: string, value: string, flags: string, index: string) => Promise<void>;
-}
-
 export async function updateSliderPosition(
     newPosition: number,
     currentPosition: number,
@@ -130,7 +120,10 @@ export async function updateSliderPosition(
         const isServer = typeof window === 'undefined';
         if (isServer) {
             // Server/background: use direct EtaApi call (no relative URL issues)
-            await etaApi.setUserVar(id, scaledPosition, "0", "0");
+            const result = await etaApi.setUserVar(id, scaledPosition, "0", "0");
+            if (result.error || !result.result) {
+                throw new Error(result.error || 'Empty response from ETA API');
+            }
         } else {
             // Browser: call our Next.js API to avoid CORS against ETA device
             const response = await fetch(API.ETA_UPDATE, {

@@ -6,11 +6,13 @@ import { RootState } from '@/redux';
 import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
 import { storeData as storeEtaData } from '@/redux/etaSlice';
+import { storeData as storeControlData } from '@/redux/controlSlice';
 import { ETA_MODE_BUTTONS, EtaModeButton, EtaPos, EtaText, EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
 import { EtaConstants } from '@/reader/functions/types-constants/Names2IDconstants';
 import Image from 'next/image';
 import { API } from '@/constants/apiPaths';
 import { useToast } from '@/components/ToastProvider';
+import { getEtaModeState } from '@/lib/etaModeState';
 
 const ETA_DISPLAY_ORDER: Partial<Record<EtaConstants, number>> = {
   [EtaConstants.SCHIEBERPOS]: 1,
@@ -52,7 +54,7 @@ const EtaData: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
   const config = useSelector((state: RootState) => state.config.data);
   const etaState = useSelector((state: RootState) => state.eta);
-  const [loadingState, setLoadingState] = useState({ isLoading: false, error: '' });
+  const serverControlState = useSelector((state: RootState) => state.control);
   // Prevent overlapping update operations
   const updateBusyRef = useRef<boolean>(false);
 
@@ -68,6 +70,19 @@ const EtaData: React.FC = () => {
     manualOverride: false,
     manualOverrideTime: null
   });
+
+  useEffect(() => {
+    lastTempState.current = serverControlState;
+    if (!serverControlState.manualOverride || !serverControlState.manualOverrideTime) {
+      setOverrideActive(false);
+      setOverrideRemainingMs(0);
+      return;
+    }
+    const timeoutMs = parseInt(config.t_override, 10) || 60 * 60 * 1000;
+    const remaining = Math.max(0, timeoutMs - (Date.now() - serverControlState.manualOverrideTime));
+    setOverrideActive(remaining > 0);
+    setOverrideRemainingMs(remaining);
+  }, [serverControlState, config.t_override]);
 
   // Memoized map of button short codes to their URIs
   const buttonIds = useMemo<Record<string, string>>(() => {
@@ -87,7 +102,7 @@ const EtaData: React.FC = () => {
   const updateButtonStates = useCallback(async (activeButton: EtaModeButton, isManual: boolean = false) => {
     try {
       // Debounce concurrent operations
-      if (updateBusyRef.current) return;
+      if (updateBusyRef.current) throw new Error('Eine ETA-Aktualisierung läuft bereits');
       updateBusyRef.current = true;
       setIsUpdating(true);
 
@@ -100,18 +115,12 @@ const EtaData: React.FC = () => {
         }
         return null;
       })();
-      if (currentActive === activeButton) {
+      if (currentActive === activeButton && !isManual) {
         return;
       }
       if (!buttonIds[activeButton]) {
-        console.warn(`Button ID not found for ${activeButton}`);
-        setLoadingState(prev => ({ ...prev, error: `Button ID not found for ${activeButton}` }));
-        return;
+        throw new Error(`Button ID not found for ${activeButton}`);
       }
-
-      const activeFlags = Object.fromEntries(
-        Object.entries(buttonIds).map(([button, uri]) => [button, etaState.data[uri]?.value === EtaPos.EIN])
-      );
 
       const response = await fetch(API.ETA_HEATING_MODE, {
         method: 'POST',
@@ -120,7 +129,6 @@ const EtaData: React.FC = () => {
         },
         body: JSON.stringify({
           targetButton: activeButton,
-          activeFlags,
           isManual
         })
       });
@@ -151,38 +159,14 @@ const EtaData: React.FC = () => {
       // Data will be refreshed automatically by BackgroundSync
     } catch (error) {
       console.error('Error updating button states:', error);
-      setLoadingState(prev => ({ ...prev, error: (error as Error).message }));
+      throw error;
     } finally {
       updateBusyRef.current = false;
       setIsUpdating(false);
     }
   }, [dispatch, etaState.data, buttonIds]);
 
-  // Get the currently active button from etaState
-  const getActiveButton = useCallback(() => {
-    for (const key of ETA_BUTTON_KEYS.filter(key => key !== EtaButtons.AA)) {
-      const uri = buttonIds[key];
-      const data = uri ? etaState.data[uri] : undefined;
-      if (data?.value === EtaPos.EIN) {
-        return key;
-      }
-    }
-
-    const autoUri = buttonIds[EtaButtons.AA];
-    if (autoUri && etaState.data[autoUri]?.value === EtaPos.EIN) {
-      return EtaButtons.AA;
-    }
-
-    for (const [, data] of Object.entries(etaState.data)) {
-      if (ETA_MODE_BUTTONS.includes(data.short as EtaModeButton) && data.value === EtaPos.EIN) {
-        return data.short as EtaModeButton;
-      }
-    }
-    return EtaButtons.AA;
-  }, [buttonIds, etaState.data]);
-
-  // Current active button (for segmented control state)
-  const activeKey = getActiveButton();
+  const activeKey = useMemo(() => getEtaModeState(etaState.data).activeButton, [etaState.data]);
 
   // (Removed duplicate temperature control effect; consolidated below)
 
@@ -218,20 +202,23 @@ const EtaData: React.FC = () => {
   }, [etaState.data]);
 
   const handleButtonClick = useCallback(async (clickedButton: EtaModeButton) => {
-    // Set manual override when a button is clicked, except for AA
-    if (clickedButton !== EtaButtons.AA) {
-      lastTempState.current.manualOverride = true;
-      lastTempState.current.manualOverrideTime = Date.now();
-      const overrideMs = parseInt(config.t_override, 10) || 60 * 60 * 1000;
-      const overrideMinutes = Math.round(overrideMs / 60000);
-      console.log(`Manual override activated for ${overrideMinutes} minutes`);
-      // Immediate UI feedback
-      setOverrideActive(true);
-      setOverrideRemainingMs(overrideMs);
-    }
-
     try {
       await updateButtonStates(clickedButton, true);
+      if (clickedButton === EtaButtons.AA) {
+        lastTempState.current.manualOverride = false;
+        lastTempState.current.manualOverrideTime = null;
+        setOverrideActive(false);
+        setOverrideRemainingMs(0);
+        dispatch(storeControlData({ manualOverride: false, manualOverrideTime: null }));
+      } else {
+        const overrideMs = parseInt(config.t_override, 10) || 60 * 60 * 1000;
+        const overrideTime = Date.now();
+        lastTempState.current.manualOverride = true;
+        lastTempState.current.manualOverrideTime = overrideTime;
+        setOverrideActive(true);
+        setOverrideRemainingMs(overrideMs);
+        dispatch(storeControlData({ manualOverride: true, manualOverrideTime: overrideTime }));
+      }
       const label = (() => {
         switch (clickedButton) {
           case EtaButtons.AA: return 'Auto aktiviert';
@@ -247,7 +234,7 @@ const EtaData: React.FC = () => {
       console.error('Error handling button click:', error);
       showToast(error instanceof Error ? error.message : 'Aktion fehlgeschlagen', 'error');
     }
-  }, [updateButtonStates, config.t_override]);
+  }, [updateButtonStates, config.t_override, showToast, dispatch]);
 
   // Countdown for manual override; updates every second
   useEffect(() => {
@@ -258,63 +245,35 @@ const EtaData: React.FC = () => {
         const remaining = Math.max(0, timeoutMs - elapsed);
         setOverrideActive(remaining > 0);
         setOverrideRemainingMs(remaining);
+        if (remaining === 0) {
+          lastTempState.current.manualOverride = false;
+          lastTempState.current.manualOverrideTime = null;
+          dispatch(storeControlData({ manualOverride: false, manualOverrideTime: null }));
+        }
       } else {
         setOverrideActive(false);
         setOverrideRemainingMs(0);
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [config.t_override]);
+  }, [config.t_override, dispatch]);
 
   const cancelOverride = useCallback(async () => {
     try {
+      await updateButtonStates(EtaButtons.AA, true);
       lastTempState.current.manualOverride = false;
       lastTempState.current.manualOverrideTime = null;
       setOverrideActive(false);
       setOverrideRemainingMs(0);
-      await updateButtonStates(EtaButtons.AA, true);
+      dispatch(storeControlData({ manualOverride: false, manualOverrideTime: null }));
       showToast('Override beendet · Auto aktiviert', 'success');
     } catch (e) {
       console.error('Error cancelling manual override:', e);
       showToast(e instanceof Error ? e.message : 'Override beenden fehlgeschlagen', 'error');
     }
-  }, [updateButtonStates]);
-
-  useEffect(() => {
-    // t_override is stored in milliseconds (ms); default to 60 minutes if not set
-    const overrideTimeoutMs = parseInt(config.t_override, 10) || 60 * 60 * 1000;
-    const overrideTimeoutMinutes = Math.round(overrideTimeoutMs / 60000);
-
-    if (lastTempState.current.manualOverride && lastTempState.current.manualOverrideTime) {
-      const now = Date.now();
-      if (now - lastTempState.current.manualOverrideTime >= overrideTimeoutMs) {
-        console.log(`Manual override timeout (${overrideTimeoutMinutes} minutes) reached, resuming automatic temperature control`);
-        lastTempState.current.manualOverride = false;
-        lastTempState.current.manualOverrideTime = null;
-      }
-    }
-  }, [config.t_override]); // Re-run when override timeout changes
+  }, [updateButtonStates, showToast, dispatch]);
 
   // Periodic refresh is now handled by BackgroundSync - no need for interval here
-
-  if (loadingState.isLoading) {
-    return (
-      <div className="card">
-        <div className="skeleton skeleton--title" />
-        <div className="skeleton skeleton--line" />
-        <div className="skeleton skeleton--line" />
-        <div className="skeleton skeleton--line" />
-      </div>
-    );
-  }
-
-  if (loadingState.error) {
-    return (
-      <div className="alert alert--error">
-        <p>Error loading data: {loadingState.error}</p>
-      </div>
-    );
-  }
 
   // Do not hard-fail when ETA store is briefly empty (e.g., during background refresh).
   // Keep rendering with last known displayData or show skeleton if still loading.
@@ -391,10 +350,11 @@ const EtaData: React.FC = () => {
           <label htmlFor="quick-actions" className="sr-only">Schnellaktionen</label>
           <select
             id="quick-actions"
-            value={activeKey || EtaButtons.AA}
+            value={activeKey ?? ''}
             onChange={(e) => handleButtonClick(e.target.value as EtaModeButton)}
             disabled={isUpdating}
           >
+            {!activeKey && <option value="" disabled>Kein aktiver Modus</option>}
             {ETA_BUTTON_OPTIONS.map(({ key, label }) => (
               <option key={key} value={key}>{label}</option>
             ))}

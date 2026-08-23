@@ -40,21 +40,53 @@ class Cache<T> {
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Names2Id } from '@/reader/functions/types-constants/Names2IDconstants';
-import { Config, defaultConfig } from '@/reader/functions/types-constants/ConfigConstants';
+import { Config, ConfigKeys, defaultConfig } from '@/reader/functions/types-constants/ConfigConstants';
 
 export const CONFIG_CACHE_KEY = 'eta_config';
 export const WIFIAF83_CACHE_KEY = 'wifiaf83_data';
 export const NAMES2ID_CACHE_KEY = 'names2id_config';
 
 const CONFIG_PATH = path.resolve(process.cwd(), process.env.CONFIG_PATH || 'src/config/f_etacfg.json');
-const NAMES2ID_PATH = path.join(process.cwd(), 'src', 'config', 'f_names2id.json');
-const WIFIAF83_PATH = path.join(process.cwd(), 'src', 'config', 'f_wifiaf89.json');
 let configWriteChain: Promise<void> = Promise.resolve();
+let wifiRefreshPromise: Promise<any> | null = null;
 
 // Create singleton cache instances with 3 seconds TTL
 export const configCache = new Cache<any>(1000*60);
 export const wifiaf83Cache = new Cache<any>(1000*60*5);
 export const names2idCache = new Cache<Names2Id>(1000*60*60);
+
+export function normalizeNames2Id(value: unknown): Names2Id {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new Error('names2id must be an object');
+    }
+    const normalized: Names2Id = {};
+    for (const [short, rawEntry] of Object.entries(value)) {
+        if (!rawEntry || typeof rawEntry !== 'object' || Array.isArray(rawEntry)) {
+            throw new Error(`Invalid names2id entry: ${short}`);
+        }
+        const entry = rawEntry as Record<string, unknown>;
+        const rawId = typeof entry.id === 'string' ? entry.id.trim() : '';
+        const name = typeof entry.name === 'string' ? entry.name : short;
+        if (!rawId) throw new Error(`Missing names2id id: ${short}`);
+        const withoutPrefix = rawId.replace(/^\/?user\/var\/+/, '').replace(/^\/+/, '');
+        normalized[short] = { id: `/${withoutPrefix}`, name };
+    }
+    return normalized;
+}
+
+async function getConfiguredDataPath(
+    key: ConfigKeys.F_NAMES2ID | ConfigKeys.F_WIFIAF83,
+    fallback: string,
+): Promise<string> {
+    const config = await getConfig();
+    const fileName = config[key] || fallback;
+    const configDir = path.resolve(process.cwd(), 'src', 'config');
+    const resolvedPath = path.resolve(configDir, fileName);
+    if (resolvedPath !== configDir && !resolvedPath.startsWith(`${configDir}${path.sep}`)) {
+        throw new Error(`Configured ${key} path escapes src/config`);
+    }
+    return resolvedPath;
+}
 
 export async function getConfig(forceRefresh = false): Promise<Config> {
     if (!forceRefresh) {
@@ -118,6 +150,7 @@ export async function updateConfig(newConfig: any) {
 
 async function updateWifiAf83File(data: any) {
     try {
+        const wifiPath = await getConfiguredDataPath(ConfigKeys.F_WIFIAF83, 'f_wifiaf89.json');
         const fileData = {
             code: 0,
             msg: "success",
@@ -134,7 +167,7 @@ async function updateWifiAf83File(data: any) {
             }),
             diff: "0"
         };
-        await fs.writeFile(WIFIAF83_PATH, JSON.stringify(fileData, null, 2));
+        await fs.writeFile(wifiPath, JSON.stringify(fileData, null, 2));
     } catch (error) {
         console.error('Error writing to wifiaf83 file:', error);
     }
@@ -142,9 +175,10 @@ async function updateWifiAf83File(data: any) {
 
 async function readWifiAf83File(): Promise<any> {
     try {
+        const wifiPath = await getConfiguredDataPath(ConfigKeys.F_WIFIAF83, 'f_wifiaf89.json');
         // Check if file exists
         try {
-            await fs.access(WIFIAF83_PATH);
+            await fs.access(wifiPath);
         } catch {
             // File doesn't exist, create it with initial structure
             const initialData = {
@@ -163,12 +197,12 @@ async function readWifiAf83File(): Promise<any> {
                 }),
                 diff: "0"
             };
-            await fs.writeFile(WIFIAF83_PATH, JSON.stringify(initialData, null, 2));
+            await fs.writeFile(wifiPath, JSON.stringify(initialData, null, 2));
             return initialData.data;
         }
 
         // Read and parse file
-        const data = await fs.readFile(WIFIAF83_PATH, 'utf8');
+        const data = await fs.readFile(wifiPath, 'utf8');
         if (!data.trim()) {
             throw new Error('File is empty');
         }
@@ -198,7 +232,7 @@ async function readWifiAf83File(): Promise<any> {
                 }),
                 diff: "0"
             };
-            await fs.writeFile(WIFIAF83_PATH, JSON.stringify(initialData, null, 2));
+            await fs.writeFile(wifiPath, JSON.stringify(initialData, null, 2));
             return initialData.data;
         }
     } catch (error) {
@@ -207,60 +241,42 @@ async function readWifiAf83File(): Promise<any> {
     }
 }
 
-export async function getWifiAf83Data(fetchFn: (signal?: AbortSignal) => Promise<any>, signal?: AbortSignal) {
+export async function getWifiAf83Data(
+    fetchFn: (signal?: AbortSignal) => Promise<any>,
+    signal?: AbortSignal,
+    options: { forceRefresh?: boolean } = {},
+) {
     // Try to get data from cache first
     const cachedData = wifiaf83Cache.get(WIFIAF83_CACHE_KEY);
-    
-    try {
-        // If not in cache or expired, fetch new data
-        if (!cachedData) {
-            try {
-                const response = await fetchFn(signal);
 
-                // Check if the response has the expected structure
+    if (cachedData && !options.forceRefresh) {
+        return cachedData;
+    }
+
+    try {
+        if (!wifiRefreshPromise) {
+            wifiRefreshPromise = (async () => {
+                const response = await fetchFn(signal);
                 if (!response || response.code !== 0) {
                     throw new Error(`Failed to fetch WifiAf83 data: ${response?.msg || 'Unknown error'}`);
                 }
-
-                // Store in cache and file
                 wifiaf83Cache.set(WIFIAF83_CACHE_KEY, response.data);
                 await updateWifiAf83File(response.data);
                 return response.data;
-            } catch (fetchError) {
-                // If fetch fails and we have no cache, try to read from file
-                const fileData = await readWifiAf83File();
-                if (fileData) {
-                    wifiaf83Cache.set(WIFIAF83_CACHE_KEY, fileData);
-                    return fileData;
-                }
-                throw fetchError;
-            }
+            })().finally(() => {
+                wifiRefreshPromise = null;
+            });
         }
-        
-        // If we have cached data, try to fetch new data in the background
-        fetchFn(signal).then(response => {
-            if (response && response.code === 0) {
-                wifiaf83Cache.set(WIFIAF83_CACHE_KEY, response.data);
-                updateWifiAf83File(response.data).catch(() => {
-                    // Ignore file write errors in background update
-                });
-            }
-        }).catch(() => {
-            // Ignore background fetch errors
-        });
-        
-        return cachedData;
+        return await wifiRefreshPromise;
     } catch (error) {
-        // If we have cached data and get a rate limit error, return the cached data
-        if (cachedData && error instanceof Error && 
-            (error.message.includes('too frequent') || error.message.includes('rate limit'))) {
-            console.log('Using cached data due to rate limit');
+        if (cachedData) {
+            console.log('Using cached data after WiFi refresh failure');
             return cachedData;
         }
 
         // If no cache and error is not rate limit, try file as last resort
         const fileData = await readWifiAf83File();
-        if (fileData) {
+        if (fileData && Object.keys(fileData).length > 0) {
             console.log('Using file data as fallback');
             wifiaf83Cache.set(WIFIAF83_CACHE_KEY, fileData);
             return fileData;
@@ -270,20 +286,24 @@ export async function getWifiAf83Data(fetchFn: (signal?: AbortSignal) => Promise
     }
 }
 
-export async function getNames2Id(): Promise<Names2Id> {
+export async function getNames2Id(forceRefresh = false): Promise<Names2Id> {
+    const config = await getConfig(forceRefresh);
+    const fileName = config[ConfigKeys.F_NAMES2ID] || 'f_names2id.json';
+    const names2idPath = await getConfiguredDataPath(ConfigKeys.F_NAMES2ID, 'f_names2id.json');
+    const cacheKey = `${NAMES2ID_CACHE_KEY}:${fileName}`;
+
     // Try to get from cache first
-    const cachedData = names2idCache.get(NAMES2ID_CACHE_KEY);
+    const cachedData = forceRefresh ? null : names2idCache.get(cacheKey);
     if (cachedData) {
         return cachedData;
     }
 
     // If not in cache, read from file
-    const names2idData = await fs.readFile(NAMES2ID_PATH, 'utf8');
-    const names2id: Names2Id = JSON.parse(names2idData);
-//    console.log("Fetched names2id", names2id);
+    const names2idData = await fs.readFile(names2idPath, 'utf8');
+    const names2id = normalizeNames2Id(JSON.parse(names2idData));
 
     // Store in cache
-    names2idCache.set(NAMES2ID_CACHE_KEY, names2id);
+    names2idCache.set(cacheKey, names2id);
 
     return names2id;
 }

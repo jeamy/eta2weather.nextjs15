@@ -92,14 +92,18 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
     const activeNode = menuItems[selectedIndex];
     const uris = getUrisForNode(activeNode);
     if (!uris.length) return;
-    await fetchValues(uris, { chunkSize: 100, concurrency: 3 });
-    setLastUpdated(Date.now());
+    if (await fetchValues(uris, { chunkSize: 100, concurrency: 3 })) {
+      setLastUpdated(Date.now());
+    }
   }, [menuItems, selectedIndex, fetchValues]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchActiveValues();
-    setIsRefreshing(false);
+    try {
+      await fetchActiveValues();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   // Initial and on-tab-change load

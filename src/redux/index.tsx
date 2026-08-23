@@ -1,14 +1,16 @@
-import { configureStore, Store, combineReducers } from '@reduxjs/toolkit';
+import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import etaReducer from './etaSlice';
 import configReducer from './configSlice';
 import names2IdReducer from './names2IdSlice';
 import wifiAf83Reducer from './wifiAf83Slice';
+import controlReducer from './controlSlice';
 
 const rootReducer = combineReducers({
   config: configReducer,
   eta: etaReducer,
   names2Id: names2IdReducer,
-  wifiAf83: wifiAf83Reducer
+  wifiAf83: wifiAf83Reducer,
+  control: controlReducer,
 });
 
 export type RootState = ReturnType<typeof rootReducer>;

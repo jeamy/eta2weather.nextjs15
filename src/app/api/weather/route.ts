@@ -1,25 +1,33 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
+import { promises as fs } from 'fs';
 import path from 'path';
 import { DOMParser } from '@xmldom/xmldom';
-import { DatabaseHelpers, TimeRange } from '@/lib/database/dbHelpers';
+import { DatabaseHelpers, getTimeRangeHours, isTimeRange, TimeRange } from '@/lib/database/dbHelpers';
 import { parseNum } from '@/utils/numberParser';
+import { extractWeatherChannels } from '@/utils/weatherData';
 
 // Simple in-memory cache per range to speed up repeated requests.
 // TTLs are conservative and per-range.
 const cache = new Map<string, { t: number; data: any[] }>();
-const CACHE_TTLS: Record<string, number> = {
+const CACHE_TTLS: Record<TimeRange, number> = {
   '24h': 60_000,   // 1 minute
   '7d': 5 * 60_000, // 5 minutes
   '30d': 15 * 60_000, // 15 minutes
-  default: 60 * 60_000, // 1 hour
+  '1m': 15 * 60_000, // 15 minutes
 };
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const range = (searchParams.get('range') || '24h') as TimeRange;
-    const ttl = CACHE_TTLS[range] ?? CACHE_TTLS.default;
+    const requestedRange = searchParams.get('range') || '24h';
+    if (!isTimeRange(requestedRange)) {
+      return NextResponse.json(
+        { error: `Invalid range: ${requestedRange}` },
+        { status: 400 }
+      );
+    }
+    const range = requestedRange;
+    const ttl = CACHE_TTLS[range];
     const cacheKey = `weather:${range}`;
     const nowMs = Date.now();
     const cached = cache.get(cacheKey);
@@ -37,15 +45,16 @@ export async function GET(request: Request) {
       const helpers = new DatabaseHelpers();
       weatherData = await helpers.getWeatherData(range);
       console.log(`Weather data from SQLite: ${weatherData.length} records`);
+      if (weatherData.length === 0) {
+        throw new Error('No weather data found in SQLite');
+      }
     } catch (error) {
       console.error('Error getting weather data from SQLite:', error);
       // Fallback to file-system
       // Helper to get runtime root
       const getRuntimeRoot = () => process.cwd();
       const baseDir = path.resolve(getRuntimeRoot(), 'public/log/ecowitt');
-      const currentYear = new Date().getFullYear().toString();
-      const yearDir = path.join(baseDir, currentYear);
-      const files = await getXmlFiles(yearDir, range);
+      const files = await getXmlFiles(baseDir, range);
       weatherData = await processXmlFiles(files, range);
       console.log(`Weather data from file-system: ${weatherData.length} records`);
     }
@@ -63,24 +72,9 @@ export async function GET(request: Request) {
   }
 }
 
-async function getXmlFiles(yearDir: string, range: string): Promise<string[]> {
+async function getXmlFiles(baseDir: string, range: TimeRange): Promise<string[]> {
   const now = new Date();
-  const currentYear = new Date().getFullYear();
-  let startDate: Date;
-
-  switch (range) {
-    case '7d':
-      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      break;
-    case '30d':
-      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      break;
-    case '1m':
-      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      break;
-    default: // '24h'
-      startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  }
+  const startDate = new Date(now.getTime() - getTimeRangeHours(range, now) * 60 * 60 * 1000);
 
   // Iterate only over the required day folders instead of scanning the whole year directory.
   const files: string[] = [];
@@ -89,16 +83,14 @@ async function getXmlFiles(yearDir: string, range: string): Promise<string[]> {
     d <= now;
     d.setDate(d.getDate() + 1)
   ) {
-    // Limit to current year to keep behavior consistent with existing folder structure
-    if (d.getFullYear() !== currentYear) continue;
+    const year = String(d.getFullYear());
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
-    const dayDir = path.join(yearDir, month, day);
+    const dayDir = path.join(baseDir, year, month, day);
     try {
-      if (!fs.existsSync(dayDir) || !fs.statSync(dayDir).isDirectory()) continue;
-      const xmlFiles = fs.readdirSync(dayDir)
-        .filter((file) => file.endsWith('.xml'))
-        .map((file) => path.join(dayDir, file));
+      const xmlFiles = (await fs.readdir(dayDir, { withFileTypes: true }))
+        .filter((entry) => entry.isFile() && entry.name.endsWith('.xml'))
+        .map((entry) => path.join(dayDir, entry.name));
       files.push(...xmlFiles);
     } catch {
       // ignore missing paths
@@ -108,7 +100,7 @@ async function getXmlFiles(yearDir: string, range: string): Promise<string[]> {
   return files;
 }
 
-async function processXmlFiles(files: string[], range: string): Promise<any[]> {
+async function processXmlFiles(files: string[], range: TimeRange): Promise<any[]> {
   // Reduce IO by sampling files up-front for longer ranges.
   let filesToProcess = files;
   if (range === '7d' || range === '30d' || range === '1m') {
@@ -121,7 +113,7 @@ async function processXmlFiles(files: string[], range: string): Promise<any[]> {
 
   for (const file of filesToProcess) {
     try {
-      const xmlContent = fs.readFileSync(file, 'utf-8');
+      const xmlContent = await fs.readFile(file, 'utf-8');
       if (!xmlContent || xmlContent.trim() === '') {
         console.error(`Empty or invalid XML file: ${file}`);
         continue;
@@ -182,20 +174,6 @@ async function processXmlFiles(files: string[], range: string): Promise<any[]> {
         continue;
       }
 
-      // Build channels map conditionally to avoid accessing undefined props
-      const channels: Record<string, { temperature: number; humidity: number }> = {};
-      const addChannel = (idx: number) => {
-        const ch = (data as any)[`temp_and_humidity_ch${idx}`];
-        const t = ch?.temperature?.value;
-        const h = ch?.humidity?.value;
-        const tf = t !== undefined && t !== null && t !== '' ? parseFloat(String(t)) : NaN;
-        const hf = h !== undefined && h !== null && h !== '' ? parseFloat(String(h)) : NaN;
-        if (Number.isFinite(tf) && Number.isFinite(hf)) {
-          channels[`ch${idx}`] = { temperature: tf, humidity: hf };
-        }
-      };
-      [1, 2, 3, 5, 6, 7, 8].forEach(addChannel);
-
       weatherData.push({
         timestamp,
         temperature: outdoorTemperature,
@@ -205,7 +183,7 @@ async function processXmlFiles(files: string[], range: string): Promise<any[]> {
           temperature: indoorTemperature,
           humidity: indoorHumidity
         },
-        channels,
+        channels: extractWeatherChannels(data),
       });
     } catch (error) {
       console.error(`Error processing file ${file}:`, error);

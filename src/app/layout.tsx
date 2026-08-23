@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import StoreProvider from "@/components/StoreProvider";
-import HeaderWithMenu from "@/components/HeaderWithMenu";
 import BackgroundSync from "@/components/BackgroundSync";
 import Header from "@/components/Header";
 import ToastProvider from "@/components/ToastProvider";

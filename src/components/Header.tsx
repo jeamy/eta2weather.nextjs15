@@ -2,15 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import { MenuNode } from '../types/menu';
 import Link from 'next/link';
+import MenuPopup from './MenuPopup';
+import { useEtaMenu } from './EtaDataProvider';
+import { MenuNode } from '@/types/menu';
 
-interface HeaderProps {
-  menuData?: MenuNode[];
-}
-
-export default function Header({ menuData = [] }: HeaderProps) {
+export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
+  const menuData = useEtaMenu();
   const pathname = usePathname();
   const [showEtaMenu, setShowEtaMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -54,17 +53,17 @@ export default function Header({ menuData = [] }: HeaderProps) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      clearHideTimeout();
     };
-  }, []);
+  }, [clearHideTimeout]);
 
   const handleMenuItemClick = (item: MenuNode) => {
-    if (item.children && item.children.length > 0) {
-      setPopupData({
-        isOpen: true,
-        title: item.name,
-        menuItems: item.children,
-      });
-    }
+    setShowEtaMenu(false);
+    setPopupData({
+      isOpen: true,
+      title: item.name,
+      menuItems: item.children?.length ? item.children : [item],
+    });
   };
 
   return (
@@ -75,33 +74,28 @@ export default function Header({ menuData = [] }: HeaderProps) {
             <div className="flex items-center gap-3">
               <Link href="/" className="header__brand">ETA Control</Link>
 
-              {showEtaMenu && menuData && menuData.length > 0 && (
-                <div
-                  className="absolute left-0 mt-1 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50"
-                  onMouseEnter={handleMenuEnter}
-                  onMouseLeave={handleMenuLeave}
-                >
-                  <div className="py-1" role="menu">
-                    {menuData.map((item) => (
-                      <button
-                        key={item.uri}
-                        onClick={() => handleMenuItemClick(item)}
-                        className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 font-sans flex items-center justify-between"
-                        role="menuitem"
-                      >
-                        <span className="truncate">{item.name}</span>
-                        {item.children && item.children.length > 0 && (
-                          <svg className="h-4 w-4 ml-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path
-                              fillRule="evenodd"
-                              d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                    ))}
-                  </div>
+              {menuData.length > 0 && (
+                <div className="relative" onMouseEnter={handleMenuEnter} onMouseLeave={handleMenuLeave} ref={menuRef}>
+                  <button type="button" className="btn btn--ghost" onClick={() => setShowEtaMenu(open => !open)}>
+                    ETA Menü
+                  </button>
+                  {showEtaMenu && (
+                    <div className="absolute left-0 mt-1 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+                      <div className="py-1" role="menu">
+                        {menuData.map((item) => (
+                          <button
+                            key={item.uri || item.name}
+                            onClick={() => handleMenuItemClick(item)}
+                            className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 font-sans flex items-center justify-between"
+                            role="menuitem"
+                          >
+                            <span className="truncate">{item.name}</span>
+                            {item.children?.length ? <span aria-hidden="true">›</span> : null}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -163,6 +157,12 @@ export default function Header({ menuData = [] }: HeaderProps) {
           )}
         </div>
       </nav>
+      <MenuPopup
+        isOpen={popupData.isOpen}
+        onClose={() => setPopupData(prev => ({ ...prev, isOpen: false }))}
+        title={popupData.title}
+        menuItems={popupData.menuItems}
+      />
     </>
   );
 }
