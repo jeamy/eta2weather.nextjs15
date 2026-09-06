@@ -1,5 +1,5 @@
 # Build stage
-FROM node:lts-trixie-slim AS builder
+FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -15,11 +15,8 @@ COPY package.json package-lock.json* ./
 
 # Install dependencies including dev dependencies
 # Rebuild native modules for the container architecture
-RUN npm install --legacy-peer-deps && \
+RUN npm ci --legacy-peer-deps && \
     npm rebuild better-sqlite3
-
-# Fix Next.js lockfile patching issue
-RUN npm install --legacy-peer-deps
 
 # Copy source code
 COPY . .
@@ -29,20 +26,22 @@ COPY . .
 RUN npm run build --webpack
 
 # Production stage
-FROM node:lts-trixie-slim
+FROM node:22-bookworm-slim
 
 WORKDIR /app
 
-# Install runtime dependencies for native modules
+# Install build dependencies for native modules (better-sqlite3)
 RUN apt-get update && apt-get install -y \
     python3 \
+    make \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package.json package-lock.json* ./
 
 # Install only production dependencies
-RUN npm install --legacy-peer-deps --omit=dev && \
+RUN npm ci --legacy-peer-deps --omit=dev && \
     npm rebuild better-sqlite3
 
 # Copy built application from builder
