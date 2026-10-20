@@ -90,10 +90,8 @@ function parseXmlContent(xmlContent: string): any {
             .trim();
         
         const parser = new DOMParser({
-            errorHandler: {
-                warning: () => {}, // Suppress warnings
-                error: () => {},   // Suppress errors
-                fatalError: (e: any) => { throw e; }
+            onError: (level: string, msg: string) => {
+                if (level === 'fatalError') throw new Error(msg);
             }
         } as any);
         const doc = parser.parseFromString(sanitized, 'text/xml');
@@ -143,10 +141,8 @@ function parseEtaXml(xmlContent: string): any {
             .trim();
         
         const parser = new DOMParser({
-            errorHandler: {
-                warning: () => {},
-                error: () => {},
-                fatalError: (e: any) => { throw e; }
+            onError: (level: string, msg: string) => {
+                if (level === 'fatalError') throw new Error(msg);
             }
         } as any);
         const doc = parser.parseFromString(sanitized, 'text/xml');
@@ -556,12 +552,14 @@ async function main() {
         await db.initialize();
         console.log('✓ Database initialized\n');
 
-        // Migrate each type
-        await migrateEcowitt(db, stats);
-        await migrateEta(db, stats);
-        await migrateConfig(db, stats);
-        await migrateTempDiff(db, stats);
-        await migrateMinTempStatus(db, stats);
+        // Migrate each type (optionally filtered via --only=type1,type2)
+        const only = process.argv.find(a => a.startsWith('--only='))?.slice(7).split(',');
+        const run = (t: string) => !only || only.includes(t);
+        if (run('ecowitt')) await migrateEcowitt(db, stats);
+        if (run('eta')) await migrateEta(db, stats);
+        if (run('config')) await migrateConfig(db, stats);
+        if (run('temp_diff')) await migrateTempDiff(db, stats);
+        if (run('min_temp_status')) await migrateMinTempStatus(db, stats);
 
         // Summary
         console.log('\n=== Migration Summary ===');
