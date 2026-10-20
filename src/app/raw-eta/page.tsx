@@ -5,6 +5,16 @@ import React from 'react'
 import useSWR from 'swr'
 import { API } from '@/constants/apiPaths'
 
+function buildMenuMap(items: MenuNode[] | undefined): Record<string, string> {
+  const map: Record<string, string> = {}
+  const visit = (node: MenuNode) => {
+    if (node.uri) map[node.uri] = node.name
+    node.children?.forEach(visit)
+  }
+  items?.forEach(visit)
+  return map
+}
+
 interface RawData {
   menuItems: MenuNode[]
   rawData: Record<string, string>
@@ -157,34 +167,29 @@ export default function RawEtaPage() {
   }
 
   // Build menu map from tree
-  const addNodeToMap = useCallback((node: MenuNode, map: Record<string, string>) => {
-    if (node.uri) {
-      map[node.uri] = node.name
-    }
-    if (node.children) {
-      node.children.forEach(child => addNodeToMap(child, map))
-    }
-  }, [])
-
   const menuMap = useMemo(() => {
-    if (!data?.menuItems) return {}
     const map: Record<string, string> = {}
-    data.menuItems.forEach(node => addNodeToMap(node, map))
+    const visit = (node: MenuNode) => {
+      if (node.uri) map[node.uri] = node.name
+      node.children?.forEach(visit)
+    }
+    data?.menuItems?.forEach(visit)
     return map
-  }, [data?.menuItems, addNodeToMap])
+  }, [data?.menuItems])
 
   // Prepare filtered items before any early returns to keep hook order stable
   const filteredItems = useMemo(() => {
     if (!data) return [] as { uri: string; xml: string }[]
     const searchLower = searchTerm.toLowerCase()
+    const map = buildMenuMap(data.menuItems)
     return Object.entries(data.rawData)
       .filter(([uri]) => {
         const uriMatch = uri.toLowerCase().includes(searchLower)
-        const nameMatch = (menuMap[uri] || '').toLowerCase().includes(searchLower)
+        const nameMatch = (map[uri] || '').toLowerCase().includes(searchLower)
         return uriMatch || nameMatch
       })
       .map(([uri, xml]) => ({ uri, xml }))
-  }, [data, searchTerm, menuMap])
+  }, [data, searchTerm])
 
   if (isLoading && !data) {
     return (

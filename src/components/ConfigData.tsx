@@ -21,7 +21,7 @@ const ConfigData: React.FC = () => {
     const sliderValue = config.data[ConfigKeys.T_SLIDER];
     // Removed client-side slider updates; handled by server-side BackgroundService
     const [nextUpdate, setNextUpdate] = useState<number>(0);
-    const lastUpdateTime = useRef<number>(Date.now());
+    const lastUpdateTime = useRef<number>(0);
     const { showToast } = useToast();
 
     const persistConfigValue = useCallback(async (key: ConfigKeys, value: string): Promise<boolean> => {
@@ -56,6 +56,9 @@ const ConfigData: React.FC = () => {
     useEffect(() => {
         const updateTimer = parseInt(config.data[ConfigKeys.T_UPDATE_TIMER], 10) || 60000;
         let interval: NodeJS.Timeout;
+
+        // Initialize ref lazily inside the effect (Date.now() is impure during render)
+        lastUpdateTime.current ||= Date.now();
 
         const updateCountdown = () => {
             const now = Date.now();
