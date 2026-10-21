@@ -137,17 +137,16 @@ export class DatabaseHelpers {
         const years = this.db.getAllAvailableYears();
 
         for (const year of years) {
-            if (allRows.length >= safeLimit) break;
             try {
                 const yearDb = this.db.getDbForYear(year);
                 const alias = year === this.db.getCurrentYear() ? '' : `db_${year}.`;
-                const remaining = safeLimit - allRows.length;
+                // Apply the limit per year so historical years stay visible in the log tree
                 const rows = yearDb.prepare(`
                     SELECT id, timestamp
                     FROM ${alias}${table}
                     ORDER BY timestamp DESC
                     LIMIT ?
-                `).all(remaining) as Array<{ id: number; timestamp: string }>;
+                `).all(safeLimit) as Array<{ id: number; timestamp: string }>;
                 allRows.push(...rows);
             } catch (error) {
                 console.error(`Error querying logs for year ${year}:`, error);
