@@ -9,7 +9,6 @@ import { storeData as storeEtaData } from '@/redux/etaSlice';
 import { storeData as storeControlData } from '@/redux/controlSlice';
 import { ETA_MODE_BUTTONS, EtaModeButton, EtaPos, EtaText, EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
 import { EtaConstants } from '@/reader/functions/types-constants/Names2IDconstants';
-import Image from 'next/image';
 import { API } from '@/constants/apiPaths';
 import { useToast } from '@/components/ToastProvider';
 import { getEtaModeState } from '@/lib/etaModeState';
@@ -290,19 +289,14 @@ const EtaData: React.FC = () => {
   }
 
   return (
-    <div className="card">
-      <div className="flex flex-col items-center mb-4 card__header">
-        <div className="h-[150px] w-full relative flex items-center justify-center">
-          <Image
-            src="/eta-logo.png"
-            alt="ETA"
-            width={100}
-            height={100}
-            style={{ objectFit: 'contain', width: 'auto', height: 'auto' }}
-            priority
-          />
+    <div className="card etaControlCard">
+      <div className="card__header card__header--modern">
+        <span className="card__icon" aria-hidden="true">♨</span>
+        <div>
+          <h2 className="card__title">Heizungssteuerung</h2>
+          <p className="card__subtitle">ETA-Heizmodus und aktuelle Kesselwerte</p>
         </div>
-        <h2 className="text-lg sm:text-xl font-semibold">ETA Data</h2>
+        <span className="source-pill source-pill--live">● verbunden</span>
       </div>
       {overrideActive && (
         <div className="alert alert--warning mb-3 flex items-center justify-between">
@@ -325,42 +319,6 @@ const EtaData: React.FC = () => {
         </div>
       )}
 
-      {/* Quick actions: segmented on ≥sm, dropdown on mobile */}
-      <div className="mb-3">
-        <div className="hidden sm:block">
-          <div className="segmented" role="radiogroup" aria-label="Schnellaktionen">
-            {ETA_BUTTON_OPTIONS.map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                className={`segmented__option ${activeKey === key ? 'segmented__option--active' : ''} ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
-                aria-checked={activeKey === key}
-                role="radio"
-                onClick={() => { if (!isUpdating) handleButtonClick(key); }}
-                disabled={isUpdating}
-                title={label}
-              >
-                <span>{label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="segmented__dropdown sm:hidden">
-          <div className="segmented__dropdown-label">Schnellaktionen</div>
-          <label htmlFor="quick-actions" className="sr-only">Schnellaktionen</label>
-          <select
-            id="quick-actions"
-            value={activeKey ?? ''}
-            onChange={(e) => handleButtonClick(e.target.value as EtaModeButton)}
-            disabled={isUpdating}
-          >
-            {!activeKey && <option value="" disabled>Kein aktiver Modus</option>}
-            {ETA_BUTTON_OPTIONS.map(({ key, label }) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
       {(etaState.data && Object.keys(etaState.data).length > 0) || displayData ? (
         <div className="space-y-3 text-sm sm:text-base">
           <div className="grid grid-cols-1 gap-2">
@@ -410,29 +368,28 @@ const EtaData: React.FC = () => {
               })}
             {/* If etaState.data is empty but we have displayData, show a message */}
             {(!etaState.data || Object.keys(etaState.data).length === 0) && displayData && (
-              <div className="text-center text-gray-500 py-4">
-                <p>Daten werden aktualisiert...</p>
+              <div className="text-center text-muted py-4">
+                <p>Daten werden aktualisiert…</p>
               </div>
             )}
-            {/* Render switches separately */}
+            <details className="etaModePanel" open>
+              <summary className="etaModePanel__summary" aria-label="ETA-Heizmodus ein-/ausblenden">
+                <strong>ETA-Heizmodus</strong>
+                <span>
+                  {activeKey
+                    ? `${ETA_BUTTON_OPTIONS.find(o => o.key === activeKey)?.label ?? activeKey} aktiv`
+                    : 'exklusive Auswahl'}
+                  <i className="etaModePanel__chev" aria-hidden="true">⌄</i>
+                </span>
+              </summary>
+            <div className="etaModeGrid" role="radiogroup" aria-label="ETA-Heizmodus">
             {ETA_BUTTON_KEYS.map(key => {
               const value = displayData[key] || { short: key, long: '', strValue: '', unit: '' };
               const isActive = activeKey === key;
-              const textValue = isActive ? EtaText.EIN : EtaText.AUS;
               return (
-                <div key={key} className="flex flex-col">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex flex-col">
-                      <span className="font-medium">
+                <div key={key} className={`etaModeItem ${isActive ? 'etaModeItem--active' : ''}`}>
+                      <span className="etaModeItem__label">
                         {ETA_BUTTON_LABELS[key] || value.long}:
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`badge ${isActive ? 'badge--ok' :
-                        textValue === EtaText.AUS ? 'badge--error' :
-                          'badge--neutral'
-                        }`}>
-                        {textValue}
                       </span>
                       <button
                         onClick={() => {
@@ -442,7 +399,7 @@ const EtaData: React.FC = () => {
                         }}
                         disabled={isUpdating}
                         className={`switch ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        role="switch"
+                        role="radio"
                         aria-checked={isActive}
                         aria-busy={isUpdating}
                         title={`Toggle ${value.long}`}
@@ -450,16 +407,16 @@ const EtaData: React.FC = () => {
                         <span className="sr-only">Toggle {value.long}</span>
                         <span className="switch__thumb" />
                       </button>
-                    </div>
-                  </div>
                 </div>
               );
             })}
+            </div>
+            </details>
           </div>
         </div>
       ) : (
         <div className="flex justify-center items-center min-h-[200px]">
-          <p>Loading...</p>
+          <p>Laden…</p>
         </div>
       )}
     </div>

@@ -10,14 +10,14 @@ export const formatValue = (data: ParsedXmlData): FormattedValue => {
   const value = data.strValue;
   
   if (typeof value === 'undefined' || value === null) {
-    return { text: 'N/A', color: "text-gray-500" };
+    return { text: 'N/A', color: "text-muted" };
   }
 
   // Handle special text cases
   const specialCases: Record<string, FormattedValue> = {
-    "Ein": { text: "Ein", color: "text-green-600" },
-    "Aus": { text: "Aus", color: "text-red-600" },
-    "xxx": { text: "---", color: "text-blue-600" }
+    "Ein": { text: "Ein", color: "text-success" },
+    "Aus": { text: "Aus", color: "text-danger" },
+    "xxx": { text: "---", color: "text-info" }
   };
 
   if (value in specialCases) {
@@ -31,7 +31,7 @@ export const formatValue = (data: ParsedXmlData): FormattedValue => {
     const formattedTime = `${parseInt(hour1, 10)}:${min1} - ${parseInt(hour2, 10)}:${min2}`;
     return { 
       text: formattedTime,
-      color: "text-gray-900" 
+      color: "text-strong" 
     };
   }
 
@@ -41,9 +41,9 @@ export const formatValue = (data: ParsedXmlData): FormattedValue => {
     const [, minutes, seconds] = timeMatch;
     return { 
       text: (
-        <>{minutes}<span className="text-gray-500"> m</span> {seconds.replace(',', '.')}</>
+        <>{minutes}<span className="text-muted"> m</span> {seconds.replace(',', '.')}</>
       ),
-      color: "text-gray-900" 
+      color: "text-strong" 
     };
   }
   
@@ -60,7 +60,7 @@ export const formatValue = (data: ParsedXmlData): FormattedValue => {
         text: (
           <>{hours}:{minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}</>
         ),
-        color: "text-gray-900"
+        color: "text-strong"
       };
     }
   }
@@ -71,10 +71,10 @@ export const formatValue = (data: ParsedXmlData): FormattedValue => {
   // Special case: If strValue already contains time units (h, m, s), don't append the unit
   // Example: strValue="174h 8m" with unit="s" should display as "174h 8m", not "174h 8m s"
   const hasTimeUnits = /\d+[hms]\b/.test(value);
-  const unit = (data.unit && !hasTimeUnits) ? <span className="text-gray-500 ml-1">{data.unit}</span> : null;
+  const unit = (data.unit && !hasTimeUnits) ? <span className="text-muted ml-1">{data.unit}</span> : null;
   
   return { 
     text: <>{value}{unit}</>, 
-    color: "text-gray-900" 
+    color: "text-strong" 
   };
 };

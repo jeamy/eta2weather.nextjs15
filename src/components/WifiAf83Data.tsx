@@ -5,7 +5,6 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/redux';
 import { calculateMinTempDiff } from '@/utils/Functions';
 import { ConfigKeys, TEMP_CALC_CONSTANTS } from '@/reader/functions/types-constants/ConfigConstants';
-import Image from 'next/image';
 
 const formatDateTime = (timestamp: number): string => {
   return new Date(timestamp).toLocaleString('de-DE', {
@@ -37,19 +36,13 @@ const WifiAf83Data: React.FC = () => {
   }
 
   return (
-    <div className="card">
-      <div className="flex flex-col items-center mb-4 card__header">
-        <div className="h-[150px] w-full relative flex items-center justify-center">
-          <Image
-            src="/weather-logo.jpg"
-            alt="Weather"
-            width={150}
-            height={150}
-            style={{ objectFit: 'contain' }}
-            priority
-          />
+    <div className="card wifiSummaryCard">
+      <div className="card__header card__header--modern">
+        <span className="card__icon" aria-hidden="true">☁</span>
+        <div>
+          <h2 className="card__title">WiFi-Sensorik</h2>
+          <p className="card__subtitle">Außen- und Raumklima</p>
         </div>
-        <h2 className="text-lg sm:text-xl font-semibold">WiFi Data</h2>
       </div>
       <div className="space-y-3 text-sm sm:text-base">
         <div className="grid grid-cols-1 gap-2">
@@ -103,7 +96,7 @@ const WifiAf83Data: React.FC = () => {
         </div>
         <div className="mt-4 pt-4 border-t">
           <div className="flex items-center justify-between">
-            <span className="font-medium">Last Update:</span>
+            <span className="font-medium">Letztes Update:</span>
             <span className="badge badge--neutral">{formatDateTime(wifiData.time)}</span>
           </div>
         </div>

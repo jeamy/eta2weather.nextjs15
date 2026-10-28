@@ -15,20 +15,7 @@
 @import "../styles/pages/home.css";
 @import "../styles/components/tabs.css";
 @import "../styles/components/stat.css";
-@import "../styles/components/segmented.css";
 @import "../styles/components/toast.css";
-
-:root {
-  --background: #ffffff;
-  --foreground: #000000;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
 
 body {
   color: var(--foreground);

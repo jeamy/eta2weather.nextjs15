@@ -6,11 +6,16 @@ import Link from 'next/link';
 import MenuPopup from './MenuPopup';
 import { useEtaMenu } from './EtaDataProvider';
 import { MenuNode } from '@/types/menu';
+import ThemeControls from './ThemeControls';
+import { useAppSelector } from '@/redux/hooks';
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const menuData = useEtaMenu();
   const pathname = usePathname();
+  const wifiTime = useAppSelector(state => state.wifiAf83.data.time);
+  const etaData = useAppSelector(state => state.eta.data);
+  const sourcesReady = wifiTime > 0 && Object.keys(etaData || {}).length > 0;
   const [showEtaMenu, setShowEtaMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -68,25 +73,30 @@ export default function Header() {
 
   return (
     <>
-      <nav className="header">
+      <nav className="header" aria-label="Hauptnavigation">
         <div className="container">
           <div className="header__inner">
-            <div className="flex items-center gap-3">
-              <Link href="/" className="header__brand">ETA Control</Link>
+            <div className="header__leading">
+              <Link href="/" className="header__brand">
+                <span className="header__brandMark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 2 4.5 13.2A5.5 5.5 0 0 0 9 22h6a5.5 5.5 0 0 0 4.5-8.8L13 2Z"/><path d="M9 16c1.8.4 3.7-.4 5-2.4"/></svg>
+                </span>
+                <span className="header__brandText">ETA Control</span>
+              </Link>
 
               {menuData.length > 0 && (
                 <div className="relative" onMouseEnter={handleMenuEnter} onMouseLeave={handleMenuLeave} ref={menuRef}>
-                  <button type="button" className="btn btn--ghost" onClick={() => setShowEtaMenu(open => !open)}>
-                    ETA Menü
+                  <button type="button" className="header__navButton" onClick={() => setShowEtaMenu(open => !open)} aria-expanded={showEtaMenu}>
+                    ETA Menü <span aria-hidden="true">⌄</span>
                   </button>
                   {showEtaMenu && (
-                    <div className="absolute left-0 mt-1 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-                      <div className="py-1" role="menu">
+                    <div className="header__etaMenu">
+                      <div role="menu">
                         {menuData.map((item) => (
                           <button
                             key={item.uri || item.name}
                             onClick={() => handleMenuItemClick(item)}
-                            className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 font-sans flex items-center justify-between"
+                            className="header__etaMenuItem"
                             role="menuitem"
                           >
                             <span className="truncate">{item.name}</span>
@@ -101,16 +111,23 @@ export default function Header() {
             </div>
 
             <div className="header__links">
-              <Link href="/" className="btn btn--ghost" aria-current={pathname === '/' ? 'page' : undefined}>Home</Link>
-              <Link href="/raw-eta" className="btn btn--ghost" aria-current={pathname === '/raw-eta' ? 'page' : undefined}>Raw Eta Data</Link>
-              <Link href="/logs" className="btn btn--ghost" aria-current={pathname === '/logs' ? 'page' : undefined}>System Logs</Link>
-              <Link href="/weather" className="btn btn--ghost" aria-current={pathname === '/weather' ? 'page' : undefined}>Weather</Link>
+              <Link href="/" className="header__navButton" aria-current={pathname === '/' ? 'page' : undefined}>Home</Link>
+              <Link href="/raw-eta" className="header__navButton" aria-current={pathname === '/raw-eta' ? 'page' : undefined}>Raw Eta Data</Link>
+              <Link href="/logs" className="header__navButton" aria-current={pathname === '/logs' ? 'page' : undefined}>System Logs</Link>
+              <Link href="/weather" className="header__navButton" aria-current={pathname === '/weather' ? 'page' : undefined}>Weather</Link>
             </div>
+
+            <div className={`header__source ${sourcesReady ? 'header__source--live' : ''}`} title={sourcesReady ? 'ETA- und WiFi-Daten verfügbar' : 'Warte auf ETA- oder WiFi-Daten'}>
+              <span className="header__sourceDot" />
+              <span>{sourcesReady ? 'ETA & WiFi aktuell' : 'Daten werden geladen'}</span>
+            </div>
+
+            <ThemeControls />
 
             <div className="header__mobileToggle md:hidden">
               <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="btn btn--ghost"
+                className="header__mobileButton"
                 title="Open main menu"
               >
                 {!isOpen ? (

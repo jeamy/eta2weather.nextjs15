@@ -44,14 +44,14 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
           // Zeige beide Werte wenn tatsächlich unterschiedlich (nicht nur Rundungsdifferenz)
           if (Math.abs(baseNum - finalNum) > 0.1) {
             return (
-              <span className="text-gray-900">
-                {Math.round(baseNum)} % <span className="text-gray-400">→</span> {Math.round(finalNum)} %
+              <span className="text-strong">
+                {Math.round(baseNum)} % <span className="text-muted">→</span> {Math.round(finalNum)} %
               </span>
             );
           }
           
           // Wenn gleich, zeige nur einen Wert
-          return <span className="text-gray-900">{Math.round(finalNum)} %</span>;
+          return <span className="text-strong">{Math.round(finalNum)} %</span>;
         }
       }
       
@@ -59,7 +59,7 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
       const { text, color } = formatValue(data);
       return (
         <span className={color}>
-          {text} <span className="text-xs text-gray-400">(ETA)</span>
+          {text} <span className="text-xs text-muted">(ETA)</span>
         </span>
       );
     }
@@ -124,9 +124,9 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
   return (
     <div className="tabs">
       <div className="card__header">
-        <h2 className="text-lg font-semibold">ETA Data</h2>
+        <h2 className="text-lg font-semibold">ETA-Details</h2>
         {lastUpdated && (
-          <span className="text-xs text-gray-500">Zuletzt aktualisiert: {new Date(lastUpdated).toLocaleTimeString()}</span>
+          <span className="text-xs text-muted">Zuletzt aktualisiert: {new Date(lastUpdated).toLocaleTimeString()}</span>
         )}
         <button
           onClick={handleRefresh}
@@ -170,15 +170,15 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
                 {category.children?.map((item, itemIndex) => {
                   const itemId = `${categoryIndex}-${itemIndex}-${item.name}`;
                   return (
-                    <div key={itemId} className="bg-white rounded-lg p-4 shadow-sm">
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    <div key={itemId} className="bg-raised rounded-lg p-4 border">
+                      <h3 className="text-lg font-medium text-strong mb-2">
                         {item.name}
                         {item.uri && (
                           <div className="flex items-center space-x-2 mt-1">
                             {loading[item.uri] ? (
-                              <span className="text-gray-400">Loading...</span>
+                              <span className="text-muted">Laden…</span>
                             ) : error[item.uri] ? (
-                              <span className="text-red-500">{error[item.uri]}</span>
+                              <span className="text-danger">{error[item.uri]}</span>
                             ) : values[item.uri] ? (
                               renderValue(values[item.uri], item.name)
                             ) : null}
@@ -193,12 +193,12 @@ export default function EtaTab({ menuItems = [] }: EtaTabProps) {
                               key={subItemId}
                               className="flex items-center justify-between text-sm"
                             >
-                              <span className="text-gray-600">{subItem.name}</span>
+                              <span className="text-muted">{subItem.name}</span>
                               <div className="flex items-center space-x-2">
                                 {loading[subItem.uri] ? (
-                                  <span className="text-gray-400">Loading...</span>
+                                  <span className="text-muted">Laden…</span>
                                 ) : error[subItem.uri] ? (
-                                  <span className="text-red-500">{error[subItem.uri]}</span>
+                                  <span className="text-danger">{error[subItem.uri]}</span>
                                 ) : values[subItem.uri] ? (
                                   renderValue(values[subItem.uri], subItem.name)
                                 ) : null}

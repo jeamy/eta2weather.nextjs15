@@ -1,29 +1,24 @@
 :root {
-  --color-bg: #0b1020;
-  --color-surface: #11162a;
-  --color-text: #e6e8ef;
-  --color-primary: #4c8bf5;
-  --color-success: #30c48d;
-  --color-warning: #f5b54c;
-  --color-danger: #ef5350;
-
-  --radius: 10px;
-  --shadow: 0 8px 30px rgba(0,0,0,0.25);
-
-  --space-1: 6px; /* xs */
-  --space-2: 10px; /* sm */
-  --space-3: 16px; /* md */
-  --space-4: 24px; /* lg */
-  --space-5: 32px; /* xl */
-
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-sans: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+  --color-a: #AED83C; --color-b: #152B35; --color-c: #5C8EA0; --accent-ink: #101010;
+  --color-primary: var(--color-a); --color-success: #42dca3; --color-warning: #f2b84b; --color-danger: #ff6b72; --color-info: #55b8ff;
+  --radius: 16px; --radius-sm: 10px; --shadow: 0 18px 48px rgb(0 0 0 / .16);
+  --space-1: 6px; --space-2: 10px; --space-3: 16px; --space-4: 24px; --space-5: 32px;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
 }
-
-@media (prefers-color-scheme: light) {
-  :root {
-    --color-bg: #f7f9fc;
-    --color-surface: #ffffff;
-    --color-text: #1c2430;
-  }
+:root, :root[data-mode="dark"] {
+  --color-bg: color-mix(in srgb, var(--color-b) 30%, #070b10); --color-surface: color-mix(in srgb, var(--color-b) 45%, #0d141b);
+  --color-raised: color-mix(in srgb, var(--color-b) 60%, #131d25); --color-raised-2: color-mix(in srgb, var(--color-b) 74%, #17232d);
+  --color-header: color-mix(in srgb, var(--color-b) 38%, #080d12); --color-line: color-mix(in srgb, var(--color-c) 24%, #1b2731);
+  --color-line-strong: color-mix(in srgb, var(--color-c) 42%, #2a3b48); --color-text: #dbe4e9; --color-text-strong: #f4f8fa;
+  --color-muted: #95a5af; --color-soft: color-mix(in srgb, var(--color-a) 9%, transparent); --color-input: color-mix(in srgb, var(--color-b) 34%, #080d12);
+  color-scheme: dark;
+}
+:root[data-mode="light"] {
+  --color-bg: color-mix(in srgb, var(--color-b) 14%, #f4f7f8); --color-surface: #fff; --color-raised: color-mix(in srgb, var(--color-b) 15%, #f7f9fa);
+  --color-raised-2: color-mix(in srgb, var(--color-b) 25%, #f2f5f6); --color-header: color-mix(in srgb, var(--color-b) 10%, #fff);
+  --color-line: color-mix(in srgb, var(--color-c) 19%, #d9e1e5); --color-line-strong: color-mix(in srgb, var(--color-c) 34%, #becbd1);
+  --color-text: #29343b; --color-text-strong: #0c171c; --color-muted: #62717a; --color-soft: color-mix(in srgb, var(--color-a) 12%, transparent); --color-input: #fff;
+  --color-success: #087d5b; --color-warning: #8b5d00; --color-danger: #bb2530; --color-info: #126a9f; --shadow: 0 18px 50px rgb(28 48 58 / .10);
+  color-scheme: light;
 }

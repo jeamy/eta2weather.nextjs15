@@ -1,20 +1,30 @@
-/* Map existing globals.css variables to tokens to keep compatibility */
-:root {
-  --background: var(--color-bg);
-  --foreground: var(--color-text);
-}
-
-body {
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--font-sans);
-}
-
-/************************
- * Utility helpers
- ************************/ 
-.container {
-  max-width: 1200px;
-  margin-inline: auto;
-  padding-inline: var(--space-3);
-}
+:root { --background: var(--color-bg); --foreground: var(--color-text); }
+* { box-sizing: border-box; }
+html { background: var(--color-bg); }
+body { margin: 0; min-width: 320px; background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); font-synthesis: none; }
+button, input, select { font: inherit; color: inherit; }
+button, a, input, select { outline: none; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.app-main { min-height: calc(100vh - 64px); }
+.container { width: min(1480px, calc(100% - 36px)); max-width: none; margin-inline: auto; padding-inline: 0; }
+.text-muted { color: var(--color-muted); }
+.text-strong { color: var(--color-text-strong); }
+.text-danger { color: var(--color-danger); }
+.text-success { color: var(--color-success); }
+.text-info { color: var(--color-info); }
+.text-bg { color: var(--color-bg); }
+.accent-ink { color: var(--accent-ink); }
+.bg-surface { background: var(--color-surface); }
+.bg-raised { background: var(--color-raised); }
+.bg-raised-2 { background: var(--color-raised-2); }
+.bg-primary { background: var(--color-a); }
+.bg-line { background: var(--color-line); }
+.bg-line-strong { background: var(--color-line-strong); }
+.bg-strong { background: var(--color-text-strong); }
+.ring-line-strong { --tw-ring-color: var(--color-line-strong); }
+.edit-value { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid transparent; border-radius: 8px; color: var(--color-text-strong); cursor: pointer; }
+.edit-value:hover { border-color: var(--color-line-strong); background: var(--color-raised); }
+.edit-value:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.edit-value i { color: var(--color-muted); font-style: normal; font-size: .85em; }
+.edit-value:hover i, .edit-value:focus-visible i { color: var(--color-primary); }
+@media (max-width: 760px) { .container { width: min(100% - 22px, 680px); } }

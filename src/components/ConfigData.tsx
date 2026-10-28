@@ -8,7 +8,6 @@ import { AppDispatch } from '@/redux/index';
 import { ConfigKeys, TEMP_CALC_CONSTANTS } from '@/reader/functions/types-constants/ConfigConstants';
 import { storeData } from '@/redux/configSlice';
 import { DEFAULT_UPDATE_TIMER } from '@/reader/functions/types-constants/TimerConstants';
-import Image from 'next/image';
 import { API } from '@/constants/apiPaths';
 import { useToast } from '@/components/ToastProvider';
 
@@ -83,7 +82,7 @@ const ConfigData: React.FC = () => {
     if (config.loadingState.isLoading) {
         return (
             <div className="flex justify-center items-center min-h-[200px]">
-                <p>Loading...</p>
+                <p>Laden…</p>
             </div>
         );
     }
@@ -206,10 +205,11 @@ const ConfigData: React.FC = () => {
                         </div>
                     ) : (
                         <div
-                            className="cursor-pointer hover:text-blue-600 flex items-center space-x-1"
+                            className="edit-value"
                             onClick={handleEditStart}
                             role="button"
                             tabIndex={0}
+                            title="Wert bearbeiten"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                     e.preventDefault();
@@ -218,6 +218,7 @@ const ConfigData: React.FC = () => {
                             }}
                         >
                             <span className="badge badge--neutral">{value}{unit ? <span>&nbsp;{unit}</span> : null}</span>
+                            <i aria-hidden="true">✎</i>
                         </div>
                     )}
                 </div>
@@ -280,10 +281,11 @@ const ConfigData: React.FC = () => {
                         </div>
                     ) : (
                         <div
-                            className="cursor-pointer hover:text-blue-600"
+                            className="edit-value"
                             onClick={handleEditStart}
                             role="button"
                             tabIndex={0}
+                            title="Wert bearbeiten"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                     e.preventDefault();
@@ -292,6 +294,7 @@ const ConfigData: React.FC = () => {
                             }}
                         >
                             <span>{value}</span>
+                            <i aria-hidden="true">✎</i>
                         </div>
                     )}
                 </div>
@@ -326,7 +329,7 @@ const ConfigData: React.FC = () => {
                 <div className="flex justify-between items-center">
                     <div className="flex flex-col">
                         <span className="font-medium">Deltatemperatur:</span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-muted">
                             {deltaOverrideEnabled
                                 ? `Roh: ${rawDelta.toFixed(1)}°C`
                                 : `Roh: ${rawDelta.toFixed(1)}°C ÷ ${TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR}`
@@ -394,10 +397,11 @@ const ConfigData: React.FC = () => {
                         </div>
                     ) : (
                         <div
-                            className="cursor-pointer hover:text-blue-600 flex items-center space-x-1"
+                            className="edit-value"
                             onClick={handleEditStart}
                             role="button"
                             tabIndex={0}
+                            title="Wert bearbeiten"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                     e.preventDefault();
@@ -406,6 +410,7 @@ const ConfigData: React.FC = () => {
                             }}
                         >
                             <span className="badge badge--neutral">{displayValue}°C</span>
+                            <i aria-hidden="true">✎</i>
                         </div>
                     )}
                 </div>
@@ -425,7 +430,7 @@ const ConfigData: React.FC = () => {
                 <div className="flex justify-between items-center">
                     <div className="flex flex-col">
                         <span className="font-medium">Delta Override:</span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-muted">
                             {isEnabled ? 'Manuelle Deltatemperatur' : 'Automatische Berechnung'}
                         </span>
                     </div>
@@ -532,10 +537,11 @@ const ConfigData: React.FC = () => {
                         </div>
                     ) : (
                         <div
-                            className="cursor-pointer hover:text-blue-600 flex items-center space-x-1"
+                            className="edit-value"
                             onClick={handleEditStart}
                             role="button"
                             tabIndex={0}
+                            title="Wert bearbeiten"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                     e.preventDefault();
@@ -544,6 +550,7 @@ const ConfigData: React.FC = () => {
                             }}
                         >
                             <span className="badge badge--neutral">{value} <span>min</span></span>
+                            <i aria-hidden="true">✎</i>
                         </div>
                     )}
                 </div>
@@ -552,19 +559,13 @@ const ConfigData: React.FC = () => {
     };
 
     return (
-        <div className="card">
-            <div className="flex flex-col items-center mb-4 card__header">
-                <div className="h-[150px] w-full relative flex items-center justify-center">
-                    <Image
-                        src="/config-logo.jpg"
-                        alt="Configuration"
-                        width={125}
-                        height={125}
-                        style={{ objectFit: 'contain', width: 'auto', height: 'auto' }}
-                        priority
-                    />
+        <div className="card configCard">
+            <div className="card__header card__header--modern">
+                <span className="card__icon" aria-hidden="true">⚙</span>
+                <div>
+                    <h2 className="card__title">Regelparameter</h2>
+                    <p className="card__subtitle">Wert anklicken, um ihn zu bearbeiten</p>
                 </div>
-                <h2 className="text-lg sm:text-xl font-semibold">Configuration</h2>
             </div>
             <div className="space-y-4 text-sm sm:text-base">
                 {renderEditableValue(ConfigKeys.T_SOLL, 'Solltemperatur', 10, 25, 0.5, '°C')}
@@ -585,7 +586,7 @@ const ConfigData: React.FC = () => {
                 )}
                 {renderManualOverride()}
                 <div className="flex justify-between items-center">
-                    <span className="font-medium">Next Update:</span>
+                    <span className="font-medium">Nächstes Update:</span>
                     <span className="badge badge--neutral">{nextUpdate} s</span>
                 </div>
                 <div className="flex flex-col space-y-1">
@@ -605,7 +606,7 @@ const ConfigData: React.FC = () => {
                                         </div>
                                         <span>
                                             {recommendedPos}
-                                            <span className="text-gray-600 ml-1">%</span>
+                                            <span className="text-muted ml-1">%</span>
                                         </span>
                                     </div>
                                 );
@@ -614,24 +615,27 @@ const ConfigData: React.FC = () => {
                     </div>
                 </div>
                 {renderEditableText(ConfigKeys.S_ETA, 'Eta Server')}
-                <div className="flex flex-col space-y-1">
-                    <div className="flex justify-between items-center">
-                        <span className="font-medium">ETA Konfiguration:</span>
-                        <span>{config.data[ConfigKeys.F_ETA]?.replace('*', '') || ''}</span>
+                <details className="technical-paths">
+                    <summary>Technische Konfigurationspfade</summary>
+                    <div className="flex flex-col space-y-1">
+                        <div className="flex justify-between items-center">
+                            <span className="font-medium">ETA Konfiguration:</span>
+                            <span className="text-muted">{config.data[ConfigKeys.F_ETA]?.replace('*', '') || ''}</span>
+                        </div>
                     </div>
-                </div>
-                <div className="flex flex-col space-y-1">
-                    <div className="flex justify-between items-center">
-                        <span className="font-medium">WIFIAF83 Konfiguration:</span>
-                        <span>{config.data[ConfigKeys.F_WIFIAF83]?.replace('*', '') || ''}</span>
+                    <div className="flex flex-col space-y-1">
+                        <div className="flex justify-between items-center">
+                            <span className="font-medium">WIFIAF83 Konfiguration:</span>
+                            <span className="text-muted">{config.data[ConfigKeys.F_WIFIAF83]?.replace('*', '') || ''}</span>
+                        </div>
                     </div>
-                </div>
-                <div className="flex flex-col space-y-1">
-                    <div className="flex justify-between items-center">
-                        <span className="font-medium">NAMES2ID Konfiguration:</span>
-                        <span>{config.data[ConfigKeys.F_NAMES2ID]?.replace('*', '') || ''}</span>
+                    <div className="flex flex-col space-y-1">
+                        <div className="flex justify-between items-center">
+                            <span className="font-medium">NAMES2ID Konfiguration:</span>
+                            <span className="text-muted">{config.data[ConfigKeys.F_NAMES2ID]?.replace('*', '') || ''}</span>
+                        </div>
                     </div>
-                </div>
+                </details>
             </div>
         </div>
     );

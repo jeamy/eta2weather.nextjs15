@@ -37,7 +37,7 @@ export default function MenuPopup({ isOpen, onClose, title, menuItems }: MenuPop
         <div className="flex items-center group relative">
           <div className={`flex-1 ${parentKey ? 'ml-4' : ''}`}>
             <span 
-              className="text-gray-700 cursor-help"
+              className="text-muted cursor-help"
               title={item.uri}
             >
               {item.name}
@@ -46,9 +46,9 @@ export default function MenuPopup({ isOpen, onClose, title, menuItems }: MenuPop
           {item.uri && (
             <div className="flex justify-end min-w-[8rem]">
               {loading[item.uri] ? (
-                <span className="text-gray-400">Loading...</span>
+                <span className="text-muted">Laden…</span>
               ) : error[item.uri] ? (
-                <span className="text-red-500 text-sm" title={error[item.uri]}>Error</span>
+                <span className="text-danger text-sm" title={error[item.uri]}>Fehler</span>
               ) : values[item.uri] ? (
                 <div 
                   className="tabular-nums cursor-help"
@@ -58,13 +58,13 @@ export default function MenuPopup({ isOpen, onClose, title, menuItems }: MenuPop
                     {renderValue(values[item.uri])}
                   </span>
                   {values[item.uri].unit && (
-                    <span className="text-gray-500 ml-1 inline-block">
+                    <span className="text-muted ml-1 inline-block">
                       {values[item.uri].unit}
                     </span>
                   )}
                 </div>
               ) : (
-                <span className="text-gray-400">No data</span>
+                <span className="text-muted">Keine Daten</span>
               )}
             </div>
           )}
@@ -88,8 +88,8 @@ export default function MenuPopup({ isOpen, onClose, title, menuItems }: MenuPop
         aria-hidden="true"
       />
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all max-h-[80vh] overflow-y-auto">
-          <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
+        <div className="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-surface p-6 text-left align-middle shadow-xl transition-all max-h-[80vh] overflow-y-auto">
+          <h3 className="text-lg font-medium leading-6 text-strong mb-4">
             {title}
           </h3>
 
@@ -101,7 +101,7 @@ export default function MenuPopup({ isOpen, onClose, title, menuItems }: MenuPop
 
           <button
             onClick={onClose}
-            className="absolute right-4 top-4 inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:text-gray-500 focus:outline-none"
+            className="absolute right-4 top-4 inline-flex h-11 w-11 items-center justify-center rounded-full text-muted hover:text-strong focus:outline-none"
             aria-label="Close"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

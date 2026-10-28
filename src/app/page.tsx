@@ -18,28 +18,22 @@ export default function Home() {
       <div className="container">
         <main className="home__main">
           <HomeHero />
-          {/* First row: Config, Eta, and Wifi data */}
-          <div className="home__row home__row--three">
-            <ConfigData />
+          <div className="home__controlGrid">
             <EtaData />
+            <ConfigData />
             <WifiAf83Data />
           </div>
 
-          {/* Second row: EtaTab, wifiTab stack with Zeitfenster */}
-          <div className="home__row home__row--two">
+          <div className="home__detailsGrid">
             <div className="card">
               <EtaTab menuItems={menuItems} />
             </div>
-            <div className="home__colStack">
-              <div className="card">
-                <WifiTab data={wifiData ?? undefined} />
-              </div>
-              <div className="card">
-                <ZeitfensterTab menuItems={menuItems} />
-              </div>
+            <div className="card">
+              <WifiTab data={wifiData ?? undefined} />
             </div>
           </div>
-       
+
+          <ZeitfensterTab menuItems={menuItems} />
         </main>
 
         <footer className="home__footer">

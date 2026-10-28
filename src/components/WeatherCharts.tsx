@@ -118,8 +118,8 @@ export default function WeatherCharts({
             onClick={() => onTimeRangeChange(value)}
             className={`px-3 py-1 rounded ${
               timeRange === value
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                ? 'bg-primary accent-ink'
+                : 'bg-raised-2 text-muted hover:bg-raised'
             } transition-colors duration-200`}
           >
             {label}
@@ -133,10 +133,10 @@ export default function WeatherCharts({
   const ResetZoomButton = useCallback(() => (
     <button
       onClick={() => resetZoom()}
-      className="ml-2 p-1 rounded hover:bg-gray-100 transition-colors"
+      className="ml-2 p-1 rounded hover:bg-raised transition-colors"
       title="Reset Zoom"
     >
-      <ArrowPathIcon className="h-5 w-5 text-gray-600" />
+      <ArrowPathIcon className="h-5 w-5 text-muted" />
     </button>
   ), [resetZoom]);
 
@@ -171,9 +171,9 @@ export default function WeatherCharts({
   const ChannelSelector = useMemo(() => (
     <div className="mb-3">
       <div className="flex items-center gap-2 flex-wrap mb-2">
-        <span className="text-sm text-gray-600 mr-2">Kanäle:</span>
-        <button onClick={handleSelectAllChannels} className="text-xs px-2 py-1 bg-gray-200 rounded hover:bg-gray-300">Alle</button>
-        <button onClick={handleSelectNoneChannels} className="text-xs px-2 py-1 bg-gray-200 rounded hover:bg-gray-300">Keine</button>
+        <span className="text-sm text-muted mr-2">Kanäle:</span>
+        <button onClick={handleSelectAllChannels} className="text-xs px-2 py-1 bg-raised-2 rounded hover:bg-raised">Alle</button>
+        <button onClick={handleSelectNoneChannels} className="text-xs px-2 py-1 bg-raised-2 rounded hover:bg-raised">Keine</button>
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         {channels.map((ch) => {
@@ -188,7 +188,7 @@ export default function WeatherCharts({
                 onChange={() => handleToggleChannel(ch)}
                 className="rounded"
               />
-              <span className={checked ? 'text-gray-900' : 'text-gray-500'}>{displayName}</span>
+              <span className={checked ? 'text-strong' : 'text-muted'}>{displayName}</span>
             </label>
           );
         })}
@@ -560,7 +560,7 @@ export default function WeatherCharts({
   if (!weatherData || weatherData.length === 0) {
     return (
       <div className="flex items-center justify-center h-96">
-        <p className="text-gray-500">No weather data available</p>
+        <p className="text-muted">No weather data available</p>
       </div>
     );
   }
@@ -572,7 +572,7 @@ export default function WeatherCharts({
         <ResetZoomButton />
       </div>
       
-      <div className="bg-white rounded-lg shadow-lg p-4">
+      <div className="bg-surface rounded-lg shadow-lg p-4">
         <div className="flex items-center mb-4">
           <h2 className="text-xl font-semibold flex-grow">Hauptsensoren</h2>
         </div>
@@ -581,7 +581,7 @@ export default function WeatherCharts({
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-lg p-4">
+      <div className="bg-surface rounded-lg shadow-lg p-4">
         <div className="flex items-center mb-4">
           <h2 className="text-xl font-semibold flex-grow">Temperatur</h2>
         </div>
@@ -591,7 +591,7 @@ export default function WeatherCharts({
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-lg p-4">
+      <div className="bg-surface rounded-lg shadow-lg p-4">
         <div className="flex items-center mb-4">
           <h2 className="text-xl font-semibold flex-grow">Luftfeuchtigkeit</h2>
         </div>

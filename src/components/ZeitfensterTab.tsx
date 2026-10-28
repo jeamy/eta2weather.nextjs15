@@ -201,13 +201,13 @@ const DayTimeline: React.FC<{
 
   return (
     <div className="w-full">
-      <div ref={barRef} className="relative h-3 sm:h-3 w-full rounded bg-gray-200 overflow-visible touch-none select-none">
+      <div ref={barRef} className="relative h-3 sm:h-3 w-full rounded bg-raised-2 overflow-visible touch-none select-none">
         {ticks.map((t) => {
           const isMajor = t === 0 || t === 12 || t === 24;
           return (
             <div
               key={`tick-${t}`}
-              className={`absolute top-0 bottom-0 ${isMajor ? 'bg-gray-700' : 'bg-gray-500'}`}
+              className={`absolute top-0 bottom-0 ${isMajor ? 'bg-line-strong' : 'bg-line'}`}
               style={{ left: `${(t / 24) * 100}%`, width: isMajor ? '1px' : '1px' }}
             />
           );
@@ -215,7 +215,7 @@ const DayTimeline: React.FC<{
         {segments.map((s, i) => (
           <div
             key={`seg-${i}`}
-            className={`group absolute top-0 bottom-0 bg-green-500/90 cursor-grab ${bump[s.uri] ? 'ring-2 ring-red-500 shake' : ''}`}
+            className={`group absolute top-0 bottom-0 bg-primary cursor-grab ${bump[s.uri] ? 'shake' : ''}`}
             style={{ left: `${s.left}%`, width: `${s.width}%` }}
             tabIndex={0}
             aria-label={`${s.start} – ${s.end}`}
@@ -241,7 +241,7 @@ const DayTimeline: React.FC<{
               }}
               aria-label="Start verschieben"
             >
-              <span className="absolute top-1/2 -translate-y-1/2 -left-0.5 h-4 w-1.5 rounded bg-white ring-1 ring-gray-600 shadow pointer-events-none"></span>
+              <span className="absolute top-1/2 -translate-y-1/2 -left-0.5 h-4 w-1.5 rounded bg-surface ring-1 ring-line-strong shadow pointer-events-none"></span>
             </div>
             <div
               className="absolute inset-y-0 right-0 w-2 cursor-ew-resize"
@@ -254,11 +254,11 @@ const DayTimeline: React.FC<{
               }}
               aria-label="Ende verschieben"
             >
-              <span className="absolute top-1/2 -translate-y-1/2 -right-0.5 h-4 w-1.5 rounded bg-white ring-1 ring-gray-600 shadow pointer-events-none"></span>
+              <span className="absolute top-1/2 -translate-y-1/2 -right-0.5 h-4 w-1.5 rounded bg-surface ring-1 ring-line-strong shadow pointer-events-none"></span>
             </div>
-            <div className={`absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-gray-800 text-white text-[10px] px-2 py-1 shadow ${activeTooltip === s.uri ? 'block' : 'hidden'} group-hover:block group-focus:block pointer-events-none z-10`}>
+            <div className={`absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-strong text-bg text-[10px] px-2 py-1 shadow ${activeTooltip === s.uri ? 'block' : 'hidden'} group-hover:block group-focus:block pointer-events-none z-10`}>
               {s.start} – {s.end}
-              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-800 rotate-45"></span>
+              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-strong rotate-45"></span>
             </div>
           </div>
         ))}
@@ -269,9 +269,9 @@ const DayTimeline: React.FC<{
           25% { transform: translateX(-2px); }
           75% { transform: translateX(2px); }
         }
-        .shake { animation: shake 150ms ease-in-out; }
+        .shake { animation: shake 150ms ease-in-out; outline: 2px solid var(--color-danger); }
       `}</style>
-      <div className="mt-1 flex justify-between text-[10px] sm:text-xs text-gray-500">
+      <div className="mt-1 flex justify-between text-[10px] sm:text-xs text-muted">
         {labelTicks.map((t) => (
           <span key={`label-${t}`}>{t}</span>
         ))}
@@ -443,7 +443,7 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
   if (!heizzeiten) {
     return (
       <div className="card">
-        <SectionHeader title="Zeitfenster" />
+        <SectionHeader title="Heiz-Zeitfenster" />
         <div className="alert alert--warning">Keine Heizzeiten gefunden.</div>
       </div>
     );
@@ -451,11 +451,11 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
 
   return (
     <div className="card">
-      <SectionHeader title="Zeitfenster" />
+      <SectionHeader title="Heiz-Zeitfenster" />
       <div className="space-y-4">
         {tagFenster.map(({ day, windows }) => (
           <div key={day} className="border rounded-md">
-            <div className="px-3 py-2 bg-gray-50 text-sm font-medium text-gray-700">{day}</div>
+            <div className="px-3 py-2 bg-raised-2 text-sm font-medium text-muted">{day}</div>
             <div className="px-3 py-3">
               <DayTimeline
                 windows={windows}
@@ -498,7 +498,7 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                 return (
                   <div key={uri} className="px-3 py-3 flex flex-col gap-3">
                     <div className="flex items-center gap-3">
-                      <span className="inline-flex items-center justify-center w-8 h-8 sm:w-7 sm:h-7 rounded-full bg-green-600 text-white text-base sm:text-sm font-semibold">{num}</span>
+                      <span className="inline-flex items-center justify-center w-8 h-8 sm:w-7 sm:h-7 rounded-full bg-primary accent-ink text-base sm:text-sm font-semibold">{num}</span>
                       <div className="flex items-center gap-2 flex-1">
                         <input
                           type="time"
@@ -507,7 +507,7 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                           onChange={(e) => handleTimeChange(uri, 'start', e.target.value)}
                           className="input min-h-[44px] text-base sm:text-sm flex-1 sm:w-28"
                         />
-                        <span className="text-gray-500">-</span>
+                        <span className="text-muted">-</span>
                         <input
                           type="time"
                           step={900}
@@ -518,7 +518,7 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-3" key={remountKey}>
-                      <label className="flex items-center gap-1 cursor-pointer whitespace-nowrap">
+                      <label className="flex items-center gap-1 cursor-pointer whitespace-nowrap min-h-[44px]">
                         <input
                           type="checkbox"
                           checked={isSynced || false}
@@ -530,7 +530,7 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                           }}
                           className="rounded"
                         />
-                        <span className="text-xs text-gray-600">Sync</span>
+                        <span className="text-xs text-muted">Sync</span>
                       </label>
                       <div className="flex items-center gap-2">
                         {isSynced && hasSyncedRelatedChanges && syncedCount > 1 ? (

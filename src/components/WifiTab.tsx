@@ -177,20 +177,20 @@ function WifiTab({ data }: WifiTabProps) {
             type="text"
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
-            className="px-2 py-1 border rounded text-sm w-32"
+            className="input text-sm w-32"
             autoFocus
           />
           <button
             onClick={handleSave}
             disabled={isLoading}
-            className="text-green-600 hover:text-green-800 px-1"
+            className="text-success px-1"
             title="Save"
           >
             ✓
           </button>
           <button
             onClick={handleCancel}
-            className="text-red-600 hover:text-red-800 px-1"
+            className="text-danger px-1"
             title="Cancel"
           >
             ✗
@@ -201,9 +201,10 @@ function WifiTab({ data }: WifiTabProps) {
     return (
       <span
         onClick={() => handleEditStart(channelKey)}
-        className="cursor-pointer hover:text-blue-600"
+        className="edit-value"
         role="button"
         tabIndex={0}
+        title="Kanalname bearbeiten"
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
@@ -212,6 +213,7 @@ function WifiTab({ data }: WifiTabProps) {
         }}
       >
         {channelNames[channelKey] || channelKey}
+        <i aria-hidden="true">✎</i>
       </span>
     );
   };
@@ -230,7 +232,7 @@ function WifiTab({ data }: WifiTabProps) {
         
         return (
           <div key={subKey} className="mb-2">
-            <span className="text-xs text-gray-600">
+            <span className="text-xs text-muted">
               {translation}: {' '}
             </span>
             <span className="text-sm">
@@ -246,7 +248,7 @@ function WifiTab({ data }: WifiTabProps) {
   return (
     <div className="tabs">
       <div className="card__header">
-        <h2 className="text-lg font-semibold">WiFi Data</h2>
+        <h2 className="text-lg font-semibold">WiFi-Details</h2>
       </div>
       {error && <div className="alert alert--error mb-3">{error}</div>}
       <div>
@@ -282,8 +284,8 @@ function WifiTab({ data }: WifiTabProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {category === deTranslations.categories['Channels'] ? (
                   Object.entries(catData).map(([channelKey, channelValue]) => (
-                    <div key={channelKey} className="p-4 rounded-lg bg-white shadow-sm">
-                      <h3 className="text-sm font-medium text-gray-900 mb-2">
+                    <div key={channelKey} className="p-4 rounded-lg bg-raised border">
+                      <h3 className="text-sm font-medium text-strong mb-2">
                         {renderChannelName(channelKey)} &nbsp;
                       </h3>
                       <div className="space-y-1">
@@ -296,11 +298,11 @@ function WifiTab({ data }: WifiTabProps) {
                     const translationKey = key.toLowerCase();
                     const titleTranslation = deTranslations.measurements[translationKey] || key.replace(/_/g, ' ');
                     return (
-                      <div key={key} className="p-4 rounded-lg bg-white shadow-sm">
-                        <h3 className="text-sm font-medium text-gray-900">
+                      <div key={key} className="p-4 rounded-lg bg-raised border">
+                        <h3 className="text-sm font-medium text-strong">
                           {titleTranslation} &nbsp;
                         </h3>
-                        <div className="mt-2 text-sm text-gray-500 space-y-1">
+                        <div className="mt-2 text-sm text-muted space-y-1">
                           {renderValue(value)}
                         </div>
                       </div>

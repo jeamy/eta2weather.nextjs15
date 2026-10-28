@@ -1,2 +1,4 @@
-.progress { background: rgba(255,255,255,.08); border-radius: 8px; overflow: hidden; height: 10px; }
-.progress__bar { height: 100%; background: var(--color-primary); width: 0%; transition: width .3s; }
+.progress { height: 7px; overflow: hidden; border-radius: 99px; background: var(--color-raised-2); }
+.progress__bar { width: 0; height: 100%; border-radius: inherit; background: var(--color-primary); transition: width .3s; }
+.progress__bar--ok { background: var(--color-success); }
+.progress__bar--primary { background: var(--color-info); }

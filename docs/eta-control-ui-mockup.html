@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="de" data-mode="dark" data-palette="jade_mono">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ETA Control · Modernisierungs-Mockup</title>
+  <style>
+    :root {
+      --color-a: #42dca3;
+      --color-b: #123247;
+      --color-c: #2a8a69;
+      --accent-ink: #fff;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --shadow: 0 18px 48px rgb(0 0 0 / .16);
+    }
+    :root, :root[data-mode="dark"] {
+      --bg: color-mix(in srgb, var(--color-b) 30%, #070b10);
+      --surface: color-mix(in srgb, var(--color-b) 45%, #0d141b);
+      --raised: color-mix(in srgb, var(--color-b) 60%, #131d25);
+      --raised-2: color-mix(in srgb, var(--color-b) 74%, #17232d);
+      --header: color-mix(in srgb, var(--color-b) 38%, #080d12);
+      --line: color-mix(in srgb, var(--color-c) 24%, #1b2731);
+      --line-strong: color-mix(in srgb, var(--color-c) 42%, #2a3b48);
+      --text: #dbe4e9;
+      --strong: #f4f8fa;
+      --muted: #95a5af;
+      --soft: color-mix(in srgb, var(--color-a) 9%, transparent);
+      --input: color-mix(in srgb, var(--color-b) 34%, #080d12);
+      --success: #42dca3;
+      --warning: #f2b84b;
+      --danger: #ff6b72;
+      --info: #55b8ff;
+      color-scheme: dark;
+    }
+    :root[data-mode="light"] {
+      --bg: color-mix(in srgb, var(--color-b) 14%, #f4f7f8);
+      --surface: #fff;
+      --raised: color-mix(in srgb, var(--color-b) 15%, #f7f9fa);
+      --raised-2: color-mix(in srgb, var(--color-b) 25%, #f2f5f6);
+      --header: color-mix(in srgb, var(--color-b) 10%, #fff);
+      --line: color-mix(in srgb, var(--color-c) 19%, #d9e1e5);
+      --line-strong: color-mix(in srgb, var(--color-c) 34%, #becbd1);
+      --text: #29343b;
+      --strong: #0c171c;
+      --muted: #62717a;
+      --soft: color-mix(in srgb, var(--color-a) 12%, transparent);
+      --input: #fff;
+      --success: #087d5b;
+      --warning: #8b5d00;
+      --danger: #bb2530;
+      --info: #126a9f;
+      --shadow: 0 18px 50px rgb(28 48 58 / .10);
+      color-scheme: light;
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body { margin: 0; color: var(--text); background: var(--bg); font: 14px/1.5 var(--font); min-width: 320px; }
+    button, input, select { font: inherit; color: inherit; }
+    button, a, input, select { outline: none; }
+    button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-a) 38%, transparent); border-color: var(--color-a) !important; }
+    button { cursor: pointer; }
+    button:disabled { opacity: .48; cursor: not-allowed; }
+    .topbar { position: sticky; inset-block-start: 0; z-index: 10; display: flex; align-items: center; gap: 18px; min-height: 64px; padding: 10px max(18px, calc((100vw - 1480px) / 2)); background: color-mix(in srgb, var(--header) 90%, transparent); border-bottom: 1px solid var(--line); backdrop-filter: blur(18px); }
+    .brand { display: flex; align-items: center; gap: 10px; color: var(--strong); text-decoration: none; font-weight: 760; letter-spacing: -.02em; white-space: nowrap; }
+    .brand-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px; color: var(--accent-ink); background: var(--color-a); box-shadow: 0 8px 24px color-mix(in srgb, var(--color-a) 28%, transparent); }
+    .brand-mark svg { width: 21px; }
+    .nav { display: flex; gap: 3px; align-items: center; }
+    .nav a, .nav button { min-height: 38px; padding: 8px 11px; color: var(--muted); background: none; border: 1px solid transparent; border-radius: 9px; text-decoration: none; white-space: nowrap; }
+    .nav a:hover, .nav button:hover, .nav .active { color: var(--strong); background: var(--raised); border-color: var(--line); }
+    .spacer { flex: 1; }
+    .live { display: flex; align-items: center; gap: 8px; color: var(--muted); white-space: nowrap; font-size: 12px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 5px color-mix(in srgb, var(--success) 13%, transparent); }
+    .theme-controls { display: flex; align-items: center; gap: 8px; }
+    .mode-switch { display: flex; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+    .mode-switch button { width: 34px; height: 30px; padding: 0; border: 0; border-radius: 7px; color: var(--muted); background: transparent; }
+    .mode-switch button.active { color: var(--accent-ink); background: var(--color-a); }
+    .palette { height: 38px; max-width: 176px; padding: 0 30px 0 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--surface); }
+    .mobile-menu { display: none; width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+    .page { width: min(1480px, calc(100% - 36px)); margin: 0 auto; padding: 26px 0 50px; }
+    .mock-note { display: flex; gap: 9px; align-items: center; margin-bottom: 16px; color: var(--muted); font-size: 12px; }
+    .mock-note b { color: var(--warning); }
+    .section-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+    .eyebrow { margin: 0 0 3px; color: var(--color-a); font: 700 11px/1.3 var(--mono); letter-spacing: .11em; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 0; color: var(--strong); font-size: clamp(24px, 3vw, 38px); line-height: 1.12; letter-spacing: -.035em; }
+    h2 { margin-bottom: 0; color: var(--strong); font-size: 17px; letter-spacing: -.01em; }
+    h3 { margin-bottom: 0; color: var(--strong); font-size: 14px; }
+    .updated { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+    .kpi { min-height: 116px; padding: 14px 15px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); box-shadow: var(--shadow); }
+    .kpi-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12px; }
+    .kpi-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; color: var(--color-a); background: var(--soft); font-size: 15px; }
+    .kpi-value { margin-top: 8px; color: var(--strong); font: 720 25px/1.1 var(--mono); letter-spacing: -.04em; }
+    .kpi-meta { margin-top: 5px; color: var(--muted); font-size: 11px; }
+    .good { color: var(--success) !important; }
+    .warn { color: var(--warning) !important; }
+    .bad { color: var(--danger) !important; }
+    .info { color: var(--info) !important; }
+    .card { min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+    .card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .card-icon { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 11px; color: var(--accent-ink); background: var(--color-a); font-size: 18px; }
+    .card-sub { color: var(--muted); font-size: 12px; }
+    .card-head .actions { margin-left: auto; }
+    .grid-main { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(330px, .85fr); gap: 16px; align-items: start; }
+    .side-stack { display: grid; gap: 16px; }
+    .mode-card { overflow: hidden; }
+    .override { display: flex; align-items: center; gap: 12px; margin: -2px 0 16px; padding: 12px 13px; border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--line)); border-radius: 11px; color: var(--warning); background: color-mix(in srgb, var(--warning) 9%, transparent); }
+    .override strong { color: var(--strong); }
+    .override .time { font: 700 14px var(--mono); white-space: nowrap; }
+    .override .btn { margin-left: auto; }
+    .data-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 22px; }
+    .data-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 38px; border-bottom: 1px solid var(--line); }
+    .data-row .label { color: var(--muted); }
+    .value { color: var(--strong); font: 650 13px var(--mono); text-align: right; }
+    .source-status { margin-top: 17px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .source-status-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .switch-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+    .switch-item { display: flex; align-items: center; justify-content: space-between; min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); }
+    .switch-item span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+    .switch { position: relative; flex: none; width: 36px; height: 21px; padding: 0; border: 1px solid var(--line-strong); border-radius: 99px; background: var(--raised-2); }
+    .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 13px; height: 13px; border-radius: 50%; background: var(--muted); transition: .18s ease; }
+    .switch.on { border-color: var(--color-a); background: color-mix(in srgb, var(--color-a) 30%, var(--raised)); }
+    .switch.on::after { left: 18px; background: var(--color-a); }
+    .config-list { display: grid; gap: 2px; }
+    .config-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 45px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+    .config-row:last-child { border-bottom: 0; }
+    .config-label { color: var(--text); font-size: 13px; }
+    .config-hint { color: var(--muted); font-size: 10px; }
+    .edit-value { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 5px 9px; border: 1px solid transparent; border-radius: 8px; color: var(--strong); background: transparent; font: 650 12px var(--mono); }
+    .edit-value:hover { border-color: var(--line-strong); background: var(--raised); }
+    .edit-value i { color: var(--muted); font: normal 13px var(--font); }
+    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 11px; white-space: nowrap; }
+    .pill.good { background: color-mix(in srgb, var(--success) 8%, transparent); }
+    .pill.warn { background: color-mix(in srgb, var(--warning) 8%, transparent); }
+    .bar { height: 6px; margin-top: 6px; overflow: hidden; border-radius: 99px; background: var(--raised-2); }
+    .bar i { display: block; width: 64%; height: 100%; border-radius: inherit; background: var(--color-a); }
+    .weather-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .weather-stat { padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--raised); }
+    .weather-stat span { display: block; color: var(--muted); font-size: 11px; }
+    .weather-stat b { display: block; margin-top: 3px; color: var(--strong); font: 700 18px var(--mono); }
+    .wide-section { margin-top: 16px; }
+    .details-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(360px, .8fr); gap: 16px; align-items: start; }
+    .tabs { display: flex; gap: 5px; margin: 0 -4px 14px; padding: 0 4px 9px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: thin; }
+    .tab { min-height: 38px; padding: 7px 11px; border: 1px solid transparent; border-radius: 9px; color: var(--muted); background: transparent; white-space: nowrap; }
+    .tab:hover { color: var(--strong); background: var(--raised); }
+    .tab.active { color: var(--strong); border-color: var(--color-a); background: var(--soft); }
+    .metric-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .metric { min-height: 82px; padding: 11px; border: 1px solid var(--line); border-radius: 11px; background: var(--raised); }
+    .metric .name { color: var(--muted); font-size: 11px; }
+    .metric .number { margin-top: 8px; color: var(--strong); font: 700 16px var(--mono); }
+    .refresh { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); background: var(--raised); }
+    .schedule { margin-top: 16px; }
+    .day { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--raised); }
+    .day + .day { margin-top: 8px; }
+    .day-head { display: flex; align-items: center; justify-content: space-between; min-height: 42px; padding: 8px 12px; border: 0; width: 100%; color: var(--strong); background: var(--raised-2); font-weight: 650; text-align: left; }
+    .timeline { position: relative; height: 9px; margin: 13px 14px 7px; border-radius: 99px; background: var(--line-strong); }
+    .timeline i { position: absolute; top: 0; bottom: 0; left: 25%; width: 20%; border-radius: 99px; background: var(--color-a); }
+    .timeline i + i { left: 66%; width: 14%; background: var(--color-c); }
+    .time-row { display: grid; grid-template-columns: 30px 1fr 1fr auto auto; align-items: center; gap: 8px; padding: 9px 12px; border-top: 1px solid var(--line); }
+    .window-number { display: grid; place-items: center; width: 27px; height: 27px; border-radius: 50%; color: var(--accent-ink); background: var(--color-a); font: 700 12px var(--mono); }
+    input[type="time"] { min-width: 0; height: 42px; padding: 0 9px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--input); font-family: var(--mono); }
+    .check { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; }
+    .check input { accent-color: var(--color-a); }
+    .btn { min-height: 38px; padding: 7px 11px; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text); background: var(--raised); font-weight: 650; }
+    .btn:hover:not(:disabled) { border-color: var(--color-a); color: var(--strong); }
+    .btn.primary { color: var(--accent-ink); border-color: var(--color-a); background: var(--color-a); }
+    .btn.icon { min-width: 42px; padding: 0; }
+    .technical { margin-top: 14px; }
+    details { border-top: 1px solid var(--line); }
+    summary { padding-top: 13px; color: var(--muted); cursor: pointer; font-size: 12px; }
+    .paths { display: grid; gap: 6px; padding-top: 10px; color: var(--muted); font: 11px var(--mono); overflow-wrap: anywhere; }
+    footer { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 25px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+    footer a { color: var(--color-a); text-decoration: none; }
+    .toast { position: fixed; right: 22px; bottom: 22px; z-index: 20; max-width: min(360px, calc(100vw - 44px)); padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: 11px; color: var(--strong); background: var(--raised-2); box-shadow: var(--shadow); opacity: 0; transform: translateY(10px); pointer-events: none; transition: .2s ease; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    @media (max-width: 1180px) {
+      .kpis { grid-template-columns: repeat(3, 1fr); }
+      .grid-main, .details-grid { grid-template-columns: 1fr; }
+      .side-stack { grid-template-columns: 1fr 1fr; }
+      .nav { display: none; }
+      .mobile-menu { display: inline-grid; place-items: center; }
+    }
+    @media (max-width: 760px) {
+      .topbar { gap: 9px; padding: 9px 12px; }
+      .brand span:last-child, .live, .palette { display: none; }
+      .page { width: min(100% - 22px, 680px); padding-top: 18px; }
+      .section-head { align-items: start; flex-direction: column; }
+      .updated { white-space: normal; }
+      .kpis { grid-template-columns: 1fr 1fr; }
+      .kpi { min-height: 104px; }
+      .grid-main, .side-stack, .details-grid { grid-template-columns: 1fr; }
+      .card { padding: 14px; border-radius: 13px; }
+      .override { align-items: flex-start; flex-wrap: wrap; }
+      .override .btn { margin-left: 0; }
+      .data-grid { grid-template-columns: 1fr; }
+      .switch-list { grid-template-columns: 1fr 1fr; }
+      .metric-cards { grid-template-columns: 1fr 1fr; }
+      .time-row { grid-template-columns: 28px 1fr 1fr; }
+      .time-row .check { grid-column: 2; }
+      .time-row .save { grid-column: 3; justify-self: end; }
+    }
+    @media (max-width: 430px) {
+      .kpis, .weather-grid, .metric-cards { grid-template-columns: 1fr; }
+      .switch-list { grid-template-columns: 1fr; }
+      .theme-controls { margin-left: auto; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="ETA Control Startseite">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 4.5 13.2A5.5 5.5 0 0 0 9 22h6a5.5 5.5 0 0 0 4.5-8.8L13 2Z"/><path d="M9 16c1.8.4 3.7-.4 5-2.4"/></svg>
+      </span>
+      <span>ETA Control</span>
+    </a>
+    <nav class="nav" aria-label="Hauptnavigation">
+      <button type="button">ETA Menü⌄</button>
+      <a class="active" href="#">Home</a>
+      <a href="#details">Raw Eta Data</a>
+      <a href="#details">System Logs</a>
+      <a href="#weather">Weather</a>
+    </nav>
+    <span class="spacer"></span>
+    <span class="live"><i class="dot"></i>ETA &amp; WiFi aktuell</span>
+    <div class="theme-controls" aria-label="Darstellung">
+      <div class="mode-switch" role="group" aria-label="Farbmodus">
+        <button type="button" data-set-mode="dark" title="Dark Mode" aria-label="Dark Mode">☾</button>
+        <button type="button" data-set-mode="light" title="Light Mode" aria-label="Light Mode">☀</button>
+      </div>
+      <select class="palette" id="palette" aria-label="Farbpalette"></select>
+    </div>
+    <button class="mobile-menu" type="button" aria-label="Hauptmenü öffnen">☰</button>
+  </header>
+
+  <main class="page">
+    <div class="mock-note"><b>Konzept-Mockup</b><span>Statische UI-Demonstration – es werden keine Befehle an ETA oder WiFi gesendet.</span></div>
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Anlagenübersicht</p>
+        <h1>Guten Abend. Die Anlage läuft im Automatikbetrieb.</h1>
+      </div>
+      <span class="updated">Letztes Update heute, 21:42:18 · nächstes in 42 s</span>
+    </div>
+
+    <section class="kpis" aria-label="Übersicht">
+      <article class="kpi"><div class="kpi-head"><span>Innen</span><i class="kpi-icon">⌂</i></div><div class="kpi-value good">21,4 °C</div><div class="kpi-meta">1,4 °C über Minimum</div></article>
+      <article class="kpi"><div class="kpi-head"><span>Außen · WiFi</span><i class="kpi-icon">☁</i></div><div class="kpi-value">7,8 °C</div><div class="kpi-meta">Sensor aktuell</div></article>
+      <article class="kpi"><div class="kpi-head"><span>Indoor / Soll</span><i class="kpi-icon">△</i></div><div class="kpi-value info">+0,85 °C</div><div class="kpi-meta">positiv = kälter als Soll</div></article>
+      <article class="kpi"><div class="kpi-head"><span>Schieber</span><i class="kpi-icon">↔</i></div><div class="kpi-value">+28 %</div><div class="bar"><i></i></div></article>
+      <article class="kpi"><div class="kpi-head"><span>Betriebsmodus</span><i class="kpi-icon">A</i></div><div class="kpi-value good">Auto</div><div class="kpi-meta">ETA-Taste AA aktiv</div></article>
+      <article class="kpi"><div class="kpi-head"><span>ETA / WiFi außen</span><i class="kpi-icon">≋</i></div><div class="kpi-value">+0,3 °</div><div class="kpi-meta">8,1 ° / 7,8 ° · Delta auto</div></article>
+    </section>
+
+    <div class="grid-main">
+      <section class="card mode-card" aria-labelledby="mode-title">
+        <div class="card-head">
+          <span class="card-icon" aria-hidden="true">♨</span>
+          <div><h2 id="mode-title">Heizungssteuerung</h2><div class="card-sub">ETA-Heizmodus und aktuelle Kesselwerte</div></div>
+          <span class="actions pill good">● verbunden</span>
+        </div>
+        <div class="override">
+          <span aria-hidden="true">◷</span>
+          <span><strong>Manueller Override aktiv</strong><br><small>Danach wird automatisch auf Auto gewechselt.</small></span>
+          <span class="time">08:42 min</span>
+          <button class="btn" type="button" data-demo>Override beenden</button>
+        </div>
+        <div class="data-grid">
+          <div class="data-row"><span class="label">Schaltzustand</span><span class="value good">Heizen</span></div>
+          <div class="data-row"><span class="label">Kesseltemperatur</span><span class="value">68,2 °C</span></div>
+          <div class="data-row"><span class="label">Vorlauftemperatur</span><span class="value">41,7 °C</span></div>
+          <div class="data-row"><span class="label">Außentemperatur ETA</span><span class="value">8,1 °C</span></div>
+          <div class="data-row"><span class="label">Heizkurve</span><span class="value">1,15</span></div>
+          <div class="data-row"><span class="label">Pelletbehälter</span><span class="value">72 %</span></div>
+          <div class="data-row"><span class="label">Vorrat</span><span class="value">3.240 kg</span></div>
+          <div class="data-row"><span class="label">Ein/Aus-Taste</span><span class="value good">EIN</span></div>
+        </div>
+        <div class="source-status">
+          <div class="source-status-head"><h3>ETA-Heizmodus</h3><span class="card-sub">exklusive Auswahl · aktiver Modus ist grün</span></div>
+          <div class="switch-list">
+            <div class="switch-item"><span>Heizen</span><button class="switch" type="button" role="switch" aria-checked="false" data-demo></button></div>
+            <div class="switch-item"><span>Kommen</span><button class="switch" type="button" role="switch" aria-checked="false" data-demo></button></div>
+            <div class="switch-item"><span>Auto</span><button class="switch on" type="button" role="switch" aria-checked="true" data-demo></button></div>
+            <div class="switch-item"><span>Gehen</span><button class="switch" type="button" role="switch" aria-checked="false" data-demo></button></div>
+            <div class="switch-item"><span>Absenken</span><button class="switch" type="button" role="switch" aria-checked="false" data-demo></button></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="side-stack">
+        <section class="card" aria-labelledby="config-title">
+          <div class="card-head"><span class="card-icon" aria-hidden="true">⚙</span><div><h2 id="config-title">Regelparameter</h2><div class="card-sub">Wert anklicken, um ihn zu bearbeiten</div></div></div>
+          <div class="config-list">
+            <div class="config-row"><div><div class="config-label">Solltemperatur</div></div><button class="edit-value" data-edit="21.5" data-unit="°C">21,5 °C <i>✎</i></button></div>
+            <div class="config-row"><div><div class="config-label">Delta Override</div><div class="config-hint">Automatische Berechnung</div></div><button class="switch" type="button" role="switch" aria-checked="false" data-demo></button></div>
+            <div class="config-row"><div><div class="config-label">Deltatemperatur</div><div class="config-hint">Roh: 4,0 °C ÷ 2</div></div><button class="edit-value" data-edit="2.0" data-unit="°C">2,00 °C <i>✎</i></button></div>
+            <div class="config-row"><div class="config-label">Minimumtemperatur</div><button class="edit-value" data-edit="20" data-unit="°C">20,0 °C <i>✎</i></button></div>
+            <div class="config-row"><div class="config-label">Updates</div><button class="edit-value" data-edit="1" data-unit="min">1 min <i>✎</i></button></div>
+            <div class="config-row"><div class="config-label">Manual override</div><button class="edit-value" data-edit="10" data-unit="min">10 min <i>✎</i></button></div>
+            <div class="config-row"><div class="config-label">Next Update</div><span class="value">42 s</span></div>
+            <div class="config-row"><div class="config-label">Empfohlener Schieber</div><div><span class="value">+28 %</span><div class="bar"><i></i></div></div></div>
+            <div class="config-row"><div class="config-label">ETA Server</div><button class="edit-value" data-edit="192.168.1.40:8080" data-unit="">192.168.1.40:8080 <i>✎</i></button></div>
+          </div>
+          <details class="technical"><summary>Technische Konfigurationspfade</summary><div class="paths"><span>ETA: config/eta.json</span><span>WIFIAF83: config/wifiaf83.json</span><span>NAMES2ID: config/names2id.json</span></div></details>
+        </section>
+
+        <section class="card" id="weather" aria-labelledby="weather-title">
+          <div class="card-head"><span class="card-icon" aria-hidden="true">☁</span><div><h2 id="weather-title">WiFi-Sensorik</h2><div class="card-sub">Letztes Update heute, 21:42:18</div></div></div>
+          <div class="weather-grid">
+            <div class="weather-stat"><span>Außentemperatur</span><b>7,8 °C</b></div>
+            <div class="weather-stat"><span>Innentemperatur</span><b class="good">21,4 °C</b></div>
+            <div class="weather-stat"><span>Diff Indoor/Soll</span><b class="info">+0,85 °C</b></div>
+            <div class="weather-stat"><span>Diff Min/Indoor</span><b class="good">+1,4 °C</b></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <section class="wide-section details-grid" id="details">
+      <article class="card">
+        <div class="card-head"><span class="card-icon" aria-hidden="true">▦</span><div><h2>ETA-Details</h2><div class="card-sub">Zuletzt aktualisiert 21:42:18</div></div><button class="refresh actions" type="button" title="Aktualisieren" data-demo>↻</button></div>
+        <div class="tabs" role="tablist" aria-label="ETA-Kategorien">
+          <button class="tab active" role="tab" aria-selected="true" data-tab>Kessel</button><button class="tab" role="tab" aria-selected="false" data-tab>Heizkreis</button><button class="tab" role="tab" aria-selected="false" data-tab>Warmwasser</button><button class="tab" role="tab" aria-selected="false" data-tab>Lager</button><button class="tab" role="tab" aria-selected="false" data-tab>System</button>
+        </div>
+        <div class="metric-cards">
+          <div class="metric"><div class="name">Kessel</div><div class="number">68,2 °C</div></div>
+          <div class="metric"><div class="name">Abgas</div><div class="number">112,5 °C</div></div>
+          <div class="metric"><div class="name">Restsauerstoff</div><div class="number">8,6 %</div></div>
+          <div class="metric"><div class="name">Leistung</div><div class="number">42 %</div></div>
+          <div class="metric"><div class="name">Puffer oben</div><div class="number">62,1 °C</div></div>
+          <div class="metric"><div class="name">Puffer unten</div><div class="number">38,4 °C</div></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><span class="card-icon" aria-hidden="true">⌁</span><div><h2>WiFi-Details</h2><div class="card-sub">Messwerte und editierbare Kanalnamen</div></div></div>
+        <div class="tabs" role="tablist" aria-label="WiFi-Kategorien">
+          <button class="tab active" role="tab" aria-selected="true" data-tab>Außen</button><button class="tab" role="tab" aria-selected="false" data-tab>Innen</button><button class="tab" role="tab" aria-selected="false" data-tab>Kanäle</button><button class="tab" role="tab" aria-selected="false" data-tab>Solar &amp; UVI</button><button class="tab" role="tab" aria-selected="false" data-tab>Niederschlag</button><button class="tab" role="tab" aria-selected="false" data-tab>Wind</button><button class="tab" role="tab" aria-selected="false" data-tab>Luftdruck</button><button class="tab" role="tab" aria-selected="false" data-tab>Batterie</button>
+        </div>
+        <div class="metric-cards">
+          <div class="metric"><div class="name">Temperatur</div><div class="number">7,8 °C</div></div>
+          <div class="metric"><div class="name">Luftfeuchte</div><div class="number">74 %</div></div>
+          <div class="metric"><div class="name">Gefühlt</div><div class="number">6,9 °C</div></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="card schedule" aria-labelledby="schedule-title">
+      <div class="card-head"><span class="card-icon" aria-hidden="true">◷</span><div><h2 id="schedule-title">Heiz-Zeitfenster</h2><div class="card-sub">15-Minuten-Raster · Zeitblöcke bleiben direkt verschiebbar</div></div><span class="actions pill">Woche</span></div>
+      <div class="day">
+        <button class="day-head" type="button"><span>Montag</span><span class="card-sub">2 aktive Fenster⌃</span></button>
+        <div class="timeline" aria-label="Montag: 06:00 bis 10:45 und 16:00 bis 19:15"><i></i><i></i></div>
+        <div class="time-row"><span class="window-number">1</span><input type="time" step="900" value="06:00"><input type="time" step="900" value="10:45"><label class="check"><input type="checkbox"> Sync</label><button class="btn primary icon save" type="button" aria-label="Speichern" data-demo>✓</button></div>
+        <div class="time-row"><span class="window-number">2</span><input type="time" step="900" value="16:00"><input type="time" step="900" value="19:15"><label class="check"><input type="checkbox" checked> Sync</label><button class="btn primary icon save" type="button" aria-label="Alle synchronisierten Zeitfenster speichern" data-demo>✓✓</button></div>
+        <div class="time-row"><span class="window-number">3</span><input type="time" step="900" value="00:00"><input type="time" step="900" value="00:00"><label class="check"><input type="checkbox"> Sync</label><button class="btn icon save" type="button" aria-label="Speichern" disabled>✓</button></div>
+      </div>
+      <div class="day"><button class="day-head" type="button"><span>Dienstag</span><span class="card-sub">2 aktive Fenster⌄</span></button></div>
+      <div class="day"><button class="day-head" type="button"><span>Mittwoch</span><span class="card-sub">2 aktive Fenster⌄</span></button></div>
+      <div class="day"><button class="day-head" type="button"><span>Donnerstag</span><span class="card-sub">2 aktive Fenster⌄</span></button></div>
+      <div class="day"><button class="day-head" type="button"><span>Freitag</span><span class="card-sub">2 aktive Fenster⌄</span></button></div>
+      <div class="day"><button class="day-head" type="button"><span>Samstag</span><span class="card-sub">3 aktive Fenster⌄</span></button></div>
+      <div class="day"><button class="day-head" type="button"><span>Sonntag</span><span class="card-sub">3 aktive Fenster⌄</span></button></div>
+    </section>
+
+    <footer><a href="#weather">Weather</a><span>created by <a href="https://github.com/jeamy">jeamy</a></span></footer>
+  </main>
+  <div class="toast" role="status" aria-live="polite">Mockup: Es wurde keine Aktion gesendet.</div>
+
+  <script>
+    const palettes = [
+      ["spaces_default", "ETA Standard", "#AED83C", "#152B35", "#5C8EA0", "#AED83C", "#82A8BA", "#5C8EA0"],
+      ["ocean_pulse", "Ozean-Puls", "#55A8FF", "#1E3531", "#8B80F9", "#55A8FF", "#7CC8BE", "#8B80F9"],
+      ["amber_signal", "Bernstein-Signal", "#E4AE34", "#091F29", "#F06292", "#E4AE34", "#78B2CA", "#F06292"],
+      ["raspberry_velvet", "Himbeer-Samt", "#B24C70", "#251F11", "#D577A4", "#9B415F", "#B0A180", "#C96C96"],
+      ["duo_neon", "Duo-Neon", "#96E255", "#1A270D", "#E4529B", "#96E255", "#C5E29A", "#E4529B"],
+      ["infrared_blueprint", "Infrarot-Blueprint", "#FF4E64", "#161E3F", "#39D6FF", "#CF344C", "#A9B5E8", "#188DAE"],
+      ["jade_clay", "Jade & Ton", "#35CFA2", "#2C2118", "#D36A3A", "#238F74", "#BFA58E", "#B6532E"],
+      ["violet_cream", "Violett-Creme", "#C084FC", "#2B183A", "#F4D35E", "#7E4BC2", "#CDB9E8", "#C08B16"],
+      ["pearl_graphite", "Perle & Graphit", "#E6E0C8", "#20242A", "#FF5A36", "#655F51", "#B8BDC5", "#D2432A"],
+      ["cobalt_saffron", "Kobalt & Safran", "#3B67FF", "#241B10", "#E7C447", "#254CC9", "#C8B58E", "#A97912"],
+      ["classic_amber", "Klassischer Bernstein", "#F0B33A", "#2F2A22", "#A86B16", "#B26B00", "#D4C7B0", "#8C5200"],
+      ["jade_mono", "Jade-Mono", "#42DCA3", "#123247", "#2A8A69", "#138A61", "#A9C8D4", "#0F6E50"],
+      ["cyan_mono", "Cyan-Mono", "#55D6F2", "#18264D", "#2D94AA", "#147E96", "#AEBCE6", "#0E6578"],
+      ["violet_mono", "Violett-Mono", "#B389FF", "#3A1729", "#7D5AC7", "#6E45B8", "#D7B6C8", "#53308D"]
+    ];
+    const root = document.documentElement;
+    const select = document.querySelector("#palette");
+    palettes.forEach(([id, label]) => select.add(new Option(label, id)));
+    const query = new URLSearchParams(location.search);
+    const queryMode = query.get("mode");
+    const queryPalette = query.get("palette");
+    const storedMode = localStorage.getItem("eta-mockup.mode");
+    const storedPalette = localStorage.getItem("eta-mockup.palette");
+    let mode = queryMode === "dark" || queryMode === "light" ? queryMode : (storedMode === "dark" || storedMode === "light" ? storedMode : (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
+    let paletteId = palettes.some(p => p[0] === queryPalette) ? queryPalette : (palettes.some(p => p[0] === storedPalette) ? storedPalette : "jade_mono");
+    function contrastInk(hex) {
+      const rgb = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+      const lum = .2126 * rgb[0] + .7152 * rgb[1] + .0722 * rgb[2];
+      return (lum + .05) / .05 >= 1.05 / (lum + .05) ? "#101010" : "#fff";
+    }
+    function applyTheme() {
+      const p = palettes.find(item => item[0] === paletteId) || palettes[0];
+      const offset = mode === "dark" ? 2 : 5;
+      root.dataset.mode = mode;
+      root.dataset.palette = paletteId;
+      root.style.setProperty("--color-a", p[offset]);
+      root.style.setProperty("--color-b", p[offset + 1]);
+      root.style.setProperty("--color-c", p[offset + 2]);
+      root.style.setProperty("--accent-ink", paletteId === "jade_mono" || paletteId === "classic_amber" ? "#fff" : contrastInk(p[offset]));
+      select.value = paletteId;
+      document.querySelectorAll("[data-set-mode]").forEach(button => button.classList.toggle("active", button.dataset.setMode === mode));
+    }
+    document.querySelectorAll("[data-set-mode]").forEach(button => button.addEventListener("click", () => { mode = button.dataset.setMode; localStorage.setItem("eta-mockup.mode", mode); applyTheme(); }));
+    select.addEventListener("change", () => { paletteId = select.value; localStorage.setItem("eta-mockup.palette", paletteId); applyTheme(); });
+    applyTheme();
+
+    const toast = document.querySelector(".toast");
+    let toastTimer;
+    function showToast(text = "Mockup: Es wurde keine Aktion gesendet.") { toast.textContent = text; toast.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove("show"), 2400); }
+    document.querySelectorAll("[data-demo]").forEach(button => button.addEventListener("click", () => showToast()));
+    document.querySelectorAll(".tabs").forEach(group => group.querySelectorAll("[data-tab]").forEach(button => button.addEventListener("click", () => {
+      group.querySelectorAll("[data-tab]").forEach(item => { item.classList.remove("active"); item.setAttribute("aria-selected", "false"); });
+      button.classList.add("active"); button.setAttribute("aria-selected", "true"); showToast(`Mockup: Tab „${button.textContent.trim()}“ gewählt.`);
+    })));
+    document.querySelectorAll("[data-edit]").forEach(button => button.addEventListener("click", () => {
+      if (button.querySelector("input")) return;
+      const old = button.innerHTML;
+      const input = document.createElement("input");
+      input.type = "text"; input.value = button.dataset.edit; input.style.cssText = "width:112px;height:31px;border:1px solid var(--color-a);border-radius:6px;background:var(--input);padding:0 7px;font:12px var(--mono)";
+      button.textContent = ""; button.append(input); input.focus();
+      const restore = () => { button.innerHTML = old; showToast("Mockup: Änderung wurde nicht gespeichert."); };
+      input.addEventListener("blur", restore, { once: true });
+      input.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === "Escape") input.blur(); });
+    }));
+  </script>
+</body>
+</html>

@@ -119,100 +119,48 @@ export default function HomeHero() {
   }, [eta]);
 
   return (
-    <div className="card" aria-label="Übersicht">
-      <div className="card__header">
-        <h2 className="card__title">Übersicht</h2>
-        <span className="text-xs text-gray-500">Letztes Update: {formatTime(wifi?.time)}</span>
-      </div>
-
-      <div className="home-hero__row">
-        <div className="statGrid">
-          <div className="stat" title="Innentemperatur">
-            <div className="stat__label">Indoor</div>
-            <div className="stat__value">
-              {(() => {
-                const v = Number(wifi?.indoorTemperature ?? 0).toFixed(1) + '°C';
-                if (indoorOk === null) return v;
-                const cls = indoorOk ? 'badge--ok' : 'badge--warn';
-                return <span className={`badge ${cls}`}>{v}</span>;
-              })()}
-            </div>
-            <div className="stat__trend">Wohnbereich</div>
-          </div>
-          <div className="stat" title="Außentemperatur">
-            <div className="stat__label">Outdoor</div>
-            <div className="stat__value">{Number(wifi?.temperature ?? 0).toFixed(1)}°C</div>
-            <div className="stat__trend">Außen</div>
-          </div>
-          <div className="stat" title="Differenz Indoor/Soll">
-            <div className="stat__label">Diff Indoor/Soll</div>
-            <div className="stat__value">
-              {diffIndoorSoll !== null ? (
-                <span className={`badge ${diffIndoorSoll > 0 ? 'badge--primary' : diffIndoorSoll < 0 ? 'badge--ok' : 'badge--neutral'}`}>
-                  {diffIndoorSoll.toFixed(2)}°C
-                </span>
-              ) : "-"}
-            </div>
-            <div className="stat__trend">positiv = kälter als Soll · negativ = wärmer als Soll</div>
-          </div>
-          <div className="stat" title="Schieber Position">
-            <div className="stat__label">Schaltzustand</div>
-            <div className="stat__value">{schaltzustand !== null ? schaltzustand : "-"}</div>
-            <div className="stat__label">Schieber</div>
-            <div className="stat__value">
-              <span className={`badge ${sliderPercent > 0 ? 'badge--ok' : sliderPercent < 0 ? 'badge--primary' : 'badge--neutral'}`}>
-                {sliderPercent}%
-              </span>
-            </div>
-            <div className="progress mt-1" aria-label="Empfohlene Schieber Position">
-              <div 
-                className={`progress__bar ${sliderPercent > 0 ? 'progress__bar--ok' : sliderPercent < 0 ? 'progress__bar--primary' : ''}`}
-                style={{ width: `${Math.max(0, Math.min(100, (sliderPercent + 100) / 2))}%` }} 
-              />
-            </div>
-          </div>
+    <section className="homeHero" aria-label="Anlagenübersicht">
+      <div className="homeHero__heading">
+        <div>
+          <p className="homeHero__eyebrow">Anlagenübersicht</p>
+          <h1>Heizung und Raumklima auf einen Blick</h1>
         </div>
-        <div className="home-hero__right">
-          <div className="stat" title="Diff ETA/WiFi Außentemperatur">
-            <div className="stat__label">Diff ETA/WiFi Outdoor</div>
-            <div className="stat__value">
-              {outdoorDiffSigned !== null ? (
-                <span title={`ETA: ${etaOutdoor?.toFixed(1)}° · WIFI: ${wifiOutdoor?.toFixed(1)}°`}>
-                  ETA: {etaOutdoor?.toFixed(1)}° WIFI: {wifiOutdoor?.toFixed(1)}°
-                  {' '}
-                  <span className={`badge ${outdoorDiffSigned > 0 ? 'badge--ok' : outdoorDiffSigned < 0 ? 'badge--primary' : 'badge--neutral'}`}>
-                    {outdoorDiffSigned > 0 ? '+' : ''}{outdoorDiffSigned.toFixed(1)}°
-                  </span>
-                </span>
-              ) : etaOutdoor !== null ? (
-                <span title="WiFi data temporarily unavailable">
-                  ETA: {etaOutdoor.toFixed(1)}° WIFI: -- 
-                  <span className="badge badge--warn">Warte auf WiFi</span>
-                </span>
-              ) : wifiOutdoor !== null ? (
-                <span title="ETA data temporarily unavailable">
-                  ETA: -- WIFI: {wifiOutdoor.toFixed(1)}°
-                  <span className="badge badge--warn">Warte auf ETA</span>
-                </span>
-              ) : (
-                <span className="badge badge--warn">Warte auf Daten</span>
-              )}
-            </div>
-            <div className="stat__trend">
-              ETA vs WiFi Außentemperatur · {deltaOverrideEnabled ? (
-                <span className="text-orange-500">Delta manuell</span>
-              ) : (
-                <span className="text-green-600">Delta automatisch</span>
-              )}
-            </div>
-          </div>
-          <div className="stat" title="Betriebsmodus">
-            <div className="stat__label">Modus</div>
-            <div className="stat__value">{mode}</div>
-            <div className="stat__trend">AA = Auto, sonst manuell</div>
-          </div>
-        </div>
+        <span className="homeHero__updated">Letztes Update: {formatTime(wifi?.time)}</span>
       </div>
-    </div>
+      <div className="homeHero__grid">
+        <article className="homeKpi" title="Innentemperatur">
+          <div className="homeKpi__head"><span>Innen</span><i>⌂</i></div>
+          <div className={`homeKpi__value ${indoorOk === true ? 'is-good' : indoorOk === false ? 'is-warning' : ''}`}>{Number(wifi?.indoorTemperature ?? 0).toFixed(1)} °C</div>
+          <div className="homeKpi__meta">Wohnbereich</div>
+        </article>
+        <article className="homeKpi" title="Außentemperatur WiFi">
+          <div className="homeKpi__head"><span>Außen · WiFi</span><i>☁</i></div>
+          <div className="homeKpi__value">{Number(wifi?.temperature ?? 0).toFixed(1)} °C</div>
+          <div className="homeKpi__meta">Sensor aktuell</div>
+        </article>
+        <article className="homeKpi" title="Differenz Indoor/Soll">
+          <div className="homeKpi__head"><span>Indoor / Soll</span><i>△</i></div>
+          <div className={`homeKpi__value ${diffIndoorSoll !== null && diffIndoorSoll < 0 ? 'is-good' : 'is-info'}`}>{diffIndoorSoll !== null ? `${diffIndoorSoll > 0 ? '+' : ''}${diffIndoorSoll.toFixed(2)} °C` : '–'}</div>
+          <div className="homeKpi__meta">positiv = kälter als Soll</div>
+        </article>
+        <article className="homeKpi" title="Empfohlene Schieberposition">
+          <div className="homeKpi__head"><span>Schieber</span><i>↔</i></div>
+          <div className="homeKpi__value">{sliderPercent > 0 ? '+' : ''}{sliderPercent} %</div>
+          <div className="progress" aria-label="Empfohlene Schieberposition"><div className="progress__bar progress__bar--ok" style={{ width: `${Math.max(0, Math.min(100, (sliderPercent + 100) / 2))}%` }} /></div>
+        </article>
+        <article className="homeKpi" title="Betriebsmodus">
+          <div className="homeKpi__head"><span>Betriebsmodus</span><i>A</i></div>
+          <div className={`homeKpi__value ${mode === 'Auto' ? 'is-good' : 'is-warning'}`}>{mode}</div>
+          <div className="homeKpi__meta">{schaltzustand ?? 'ETA-Tastenstatus'}</div>
+        </article>
+        <article className="homeKpi" title="Differenz ETA/WiFi Außentemperatur">
+          <div className="homeKpi__head"><span>ETA / WiFi außen</span><i>≋</i></div>
+          <div className="homeKpi__value">{outdoorDiffSigned !== null ? `${outdoorDiffSigned > 0 ? '+' : ''}${outdoorDiffSigned.toFixed(1)} °` : '–'}</div>
+          <div className="homeKpi__meta">
+            {etaOutdoor !== null && wifiOutdoor !== null ? `${etaOutdoor.toFixed(1)} ° / ${wifiOutdoor.toFixed(1)} °` : 'Warte auf Daten'} · Delta {deltaOverrideEnabled ? 'manuell' : 'auto'}
+          </div>
+        </article>
+      </div>
+    </section>
   );
 }
