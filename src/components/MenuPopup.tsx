@@ -83,11 +83,11 @@ export default function MenuPopup({ isOpen, onClose, title, menuItems }: MenuPop
   return (
     <>
       <div 
-        className="fixed inset-0 bg-black/30 transition-opacity"
+        className="fixed inset-0 z-[100] bg-black/30 transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="fixed inset-0 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[101] flex items-center justify-center p-4">
         <div className="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-surface p-6 text-left align-middle shadow-xl transition-all max-h-[80vh] overflow-y-auto">
           <h3 className="text-lg font-medium leading-6 text-strong mb-4">
             {title}
