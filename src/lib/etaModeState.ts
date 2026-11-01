@@ -4,7 +4,6 @@ import {
   EtaData,
   EtaModeButton,
   EtaPos,
-  EtaText,
 } from '@/reader/functions/types-constants/EtaConstants';
 
 export interface EtaModeState {
@@ -36,29 +35,4 @@ export function getEtaModeState(etaData: EtaData): EtaModeState {
     activeButtons,
     isValid: activeButtons.length === 1,
   };
-}
-
-export function normalizeEtaButtonState(etaData: EtaData): EtaData {
-  const normalized = { ...etaData };
-  const { activeButton } = getEtaModeState(normalized);
-
-  // Do not invent an active mode. An all-off state is important diagnostic
-  // information and lets the controller repair the physical device state.
-  if (!activeButton) {
-    return normalized;
-  }
-
-  for (const [uri, item] of Object.entries(normalized)) {
-    if (!ETA_MODE_BUTTONS.includes(item.short as EtaModeButton)) {
-      continue;
-    }
-    const isActive = item.short === activeButton;
-    normalized[uri] = {
-      ...item,
-      value: isActive ? EtaPos.EIN : EtaPos.AUS,
-      strValue: isActive ? EtaText.EIN : EtaText.AUS,
-    };
-  }
-
-  return normalized;
 }

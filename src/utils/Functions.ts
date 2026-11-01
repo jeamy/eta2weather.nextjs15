@@ -3,16 +3,14 @@ import { ConfigState } from "@/redux/configSlice";
 import { WifiAF83State } from "@/redux/wifiAf83Slice";
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { EtaConstants, Names2Id } from "@/reader/functions/types-constants/Names2IDconstants";
-import { API } from '@/constants/apiPaths';
 import { TEMP_CALC_CONSTANTS } from '@/reader/functions/types-constants/ConfigConstants';
+import { calculateLiveTemperatureDiff } from './temperatureCalculations';
 
 type EtaValues = {
     einaus: string;
     schaltzustand: string;
     heizentaste: string;
     kommentaste: string;
-    tes: number;
-    tea: number;
     vorlauftemp?: number;
 };
 
@@ -79,14 +77,13 @@ export function calculateTemperatureDiff(config: ConfigState, wifiAf83Data: Wifi
     const tSollNum = Number(t_soll);
     const tDeltaNum = Number(t_delta);
 
-    if (isNaN(tSollNum) || isNaN(tDeltaNum) || isNaN(twi)) {
+    const diff = calculateLiveTemperatureDiff(tSollNum, tDeltaNum, twi);
+    if (diff === null) {
         console.error('Invalid temperature values:', { t_soll, t_delta, twi });
         return { diff: null, twa, twi };
     }
 
-    const diff = Math.min(tSollNum + tDeltaNum / TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR - twi, 5.0);
-//    console.log(`Diff calculation: ${tSollNum} + ${tDeltaNum}/${TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR} - ${twi} = ${diff}`);
-    return { diff: Number(diff.toFixed(2)), twa, twi };
+    return { diff: Math.min(diff, 5.0), twa, twi };
 }
 
 export function calculateMinTempDiff(indoorTemp: number, minTemp: string): number {
@@ -117,33 +114,9 @@ export async function updateSliderPosition(
     const scaledPosition = (newPosition * 10).toString();
     console.log(`Setting slider position to: ${scaledPosition}`);
     try {
-        const isServer = typeof window === 'undefined';
-        if (isServer) {
-            // Server/background: use direct EtaApi call (no relative URL issues)
-            const result = await etaApi.setUserVar(id, scaledPosition, "0", "0");
-            if (result.error || !result.result) {
-                throw new Error(result.error || 'Empty response from ETA API');
-            }
-        } else {
-            // Browser: call our Next.js API to avoid CORS against ETA device
-            const response = await fetch(API.ETA_UPDATE, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    id,
-                    value: scaledPosition,
-                    begin: "0",
-                    end: "0"
-                })
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Failed to update slider position');
-            }
-            await response.json();
+        const result = await etaApi.setUserVar(id, scaledPosition, "0", "0");
+        if (result.error || !result.result) {
+            throw new Error(result.error || 'Empty response from ETA API');
         }
         return {
             success: true,

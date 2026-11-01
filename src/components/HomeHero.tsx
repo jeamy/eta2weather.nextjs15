@@ -3,10 +3,11 @@
 import { useMemo } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux";
-import { ConfigKeys, TEMP_CALC_CONSTANTS } from "@/reader/functions/types-constants/ConfigConstants";
+import { ConfigKeys } from "@/reader/functions/types-constants/ConfigConstants";
 import { ETA_MODE_BUTTONS, EtaModeButton, EtaButtons, EtaPos } from "@/reader/functions/types-constants/EtaConstants";
 import { EtaConstants as EtaConstKeys, defaultNames2Id } from "@/reader/functions/types-constants/Names2IDconstants";
 import { parseNum } from "@/utils/numberParser";
+import { calculateLiveTemperatureDiff } from "@/utils/temperatureCalculations";
 
 function formatTime(ts: number): string {
   if (!ts) return "-";
@@ -33,20 +34,16 @@ export default function HomeHero() {
   }, [config]);
 
   const diffIndoorSoll = useMemo(() => {
-    // Calculate live diff: (t_soll + t_delta) - indoor_temperature
+    if (!wifi?.time) return null;
     const tSoll = Number(config?.[ConfigKeys.T_SOLL] ?? NaN);
     const tDelta = Number(config?.[ConfigKeys.T_DELTA] ?? NaN);
     const indoor = Number(wifi?.indoorTemperature ?? NaN);
     
-    if (!Number.isFinite(tSoll) || !Number.isFinite(tDelta) || !Number.isFinite(indoor)) {
-      return null;
-    }
-    
-    const diff = (tSoll + tDelta / TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR) - indoor;
-    return Math.round(diff * 100) / 100; // Round to 0.01°C
+    return calculateLiveTemperatureDiff(tSoll, tDelta, indoor);
   }, [config, wifi]);
 
   const indoorOk = useMemo(() => {
+    if (!wifi?.time) return null;
     const min = Number((config as any)?.[ConfigKeys.T_MIN]);
     const ind = Number(wifi?.indoorTemperature);
     if (!Number.isFinite(min) || !Number.isFinite(ind)) return null;
@@ -90,6 +87,7 @@ export default function HomeHero() {
   }, [eta]);
 
   const wifiOutdoor = useMemo(() => {
+    if (!wifi?.time) return null;
     const n = Number(wifi?.temperature);
     return Number.isFinite(n) ? n : null;
   }, [wifi]);
@@ -130,13 +128,13 @@ export default function HomeHero() {
       <div className="homeHero__grid">
         <article className="homeKpi" title="Innentemperatur">
           <div className="homeKpi__head"><span>Innen</span><i>⌂</i></div>
-          <div className={`homeKpi__value ${indoorOk === true ? 'is-good' : indoorOk === false ? 'is-warning' : ''}`}>{Number(wifi?.indoorTemperature ?? 0).toFixed(1)} °C</div>
+          <div className={`homeKpi__value ${indoorOk === true ? 'is-good' : indoorOk === false ? 'is-warning' : ''}`}>{wifi?.time ? `${Number(wifi.indoorTemperature).toFixed(1)} °C` : '–'}</div>
           <div className="homeKpi__meta">Wohnbereich</div>
         </article>
         <article className="homeKpi" title="Außentemperatur WiFi">
           <div className="homeKpi__head"><span>Außen · WiFi</span><i>☁</i></div>
-          <div className="homeKpi__value">{Number(wifi?.temperature ?? 0).toFixed(1)} °C</div>
-          <div className="homeKpi__meta">Sensor aktuell</div>
+          <div className="homeKpi__value">{wifi?.time ? `${Number(wifi.temperature).toFixed(1)} °C` : '–'}</div>
+          <div className="homeKpi__meta">{!wifi?.time ? 'Warte auf Daten' : wifi.stale ? 'Sensor veraltet' : 'Sensor aktuell'}</div>
         </article>
         <article className="homeKpi" title="Differenz Indoor/Soll">
           <div className="homeKpi__head"><span>Indoor / Soll</span><i>△</i></div>

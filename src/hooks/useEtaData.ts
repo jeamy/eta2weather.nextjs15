@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
-import { batchFetchEtaDataInChunks, EtaFetchHookResult, EtaFetchOptions } from '@/utils/etaUtils';
+import { batchFetchEtaDataInChunks, EtaFetchHookResult, EtaFetchOptions, isValidEndpointUri } from '@/utils/etaUtils';
 
 export const useEtaData = (): EtaFetchHookResult => {
   const [values, setValues] = useState<Record<string, ParsedXmlData>>({});
@@ -52,6 +52,11 @@ export const useEtaData = (): EtaFetchHookResult => {
 
       if (!abortController.signal.aborted) {
         setValues(prev => ({ ...prev, ...result }));
+        const missing = uris.filter(uri => isValidEndpointUri(uri) && !result[uri]);
+        if (missing.length) {
+          setError(prev => ({ ...prev, ...Object.fromEntries(missing.map(uri => [uri, 'Keine aktuellen ETA-Daten'])) }));
+          return false;
+        }
         return true;
       }
       return false;

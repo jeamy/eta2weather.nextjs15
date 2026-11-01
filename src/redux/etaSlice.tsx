@@ -5,11 +5,13 @@ import { updateLoadingState } from './loadingStateUtils';
 
 export type EtaState = {
   data: EtaData,
-  loadingState: LoadingState
+  loadingState: LoadingState,
+  isStale: boolean
 }
 
 const initialState: EtaState = { 
   data: { },
+  isStale: true,
   loadingState: {
     error: null,
     isLoading: false    
@@ -29,9 +31,12 @@ const etaSlice = createSlice({
     },
     setIsLoading: (state, action: PayloadAction<boolean>) => {
       updateLoadingState(state, action.payload);
+    },
+    setStale: (state, action: PayloadAction<boolean>) => {
+      state.isStale = action.payload;
     }
   },
 });
 
-export const { storeData, storeError, setIsLoading } = etaSlice.actions;
+export const { storeData, storeError, setIsLoading, setStale } = etaSlice.actions;
 export default etaSlice.reducer;

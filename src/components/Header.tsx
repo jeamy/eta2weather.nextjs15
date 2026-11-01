@@ -13,9 +13,10 @@ export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const menuData = useEtaMenu();
   const pathname = usePathname();
-  const wifiTime = useAppSelector(state => state.wifiAf83.data.time);
-  const etaData = useAppSelector(state => state.eta.data);
-  const sourcesReady = wifiTime > 0 && Object.keys(etaData || {}).length > 0;
+  const wifiData = useAppSelector(state => state.wifiAf83.data);
+  const etaState = useAppSelector(state => state.eta);
+  const hasSources = wifiData.time > 0 && Object.keys(etaState.data || {}).length > 0;
+  const sourcesReady = hasSources && !wifiData.stale && !etaState.isStale;
   const [showEtaMenu, setShowEtaMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -117,9 +118,9 @@ export default function Header() {
               <Link href="/weather" className="header__navButton" aria-current={pathname === '/weather' ? 'page' : undefined}>Weather</Link>
             </div>
 
-            <div className={`header__source ${sourcesReady ? 'header__source--live' : ''}`} title={sourcesReady ? 'ETA- und WiFi-Daten verfügbar' : 'Warte auf ETA- oder WiFi-Daten'}>
+            <div className={`header__source ${sourcesReady ? 'header__source--live' : ''}`} title={sourcesReady ? 'ETA- und WiFi-Daten aktuell' : hasSources ? 'ETA- oder WiFi-Daten veraltet' : 'Warte auf ETA- oder WiFi-Daten'}>
               <span className="header__sourceDot" />
-              <span>{sourcesReady ? 'ETA & WiFi aktuell' : 'Daten werden geladen'}</span>
+              <span>{sourcesReady ? 'ETA & WiFi aktuell' : hasSources ? 'Daten veraltet' : 'Daten werden geladen'}</span>
             </div>
 
             <ThemeControls />

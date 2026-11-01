@@ -1,4 +1,10 @@
 import { EtaButtons, EtaModeButton } from '@/reader/functions/types-constants/EtaConstants';
+import { defaultConfig } from '@/reader/functions/types-constants/ConfigConstants';
+
+export function getManualOverrideDuration(value: string | undefined): number {
+    const parsed = value?.trim() ? Number(value) : NaN;
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : Number(defaultConfig.t_override);
+}
 
 export interface ControlState {
     wasBelow: boolean;
@@ -16,6 +22,7 @@ export interface ControlInput {
     lastTempState: ControlState;
     manualOverrideDurationMs: number;
     currentTime: number;
+    retryAutomaticSwitch?: boolean;
 }
 
 export interface ControlResult {
@@ -54,7 +61,7 @@ export function determineControlAction(input: ControlInput): ControlResult {
     // Check if manual override is still active
     let isManualOverride = false;
     let manualOverrideExpired = false;
-    if (newState.manualOverride && newState.manualOverrideTime) {
+    if (newState.manualOverride && newState.manualOverrideTime !== null) {
         const timeSinceOverride = currentTime - newState.manualOverrideTime;
         if (timeSinceOverride >= manualOverrideDurationMs) {
             logs.push('Manual override timeout expired');
@@ -70,10 +77,10 @@ export function determineControlAction(input: ControlInput): ControlResult {
 
     // Determine expected button
     let expectedButton: EtaModeButton;
-    if (isSliderNegative) {
-        expectedButton = EtaButtons.GT;
-    } else if (isBelow) {
+    if (isBelow) {
         expectedButton = EtaButtons.KT;
+    } else if (isSliderNegative) {
+        expectedButton = EtaButtons.GT;
     } else {
         expectedButton = EtaButtons.AA;
     }
@@ -98,7 +105,8 @@ export function determineControlAction(input: ControlInput): ControlResult {
     }
 
     // CRITICAL FIX: If button mismatch detected and NOT in override, assume user pressed button -> ENTER override
-    if (currentActiveButton !== null && buttonMismatch && !isManualOverride && !stateChanged && !manualOverrideExpired) {
+    if (currentActiveButton !== null && buttonMismatch && !isManualOverride && !stateChanged &&
+        !manualOverrideExpired && !input.retryAutomaticSwitch) {
         logs.push(`⚠️ Manual override detected! User changed button to ${currentActiveButton} (expected ${expectedButton}). Entering override mode.`);
         newState.manualOverride = true;
         newState.manualOverrideTime = currentTime;

@@ -363,24 +363,30 @@ Display: "Schieberposition: 52 % → 9 %"
 When the indoor temperature falls below the configured minimum temperature (`t_min`), the system activates protection mode:
 
 **Behavior:**
-1. **Temperature Check**: `indoorTemp < t_min`
-2. **Override Activation**: System automatically enables manual override mode
-3. **Override Duration**: Controlled by `t_override` (default: 10 minutes = 600000ms)
-4. **Heating Forced On**: Slider position is calculated normally, but heating buttons are activated
-5. **Automatic Deactivation**: After override duration expires, system returns to normal mode
+1. **Temperature Check**: `indoorTemp < t_min` selects the `Kommen` mode, including when the slider recommendation is negative.
+2. **Hysteresis**: Protection remains active until the indoor temperature exceeds `t_min + 0.2°C`.
+3. **Manual Override**: An active manual heating-mode override is respected until its configured timeout.
+4. **Sensor Safety**: Automatic control pauses when WiFi measurements are stale or ETA control inputs are incomplete. The last physical settings remain unchanged until valid data returns.
+
+Both WiFi temperature readings must have valid measurement timestamps, no more than
+one minute in the future and no older than the greater of ten minutes or twice the
+configured polling interval. ETA control readings must come from the current scan
+and be no older than the greater of one minute or twice the polling interval.
+Failed refreshes do not replace the last WiFi timestamp or issue automatic actuator
+writes. The dashboard marks stale values; a manual mode command remains available.
+Heating mode commands are serialized within the application process. Direct writes
+to mode button IDs through `/api/eta/update` are rejected; use the heating-mode API.
 
 **Example:**
 ```
 Configuration:
 - t_min = 18.5°C
-- t_override = 600000ms (10 minutes)
 
 Scenario:
 - Indoor temperature drops to 18.2°C
 - System detects: 18.2 < 18.5
-- Override activated for 10 minutes
-- Heating forced on regardless of other conditions
-- After 10 minutes: Override expires, normal operation resumes
+- `Kommen` is selected, unless a manual override is active
+- Normal automatic mode resumes after the room exceeds 18.7°C
 ```
 
 **Purpose:**
@@ -394,10 +400,10 @@ The delta temperature is a fine-tuning offset that adjusts the target temperatur
 
 **Mode 1: Automatic (Delta Override = OFF)**
 - `t_delta` is **automatically calculated** from the difference between ETA outdoor temperature and WiFi outdoor temperature
-- Formula: `t_delta = (ETA_outdoor - WiFi_outdoor)` with dampening
-- **Dampening Factor**: Divided by `DELTA_DAMPENING_FACTOR` (default: 5.0) to prevent aggressive corrections
-- **Safety Limit**: `MAX_DELTA_VALUE` (default: 5.0°C) prevents extreme values
-- **Update Throttling**: Only updates when difference is significant (> 0.1°C change)
+- Formula: `t_delta = ETA_outdoor - WiFi_outdoor`, rounded to 0.1°C
+- **Dampening Factor**: The stored delta is divided by `DELTA_DAMPENING_FACTOR` (default: 5.0) when calculating the indoor/target difference
+- **Safety Limit**: Differences beyond `MAX_DELTA_VALUE` (default: ±5.0°C) are rejected and the previous delta is retained
+- **Updates**: Each background polling cycle requires fresh ETA and WiFi outdoor readings and a valid WiFi indoor reading; the delta is saved only when the rounded change exceeds 0.1°C. After switching back to Auto, the next polling cycle updates the delta.
 
 **Mode 2: Manual (Delta Override = ON)**
 - `t_delta` is **manually set** by the user
@@ -429,7 +435,6 @@ Manual Mode (Override ON):
 - Controls how long manual heating button presses remain active
 - Default: 600000ms (10 minutes)
 - After expiration: System returns to automatic mode
-- Also used for minimum temperature protection duration
 
 #### Implementation Locations
 

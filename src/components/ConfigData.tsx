@@ -304,13 +304,9 @@ const ConfigData: React.FC = () => {
 
     const renderDeltaTemperature = () => {
         const isEditingThis = isEditing === ConfigKeys.T_DELTA;
-        const deltaOverrideEnabled = config.data[ConfigKeys.DELTA_OVERRIDE] === 'true';
         const rawDelta = parseFloat(config.data[ConfigKeys.T_DELTA] || '0');
 
-        // Display value: divided by dampening factor (unless manual override is active)
-        const displayValue = deltaOverrideEnabled
-            ? rawDelta.toFixed(1)
-            : (rawDelta / TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR).toFixed(2);
+        const displayValue = (rawDelta / TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR).toFixed(2);
 
         const handleEditStart = () => {
             // When editing, show the raw value
@@ -330,10 +326,7 @@ const ConfigData: React.FC = () => {
                     <div className="flex flex-col">
                         <span className="font-medium">Deltatemperatur:</span>
                         <span className="text-xs text-muted">
-                            {deltaOverrideEnabled
-                                ? `Roh: ${rawDelta.toFixed(1)}°C`
-                                : `Roh: ${rawDelta.toFixed(1)}°C ÷ ${TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR}`
-                            }
+                            {`Roh: ${rawDelta.toFixed(1)}°C ÷ ${TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR}`}
                         </span>
                     </div>
                     {isEditingThis ? (
@@ -351,8 +344,8 @@ const ConfigData: React.FC = () => {
                                     }}
                                     className="input w-24"
                                     step={0.5}
-                                    min={-10}
-                                    max={10}
+                                    min={-TEMP_CALC_CONSTANTS.MAX_DELTA_VALUE}
+                                    max={TEMP_CALC_CONSTANTS.MAX_DELTA_VALUE}
                                 />
                                 <div className="input__spinners">
                                     <button
@@ -360,7 +353,7 @@ const ConfigData: React.FC = () => {
                                         className="input__spinner input__spinner--up"
                                         onClick={() => {
                                             const current = parseFloat(editValue) || 0;
-                                            const newValue = Math.min(10, current + 0.5);
+                                            const newValue = Math.min(TEMP_CALC_CONSTANTS.MAX_DELTA_VALUE, current + 0.5);
                                             setEditValue(newValue.toString());
                                         }}
                                         tabIndex={-1}
@@ -370,7 +363,7 @@ const ConfigData: React.FC = () => {
                                         className="input__spinner input__spinner--down"
                                         onClick={() => {
                                             const current = parseFloat(editValue) || 0;
-                                            const newValue = Math.max(-10, current - 0.5);
+                                            const newValue = Math.max(-TEMP_CALC_CONSTANTS.MAX_DELTA_VALUE, current - 0.5);
                                             setEditValue(newValue.toString());
                                         }}
                                         tabIndex={-1}
@@ -401,7 +394,7 @@ const ConfigData: React.FC = () => {
                             onClick={handleEditStart}
                             role="button"
                             tabIndex={0}
-                            title="Wert bearbeiten"
+                            title="Delta-Rohwert bearbeiten"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                     e.preventDefault();

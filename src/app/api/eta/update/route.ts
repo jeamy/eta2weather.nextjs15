@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EtaApi } from '@/reader/functions/EtaApi';
-import { getConfig } from '@/utils/cache';
+import { getConfig, getNames2Id } from '@/utils/cache';
 import { requireWriteAccess } from '@/utils/apiAuth';
+import { getHeatingButtonIds } from '@/lib/heatingMode';
+import { normalizeEtaVariableId } from '@/utils/etaIdentifiers';
 
 export async function POST(request: NextRequest) {
   let etaApi: EtaApi | null = null;
@@ -22,6 +24,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const normalizedId = normalizeEtaVariableId(id);
+    if (!normalizedId) {
+      return NextResponse.json({ error: 'Invalid ETA variable id' }, { status: 400 });
+    }
+    const modeIds = Object.values(getHeatingButtonIds(await getNames2Id()));
+    if (modeIds.some(modeId => normalizeEtaVariableId(modeId) === normalizedId)) {
+      return NextResponse.json(
+        { error: 'Heating mode buttons must be changed through the heating-mode endpoint' },
+        { status: 400 }
+      );
+    }
+
     if (!config.s_eta) {
       return NextResponse.json(
         { error: 'ETA server address not configured' },
@@ -30,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     etaApi = new EtaApi(config.s_eta);
-    const result = await etaApi.setUserVar(id, String(value), String(begin), String(end));
+    const result = await etaApi.setUserVar(normalizedId, String(value), String(begin), String(end));
 
     if (result.error) {
       console.error('ETA API error result:', result);

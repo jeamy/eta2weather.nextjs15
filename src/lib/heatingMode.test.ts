@@ -1,4 +1,4 @@
-import { setHeatingMode } from './heatingMode';
+import { HeatingModeCancelledError, setHeatingMode } from './heatingMode';
 import { updateSliderPosition } from '@/utils/Functions';
 import { EtaApi } from '@/reader/functions/EtaApi';
 import { EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
@@ -48,6 +48,62 @@ async function runTests(): Promise<void> {
     etaApi: successfulEtaApi,
   });
   assert(successfulWrites === 5, 'heating mode writes each non-target once and activates the target once');
+
+  const beforeCancelled = successfulWrites;
+  let cancelled = false;
+  try {
+    await setHeatingMode({
+      targetButton: EtaButtons.KT,
+      names2id: defaultNames2Id,
+      etaApi: successfulEtaApi,
+      shouldProceed: () => false,
+    });
+  } catch (error) {
+    cancelled = error instanceof HeatingModeCancelledError;
+  }
+  assert(cancelled && successfulWrites === beforeCancelled, 'superseded queued mode changes do not write to ETA');
+
+  let applied = false;
+  await setHeatingMode({
+    targetButton: EtaButtons.AA,
+    names2id: defaultNames2Id,
+    etaApi: successfulEtaApi,
+    onApplied: () => { applied = true; },
+  });
+  assert(applied, 'the mode queue remains usable after cancellation');
+
+  let releaseFirst: (() => void) | undefined;
+  let writes = 0;
+  let manualApplied = false;
+  const slowApi = {
+    setUserVar: async () => {
+      writes++;
+      if (writes === 1) await new Promise<void>(resolve => { releaseFirst = resolve; });
+      return { result: 'ok', error: null };
+    },
+  } as unknown as EtaApi;
+  const manualRequest = setHeatingMode({
+    targetButton: EtaButtons.HT,
+    names2id: defaultNames2Id,
+    etaApi: slowApi,
+    onApplied: () => { manualApplied = true; },
+  });
+  const automaticRequest = setHeatingMode({
+    targetButton: EtaButtons.KT,
+    names2id: defaultNames2Id,
+    etaApi: slowApi,
+    shouldProceed: () => !manualApplied,
+  });
+  await Promise.resolve();
+  releaseFirst?.();
+  await manualRequest;
+  let superseded = false;
+  try {
+    await automaticRequest;
+  } catch (error) {
+    superseded = error instanceof HeatingModeCancelledError;
+  }
+  assert(superseded && writes === 5, 'a queued automatic mode change cannot undo a completed manual change');
 }
 
 runTests().catch(error => {

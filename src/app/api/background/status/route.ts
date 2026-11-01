@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { BackgroundService, getServerStore } from '@/lib/backgroundService';
-import { normalizeEtaButtonState } from '@/lib/etaModeState';
 
 export async function GET() {
   try {
@@ -10,7 +9,8 @@ export async function GET() {
     // Only include WiFi data if it has been initialized (time > 0)
     const wifiData = state.wifiAf83.data;
     const hasValidWifiData = wifiData.time > 0;
-    const eta = normalizeEtaButtonState(state.eta.data || {});
+    const eta = state.eta.data || {};
+    const freshness = BackgroundService.getInstance().getDataFreshness();
     const etaEntryCount = Object.keys(eta).length;
 
     return NextResponse.json({
@@ -19,12 +19,13 @@ export async function GET() {
         config: state.config.data,
         eta,
         // Only send WiFi data if it's been initialized
-        wifiAf83: hasValidWifiData ? wifiData : undefined,
+        wifiAf83: hasValidWifiData ? { ...wifiData, stale: !freshness.wifiFresh } : undefined,
         names2Id: state.names2Id.data,
         control: BackgroundService.getInstance().getControlStatus(),
         diagnostics: {
           etaEntryCount,
-          hasValidWifiData
+          hasValidWifiData,
+          ...freshness
         }
       }
     });

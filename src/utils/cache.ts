@@ -47,13 +47,19 @@ export const WIFIAF83_CACHE_KEY = 'wifiaf83_data';
 export const NAMES2ID_CACHE_KEY = 'names2id_config';
 
 const CONFIG_PATH = path.resolve(process.cwd(), process.env.CONFIG_PATH || 'src/config/f_etacfg.json');
-let configWriteChain: Promise<void> = Promise.resolve();
-let wifiRefreshPromise: Promise<any> | null = null;
+const shared = globalThis as typeof globalThis & {
+    __ETA2WEATHER_CONFIG_WRITE_CHAIN__?: Promise<void>;
+    __ETA2WEATHER_WIFI_REFRESH__?: Promise<any> | null;
+    __ETA2WEATHER_WIFI_FALLBACK__?: boolean;
+    __ETA2WEATHER_CONFIG_CACHE__?: Cache<any>;
+    __ETA2WEATHER_WIFI_CACHE__?: Cache<any>;
+    __ETA2WEATHER_NAMES_CACHE__?: Cache<Names2Id>;
+};
 
 // Create singleton cache instances with 3 seconds TTL
-export const configCache = new Cache<any>(1000*60);
-export const wifiaf83Cache = new Cache<any>(1000*60*5);
-export const names2idCache = new Cache<Names2Id>(1000*60*60);
+export const configCache = shared.__ETA2WEATHER_CONFIG_CACHE__ ??= new Cache<any>(1000*60);
+export const wifiaf83Cache = shared.__ETA2WEATHER_WIFI_CACHE__ ??= new Cache<any>(1000*60*5);
+export const names2idCache = shared.__ETA2WEATHER_NAMES_CACHE__ ??= new Cache<Names2Id>(1000*60*60);
 
 export function normalizeNames2Id(value: unknown): Names2Id {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -116,21 +122,28 @@ export async function getConfig(forceRefresh = false): Promise<Config> {
     return config;
 }
 
-export async function updateConfig(newConfig: any) {
+export async function updateConfig(
+    newConfig: Record<string, unknown> | ((current: Config) => Partial<Config> | null)
+): Promise<Config | null> {
     const writeTask = async () => {
         // Get existing config
-        let existingConfig = {};
+        let existingConfig: Config;
         try {
             const configData = await fs.readFile(CONFIG_PATH, { encoding: 'utf8', flag: 'r' });
             existingConfig = JSON.parse(configData);
         } catch (error: any) {
             if (error?.code !== 'ENOENT') {
                 console.error('Error reading existing config:', error);
+                throw error;
             }
+            existingConfig = defaultConfig;
         }
 
+        const patch = typeof newConfig === 'function' ? newConfig(existingConfig) : newConfig;
+        if (patch === null) return null;
+
         // Merge existing config with new config
-        const mergedConfig = { ...existingConfig, ...newConfig };
+        const mergedConfig = { ...existingConfig, ...patch };
 
         // Write atomically so concurrent readers never observe a partially written JSON file.
         const configStr = JSON.stringify(mergedConfig, null, 2);
@@ -141,11 +154,12 @@ export async function updateConfig(newConfig: any) {
 
         // Update cache with merged config
         configCache.set(CONFIG_CACHE_KEY, mergedConfig);
+        return mergedConfig;
     };
 
-    const nextWrite = configWriteChain.then(writeTask, writeTask);
-    configWriteChain = nextWrite.catch(() => undefined);
-    await nextWrite;
+    const nextWrite = (shared.__ETA2WEATHER_CONFIG_WRITE_CHAIN__ ?? Promise.resolve()).then(writeTask, writeTask);
+    shared.__ETA2WEATHER_CONFIG_WRITE_CHAIN__ = nextWrite.then(() => undefined, () => undefined);
+    return nextWrite;
 }
 
 async function updateWifiAf83File(data: any) {
@@ -244,33 +258,37 @@ async function readWifiAf83File(): Promise<any> {
 export async function getWifiAf83Data(
     fetchFn: (signal?: AbortSignal) => Promise<any>,
     signal?: AbortSignal,
-    options: { forceRefresh?: boolean } = {},
+    options: { forceRefresh?: boolean; onFallback?: () => void } = {},
 ) {
     // Try to get data from cache first
     const cachedData = wifiaf83Cache.get(WIFIAF83_CACHE_KEY);
 
     if (cachedData && !options.forceRefresh) {
+        if (shared.__ETA2WEATHER_WIFI_FALLBACK__) options.onFallback?.();
         return cachedData;
     }
 
     try {
-        if (!wifiRefreshPromise) {
-            wifiRefreshPromise = (async () => {
+        if (!shared.__ETA2WEATHER_WIFI_REFRESH__) {
+            shared.__ETA2WEATHER_WIFI_REFRESH__ = (async () => {
                 const response = await fetchFn(signal);
                 if (!response || response.code !== 0) {
                     throw new Error(`Failed to fetch WifiAf83 data: ${response?.msg || 'Unknown error'}`);
                 }
                 wifiaf83Cache.set(WIFIAF83_CACHE_KEY, response.data);
+                shared.__ETA2WEATHER_WIFI_FALLBACK__ = false;
                 await updateWifiAf83File(response.data);
                 return response.data;
             })().finally(() => {
-                wifiRefreshPromise = null;
+                shared.__ETA2WEATHER_WIFI_REFRESH__ = null;
             });
         }
-        return await wifiRefreshPromise;
+        return await shared.__ETA2WEATHER_WIFI_REFRESH__;
     } catch (error) {
         if (cachedData) {
             console.log('Using cached data after WiFi refresh failure');
+            shared.__ETA2WEATHER_WIFI_FALLBACK__ = true;
+            options.onFallback?.();
             return cachedData;
         }
 
@@ -278,6 +296,8 @@ export async function getWifiAf83Data(
         const fileData = await readWifiAf83File();
         if (fileData && Object.keys(fileData).length > 0) {
             console.log('Using file data as fallback');
+            options.onFallback?.();
+            shared.__ETA2WEATHER_WIFI_FALLBACK__ = true;
             wifiaf83Cache.set(WIFIAF83_CACHE_KEY, fileData);
             return fileData;
         }

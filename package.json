@@ -6,9 +6,10 @@
     "dev": "tsx watch server.ts",
     "build": "next build --webpack",
     "start": "cross-env NODE_ENV=production tsx server.ts",
-    "test:backend": "tsx src/lib/controlLogic.test.ts && tsx src/lib/heatingMode.test.ts && tsx src/lib/etaModeState.test.ts && tsx src/lib/backgroundService.test.ts && tsx src/lib/database/dbHelpers.test.ts && tsx src/utils/apiAuth.test.ts && tsx src/utils/logging.test.ts && npm run test:integration",
+    "test:backend": "tsx src/lib/controlLogic.test.ts && tsx src/lib/heatingMode.test.ts && tsx src/lib/etaModeState.test.ts && tsx src/lib/backgroundService.test.ts && tsx src/lib/automaticDelta.test.ts && tsx src/lib/controlFreshness.test.ts && tsx src/lib/controlFreshness.integration.test.ts && npm run test:review && tsx src/lib/database/dbHelpers.test.ts && tsx src/utils/apiAuth.test.ts && tsx src/utils/logging.test.ts && npm run test:integration",
     "test:integration": "tsx src/lib/database/database.integration.test.ts && tsx src/app/api/apiRoutes.integration.test.ts",
-    "test:frontend": "tsx src/utils/frontendLogic.test.ts",
+    "test:frontend": "tsx src/utils/frontendLogic.test.ts && tsx src/utils/frontendComponents.test.tsx && tsx src/utils/zeitfensterSave.test.ts",
+    "test:review": "tsx src/lib/review-regressions.test.ts",
     "lint": "eslint .",
     "migrate:to-sqlite": "tsx src/scripts/migrateToSqlite.ts",
     "migrate:verify": "tsx src/scripts/verifySqliteMigration.ts"

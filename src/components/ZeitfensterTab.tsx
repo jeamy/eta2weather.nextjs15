@@ -5,28 +5,11 @@ import { useEtaData } from '@/hooks/useEtaData';
 import { API } from '@/constants/apiPaths';
 import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { useToast } from '@/components/ToastProvider';
+import { commitTimeWindowEdits, removeConfirmedWindowEdits } from '@/utils/zeitfensterSave';
+import { findHeatingTimeNode } from '@/utils/etaUtils';
 
 interface ZeitfensterTabProps {
   menuItems: MenuNode[];
-}
-
-// Utility: walk tree
-const walk = (node: MenuNode, fn: (n: MenuNode, parent?: MenuNode) => void, parent?: MenuNode) => {
-  fn(node, parent);
-  node.children?.forEach(child => walk(child, fn, node));
-};
-
-function findHeizzeitenNode(menu: MenuNode[]): MenuNode | undefined {
-  let found: MenuNode | undefined;
-  for (const root of menu) {
-    walk(root, (n) => {
-      if (n.name === 'Heizzeiten' || n.uri?.endsWith('/12113/0/0')) {
-        found = found || n;
-      }
-    });
-    if (found) break;
-  }
-  return found;
 }
 
 function isDayNode(n: MenuNode): boolean {
@@ -215,7 +198,7 @@ const DayTimeline: React.FC<{
         {segments.map((s, i) => (
           <div
             key={`seg-${i}`}
-            className={`group absolute top-0 bottom-0 bg-primary cursor-grab ${bump[s.uri] ? 'shake' : ''}`}
+            className={`group absolute top-0 bottom-0 bg-primary cursor-grab ${bump[s.uri] ? 'timeline-shake' : ''}`}
             style={{ left: `${s.left}%`, width: `${s.width}%` }}
             tabIndex={0}
             aria-label={`${s.start} – ${s.end}`}
@@ -263,14 +246,6 @@ const DayTimeline: React.FC<{
           </div>
         ))}
       </div>
-      <style jsx>{`
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-2px); }
-          75% { transform: translateX(2px); }
-        }
-        .shake { animation: shake 150ms ease-in-out; outline: 2px solid var(--color-danger); }
-      `}</style>
       <div className="mt-1 flex justify-between text-[10px] sm:text-xs text-muted">
         {labelTicks.map((t) => (
           <span key={`label-${t}`}>{t}</span>
@@ -289,7 +264,7 @@ const SectionHeader: React.FC<{ title: string, action?: React.ReactNode }>= ({ t
 
 export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => {
   const { showToast } = useToast();
-  const heizzeiten = useMemo(() => findHeizzeitenNode(menuItems), [menuItems]);
+  const heizzeiten = useMemo(() => findHeatingTimeNode(menuItems), [menuItems]);
 
   const tagFenster = useMemo(() => {
     if (!heizzeiten) return [] as { day: string; windows: MenuNode[] }[];
@@ -314,8 +289,14 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
   const handleSave = useCallback(async (uri: string, current: ParsedXmlData | undefined, start: string, end: string) => {
     setSaving(prev => ({ ...prev, [uri]: true }));
     try {
-      await saveZeitfenster(uri, current, start, end);
-      await fetchValues([uri]);
+      const result = await commitTimeWindowEdits(
+        [{ uri, current, start, end }],
+        edit => saveZeitfenster(edit.uri, edit.current, edit.start, edit.end),
+        fetchValues,
+      );
+      if (result.failed.length) throw result.failed[0].error;
+      if (result.readbackFailed) throw new Error('Gespeichert, aber Nachlesen fehlgeschlagen');
+      setEdited(prev => removeConfirmedWindowEdits(prev, result.confirmed));
       showToast('Zeitfenster gespeichert', 'success');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Speichern fehlgeschlagen', 'error');
@@ -391,28 +372,27 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
     });
 
     try {
-      const promises = urisToSave.map(async (uri) => {
+      const editsToSave = urisToSave.map((uri) => {
         const data = values[uri];
         const initial = parseRange(data?.strValue || data?.value);
         const start = edited[uri]?.start ?? initial.start;
         const end = edited[uri]?.end ?? initial.end;
-        await saveZeitfenster(uri, data, start, end);
+        return { uri, current: data, start, end };
       });
-      
-      await Promise.all(promises);
-      await fetchValues(urisToSave);
-      
-      const syncedDays = syncedRelatedWindows.length;
-      showToast(`Zeitfenster ${zeitfensterNum} für ${syncedDays} synchronisierte Tage gespeichert`, 'success');
-      
-      // Clear edited state for saved URIs
-      setEdited(prev => {
-        const newEdited = { ...prev };
-        urisToSave.forEach(uri => {
-          delete newEdited[uri];
-        });
-        return newEdited;
-      });
+      const result = await commitTimeWindowEdits(
+        editsToSave,
+        edit => saveZeitfenster(edit.uri, edit.current, edit.start, edit.end),
+        fetchValues,
+      );
+      setEdited(prev => removeConfirmedWindowEdits(prev, result.confirmed));
+      if (result.failed.length || result.readbackFailed) {
+        const message = result.readbackFailed
+          ? 'Nachlesen fehlgeschlagen; Eingaben bleiben erhalten'
+          : `${result.failed.length} fehlgeschlagen`;
+        showToast(`${result.savedCount}/${editsToSave.length} gespeichert; ${message}`, 'error');
+      } else {
+        showToast(`Zeitfenster ${zeitfensterNum} für ${result.savedCount} Tage gespeichert`, 'success');
+      }
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Speichern fehlgeschlagen', 'error');
     } finally {
@@ -475,6 +455,7 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                 const currentEnd = edited[uri]?.end ?? initial.end;
                 const isDirty = currentStart !== initial.start || currentEnd !== initial.end;
                 const isSynced = syncedWindows[uri] || false;
+                const crossesMidnight = timeToIndex(currentEnd) < timeToIndex(currentStart);
                 
                 // Check if any synced related window has changes
                 const hasSyncedRelatedChanges = isSynced && tagFenster.some(({ windows: dayWindows }) => 
@@ -517,6 +498,11 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                         />
                       </div>
                     </div>
+                    {crossesMidnight && (
+                      <span className="text-xs text-muted">
+                        Über Mitternacht: Bitte direkt an der ETA bearbeiten; der Zeitbalken unterstützt nur Zeitfenster innerhalb eines Tages.
+                      </span>
+                    )}
                     <div className="flex items-center justify-between gap-3" key={remountKey}>
                       <label className="flex items-center gap-1 cursor-pointer whitespace-nowrap min-h-[44px]">
                         <input
@@ -553,11 +539,6 @@ export const ZeitfensterTab: React.FC<ZeitfensterTabProps> = ({ menuItems }) => 
                               const start = currentStart;
                               const end = currentEnd;
                               await handleSave(uri, data, start, end);
-                              // Clear edited state after successful save
-                              setEdited(prev => {
-                                const { [uri]: _removed, ...rest } = prev;
-                                return rest;
-                              });
                             }}
                           >
                             ✓

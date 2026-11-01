@@ -1,4 +1,4 @@
-import { determineControlAction, ControlInput, ControlState } from './controlLogic';
+import { determineControlAction, getManualOverrideDuration, ControlInput, ControlState } from './controlLogic';
 import { EtaButtons, EtaModeButton } from '@/reader/functions/types-constants/EtaConstants';
 
 function assert(condition: boolean, message: string) {
@@ -12,6 +12,8 @@ function assert(condition: boolean, message: string) {
 
 function runTests() {
     console.log('Running Control Logic Tests...');
+    assert(getManualOverrideDuration('0') === 0, 'Zero override duration stays zero');
+    assert(getManualOverrideDuration('invalid') === 600000, 'Invalid override duration uses the configured default');
 
     const baseState: ControlState = {
         wasBelow: false,

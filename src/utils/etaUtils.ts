@@ -133,6 +133,24 @@ export const batchFetchEtaDataInChunks = async (
   return results;
 };
 
+export function parseTimeWindow(raw: string): { start: string; end: string; startMinutes: number; endMinutes: number } | null {
+  const match = raw.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const [, h1, m1, h2, m2] = match;
+  const startHour = Number(h1);
+  const endHour = Number(h2);
+  const startMinute = Number(m1);
+  const endMinute = Number(m2);
+  if (startHour > 24 || endHour > 24 || startMinute >= 60 || endMinute >= 60 ||
+      (startHour === 24 && startMinute !== 0) || (endHour === 24 && endMinute !== 0)) return null;
+  return {
+    start: `${h1}:${m1}`,
+    end: `${h2}:${m2}`,
+    startMinutes: startHour * 60 + startMinute,
+    endMinutes: endHour * 60 + endMinute,
+  };
+}
+
 export const isTimeInWindow = (startStr: string, endStr: string, now: Date = new Date()): boolean => {
   const [startH, startM] = startStr.split(':').map(Number);
   const [endH, endM] = endStr.split(':').map(Number);
@@ -170,21 +188,17 @@ export const isTimeInWindow = (startStr: string, endStr: string, now: Date = new
   return inWindow;
 };
 
-export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, ParsedXmlData>): boolean => {
-  // Find Heizzeiten node
-  let heizzeitenNode: MenuNode | undefined;
-  const findNode = (nodes: MenuNode[]) => {
-    for (const node of nodes) {
-      if (node.name === 'Heizzeiten' || node.uri?.endsWith('/12113/0/0')) {
-        heizzeitenNode = node;
-        return;
-      }
-      if (node.children) findNode(node.children);
-      if (heizzeitenNode) return;
-    }
-  };
-  findNode(menuNodes);
+export function findHeatingTimeNode(nodes: MenuNode[]): MenuNode | undefined {
+  for (const node of nodes) {
+    if (node.name === 'Heizzeiten' || node.uri?.endsWith('/12113/0/0')) return node;
+    const found = findHeatingTimeNode(node.children || []);
+    if (found) return found;
+  }
+  return undefined;
+}
 
+export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, ParsedXmlData>, now: Date = new Date()): boolean => {
+  const heizzeitenNode = findHeatingTimeNode(menuNodes);
   if (!heizzeitenNode) {
     return true;
   }
@@ -198,7 +212,7 @@ export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, P
     timeZone: 'Europe/Vienna',
     weekday: 'long'
   });
-  const currentDayName = dayFormatter.format(new Date());
+  const currentDayName = dayFormatter.format(now);
 
   const dayNames = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
   const allDayNodes: MenuNode[] = [];
@@ -210,64 +224,31 @@ export const checkHeatingTime = (menuNodes: MenuNode[], values: Record<string, P
   };
   collectDayNodes(heizzeitenNode);
 
-  const dayNode = allDayNodes.find(n => n.name === currentDayName);
-  if (!dayNode) {
-    return false;
-  }
+  const currentIndex = dayNames.indexOf(currentDayName);
+  if (currentIndex < 0) return false;
+  const previousDayName = dayNames[(currentIndex + dayNames.length - 1) % dayNames.length];
 
-  if (!dayNode.children || dayNode.children.length === 0) {
-    return false;
-  }
-
-  // Check all Zeitfenster
-  let isActive = false;
-  let hasWindows = false;
-
-  const timeWindowNodes: MenuNode[] = [];
-  const collectWindows = (node: MenuNode) => {
-    if (/Zeitfenster\s+\d+/.test(node.name) && node.uri) {
-      timeWindowNodes.push(node);
-    }
-    node.children?.forEach(collectWindows);
+  const hasActiveWindow = (dayName: string, previousDay: boolean): boolean => {
+    const dayNode = allDayNodes.find(node => node.name === dayName);
+    if (!dayNode) return false;
+    const visit = (node: MenuNode): boolean => {
+      if (/Zeitfenster\s+\d+/.test(node.name) && node.uri) {
+        const raw = values[node.uri]?.strValue || values[node.uri]?.value || '';
+        const window = parseTimeWindow(raw);
+        if (window) {
+          const { start, end, startMinutes, endMinutes } = window;
+          if (endMinutes < startMinutes) {
+            return previousDay
+              ? isTimeInWindow('00:00', end, now)
+              : isTimeInWindow(start, '24:00', now);
+          }
+          if (!previousDay && isTimeInWindow(start, end, now)) return true;
+        }
+      }
+      return (node.children || []).some(visit);
+    };
+    return visit(dayNode);
   };
-  collectWindows(dayNode);
 
-  for (const windowNode of timeWindowNodes) {
-    // Relaxed regex: check if name contains "Zeitfenster" followed by a number
-    if (/Zeitfenster\s+\d+/.test(windowNode.name) && windowNode.uri) {
-      hasWindows = true;
-      const data = values[windowNode.uri];
-      if (!data) {
-        continue;
-      }
-
-      const raw = (data.strValue || data.value || '').toString();
-      if (!raw) {
-        continue;
-      }
-
-      const match = raw.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
-      if (!match) {
-        continue;
-      }
-
-      const [, h1, m1, h2, m2] = match;
-      const start = `${h1}:${m1}`;
-      const end = `${h2}:${m2}`;
-
-      const inWindow = isTimeInWindow(start, end);
-
-      if (inWindow) {
-        isActive = true;
-        // We found an active window, so heating is ON.
-        // We can break here because if ANY window is active, the result is true.
-        break;
-      }
-    }
-  }
-
-  const result = hasWindows ? isActive : false;
-
-  // If we found windows, return the result. If no windows found (e.g. empty day), return false (no heating).
-  return result;
+  return hasActiveWindow(currentDayName, false) || hasActiveWindow(previousDayName, true);
 };

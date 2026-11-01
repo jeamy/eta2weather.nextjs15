@@ -12,6 +12,7 @@ import { EtaConstants } from '@/reader/functions/types-constants/Names2IDconstan
 import { API } from '@/constants/apiPaths';
 import { useToast } from '@/components/ToastProvider';
 import { getEtaModeState } from '@/lib/etaModeState';
+import { getManualOverrideDuration } from '@/lib/controlLogic';
 
 const ETA_DISPLAY_ORDER: Partial<Record<EtaConstants, number>> = {
   [EtaConstants.SCHIEBERPOS]: 1,
@@ -71,13 +72,13 @@ const EtaData: React.FC = () => {
   });
 
   useEffect(() => {
-    lastTempState.current = serverControlState;
-    if (!serverControlState.manualOverride || !serverControlState.manualOverrideTime) {
+    lastTempState.current = { ...serverControlState };
+    if (!serverControlState.manualOverride || serverControlState.manualOverrideTime === null) {
       setOverrideActive(false);
       setOverrideRemainingMs(0);
       return;
     }
-    const timeoutMs = parseInt(config.t_override, 10) || 60 * 60 * 1000;
+    const timeoutMs = getManualOverrideDuration(config.t_override);
     const remaining = Math.max(0, timeoutMs - (Date.now() - serverControlState.manualOverrideTime));
     setOverrideActive(remaining > 0);
     setOverrideRemainingMs(remaining);
@@ -99,10 +100,9 @@ const EtaData: React.FC = () => {
   // This component only reads from Redux store
 
   const updateButtonStates = useCallback(async (activeButton: EtaModeButton, isManual: boolean = false) => {
+    if (updateBusyRef.current) throw new Error('Eine ETA-Aktualisierung läuft bereits');
+    updateBusyRef.current = true;
     try {
-      // Debounce concurrent operations
-      if (updateBusyRef.current) throw new Error('Eine ETA-Aktualisierung läuft bereits');
-      updateBusyRef.current = true;
       setIsUpdating(true);
 
       // No-op if already active
@@ -210,11 +210,11 @@ const EtaData: React.FC = () => {
         setOverrideRemainingMs(0);
         dispatch(storeControlData({ manualOverride: false, manualOverrideTime: null }));
       } else {
-        const overrideMs = parseInt(config.t_override, 10) || 60 * 60 * 1000;
+        const overrideMs = getManualOverrideDuration(config.t_override);
         const overrideTime = Date.now();
         lastTempState.current.manualOverride = true;
         lastTempState.current.manualOverrideTime = overrideTime;
-        setOverrideActive(true);
+        setOverrideActive(overrideMs > 0);
         setOverrideRemainingMs(overrideMs);
         dispatch(storeControlData({ manualOverride: true, manualOverrideTime: overrideTime }));
       }
@@ -238,8 +238,8 @@ const EtaData: React.FC = () => {
   // Countdown for manual override; updates every second
   useEffect(() => {
     const interval = setInterval(() => {
-      const timeoutMs = parseInt(config.t_override, 10) || 60 * 60 * 1000;
-      if (lastTempState.current.manualOverride && lastTempState.current.manualOverrideTime) {
+      const timeoutMs = getManualOverrideDuration(config.t_override);
+      if (lastTempState.current.manualOverride && lastTempState.current.manualOverrideTime !== null) {
         const elapsed = Date.now() - lastTempState.current.manualOverrideTime;
         const remaining = Math.max(0, timeoutMs - elapsed);
         setOverrideActive(remaining > 0);
@@ -296,7 +296,9 @@ const EtaData: React.FC = () => {
           <h2 className="card__title">Heizungssteuerung</h2>
           <p className="card__subtitle">ETA-Heizmodus und aktuelle Kesselwerte</p>
         </div>
-        <span className="source-pill source-pill--live">● verbunden</span>
+        <span className={`source-pill ${etaState.isStale ? '' : 'source-pill--live'}`}>
+          {etaState.isStale ? 'Daten veraltet' : '● verbunden'}
+        </span>
       </div>
       {overrideActive && (
         <div className="alert alert--warning mb-3 flex items-center justify-between">

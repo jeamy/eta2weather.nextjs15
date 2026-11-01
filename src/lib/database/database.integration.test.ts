@@ -113,6 +113,7 @@ async function main(): Promise<void> {
 
   const logPaths = await helpers.getLogsAsFilePaths('ecowitt', 1);
   assert(logPaths.length === 1, 'SQLite-backed log listing enforces its requested limit');
+  assert(logPaths[0].startsWith(`ecowitt/${currentYear}/`), 'the global limit selects the newest year first');
   assert(logPaths[0].includes('-id'), 'SQLite-backed log listing returns addressable row identifiers');
 
   const response = await getDatabaseLog(

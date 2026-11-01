@@ -1,4 +1,10 @@
 .tabs { display: flex; flex-direction: column; gap: var(--space-3); }
+@keyframes timeline-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+.timeline-shake { animation: timeline-shake 150ms ease-in-out; outline: 2px solid var(--color-danger); }
 .tabs__list { display: flex; gap: 5px; height: auto; padding: 0 4px 9px; overflow-x: auto; border-bottom: 1px solid var(--color-line); background: transparent; scrollbar-width: thin; }
 .tabs__list--sticky { position: static; }
 .tabs__button { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 6px; min-width: 56px; min-height: 44px; padding: 7px 11px; border: 1px solid transparent; border-radius: 9px; color: var(--color-muted); background: transparent; cursor: pointer; }

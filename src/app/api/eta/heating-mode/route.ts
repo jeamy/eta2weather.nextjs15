@@ -64,22 +64,25 @@ export async function POST(request: NextRequest) {
       targetButton,
       names2id,
       etaApi,
+      onApplied: ids => {
+        const etaData = { ...store.getState().eta.data };
+        for (const [button, uri] of Object.entries(ids)) {
+          if (!etaData[uri]) continue;
+          const isActive = button === targetButton;
+          etaData[uri] = {
+            ...etaData[uri],
+            value: isActive ? EtaPos.EIN : EtaPos.AUS,
+            strValue: isActive ? EtaText.EIN : EtaText.AUS,
+          };
+        }
+        store.dispatch(storeEtaData(etaData));
+        if (isManual) {
+          BackgroundService.getInstance().setManualOverride(targetButton !== EtaButtons.AA);
+        }
+      },
     });
 
     const etaData = { ...store.getState().eta.data };
-    for (const [button, uri] of Object.entries(buttonIds)) {
-      if (!etaData[uri]) continue;
-      const isActive = button === targetButton;
-      etaData[uri] = {
-        ...etaData[uri],
-        value: isActive ? EtaPos.EIN : EtaPos.AUS,
-        strValue: isActive ? EtaText.EIN : EtaText.AUS,
-      };
-    }
-    store.dispatch(storeEtaData(etaData));
-    if (isManual) {
-      BackgroundService.getInstance().setManualOverride(targetButton !== EtaButtons.AA);
-    }
 
     console.info('[ETA heating-mode] Current button status after toggle', {
       targetButton,

@@ -140,7 +140,7 @@ export class DatabaseHelpers {
             try {
                 const yearDb = this.db.getDbForYear(year);
                 const alias = year === this.db.getCurrentYear() ? '' : `db_${year}.`;
-                // Apply the limit per year so historical years stay visible in the log tree
+                // Limit each query before applying the global limit after sorting.
                 const rows = yearDb.prepare(`
                     SELECT id, timestamp
                     FROM ${alias}${table}
@@ -155,7 +155,7 @@ export class DatabaseHelpers {
 
         allRows.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
-        return allRows.map(row => {
+        return allRows.slice(0, safeLimit).map(row => {
             const date = new Date(row.timestamp);
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');

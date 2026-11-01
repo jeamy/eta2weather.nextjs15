@@ -3,6 +3,14 @@ import { ETA_MODE_BUTTONS, EtaButtons, EtaModeButton, EtaPos } from '@/reader/fu
 import { EtaConstants, Names2Id } from '@/reader/functions/types-constants/Names2IDconstants';
 
 export type HeatingButtonIds = Record<EtaModeButton, string>;
+const shared = globalThis as typeof globalThis & { __ETA2WEATHER_MODE_QUEUE__?: Promise<void> };
+
+export class HeatingModeCancelledError extends Error {
+  constructor() {
+    super('Heating mode request was superseded');
+    this.name = 'HeatingModeCancelledError';
+  }
+}
 
 async function writeHeatingButton(
   etaApi: EtaApi,
@@ -36,14 +44,24 @@ export function getHeatingButtonIds(names2id: Names2Id): HeatingButtonIds {
   return Object.fromEntries(entries) as HeatingButtonIds;
 }
 
-export async function setHeatingMode(options: {
+type HeatingModeOptions = {
   targetButton: EtaModeButton;
   names2id: Names2Id;
   etaApi: EtaApi;
   delayMs?: number;
   sleep?: (ms: number) => Promise<void>;
   log?: (message: string) => void;
-}): Promise<HeatingButtonIds> {
+  shouldProceed?: () => boolean;
+  onApplied?: (ids: HeatingButtonIds) => void;
+};
+
+export async function setHeatingMode(options: HeatingModeOptions): Promise<HeatingButtonIds> {
+  const operation = (shared.__ETA2WEATHER_MODE_QUEUE__ ?? Promise.resolve()).then(() => applyHeatingMode(options));
+  shared.__ETA2WEATHER_MODE_QUEUE__ = operation.then(() => undefined, () => undefined);
+  return operation;
+}
+
+async function applyHeatingMode(options: HeatingModeOptions): Promise<HeatingButtonIds> {
   const {
     targetButton,
     names2id,
@@ -51,7 +69,10 @@ export async function setHeatingMode(options: {
     delayMs = 0,
     sleep = async () => undefined,
     log,
+    shouldProceed,
+    onApplied,
   } = options;
+  if (shouldProceed && !shouldProceed()) throw new HeatingModeCancelledError();
   const buttonIds = getHeatingButtonIds(names2id);
   const wait = async () => {
     if (delayMs > 0) {
@@ -72,5 +93,6 @@ export async function setHeatingMode(options: {
   await writeHeatingButton(etaApi, buttonIds[targetButton], EtaPos.EIN, targetButton);
   await wait();
 
+  onApplied?.(buttonIds);
   return buttonIds;
 }

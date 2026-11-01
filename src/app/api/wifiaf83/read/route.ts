@@ -1,14 +1,18 @@
 import { NextResponse } from 'next/server';
 import { WifiAf83Api } from '@/reader/functions/WifiAf83Api';
-import { getWifiAf83Data } from '@/utils/cache';
+import { getConfig, getWifiAf83Data } from '@/utils/cache';
 import { WifiAF83Data } from '@/reader/functions/types-constants/WifiAf83';
 import { parseNum } from '@/utils/numberParser';
+import { getFreshWifiMeasurementTime, getMaxFreshDataAge, getWifiMeasurementTime } from '@/lib/controlFreshness';
 
 export async function GET(request: Request) {
   const wifiApi = new WifiAf83Api();
 
   try {
-    const allData = await getWifiAf83Data((s) => wifiApi.getAllRealtime(s), request.signal);
+    let fallback = false;
+    const allData = await getWifiAf83Data((s) => wifiApi.getAllRealtime(s), request.signal, {
+      onFallback: () => { fallback = true; },
+    });
 
     // Extract and validate temperature values
     const outdoorTemp = parseNum(allData.outdoor?.temperature?.value);
@@ -18,10 +22,17 @@ export async function GET(request: Request) {
       throw new Error('Invalid temperature values');
     }
 
-    // Transform to match WifiAF83Data interface
+    const outdoorTime = allData.outdoor?.temperature?.time;
+    const indoorTime = allData.indoor?.temperature?.time;
+    const measurementTime = getWifiMeasurementTime(outdoorTime, indoorTime);
+    const config = await getConfig();
+    const fresh = getFreshWifiMeasurementTime(
+      outdoorTime, indoorTime, Date.now(), getMaxFreshDataAge(config.t_update_timer, 600000),
+    );
+
     const transformedData: WifiAF83Data = {
-      time: Date.now(),
-      datestring: new Date().toLocaleString('de-DE', {
+      time: measurementTime ?? 0,
+      datestring: measurementTime === null ? '' : new Date(measurementTime).toLocaleString('de-DE', {
         hour: 'numeric',
         minute: 'numeric',
         second: 'numeric',
@@ -32,7 +43,8 @@ export async function GET(request: Request) {
       }),
       temperature: outdoorTemp,
       indoorTemperature: indoorTemp,
-      allData: null
+      allData: null,
+      stale: fallback || fresh === null,
     };
 
     return NextResponse.json({ success: true, data: transformedData });

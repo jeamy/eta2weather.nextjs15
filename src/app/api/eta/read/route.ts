@@ -3,7 +3,6 @@ import { getServerStore } from '@/lib/backgroundService';
 import { fetchEtaData } from '@/reader/functions/EtaData';
 import { getConfig, getNames2Id } from '@/utils/cache';
 import { storeData as storeEtaData } from '@/redux/etaSlice';
-import { normalizeEtaButtonState } from '@/lib/etaModeState';
 
 export async function GET() {
   try {
@@ -18,8 +17,6 @@ export async function GET() {
         store.dispatch(storeEtaData(etaData));
       }
     }
-
-    etaData = normalizeEtaButtonState(etaData);
 
     return NextResponse.json({ success: true, data: etaData, config: state.config.data });
   } catch (error) {

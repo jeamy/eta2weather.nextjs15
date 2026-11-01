@@ -4,7 +4,8 @@ import React from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux';
 import { calculateMinTempDiff } from '@/utils/Functions';
-import { ConfigKeys, TEMP_CALC_CONSTANTS } from '@/reader/functions/types-constants/ConfigConstants';
+import { ConfigKeys } from '@/reader/functions/types-constants/ConfigConstants';
+import { calculateLiveTemperatureDiff } from '@/utils/temperatureCalculations';
 
 const formatDateTime = (timestamp: number): string => {
   return new Date(timestamp).toLocaleString('de-DE', {
@@ -44,6 +45,7 @@ const WifiAf83Data: React.FC = () => {
           <p className="card__subtitle">Außen- und Raumklima</p>
         </div>
       </div>
+      {wifiData.stale && <p className="alert alert--warning">Sensordaten veraltet; automatische Regelung pausiert.</p>}
       <div className="space-y-3 text-sm sm:text-base">
         <div className="grid grid-cols-1 gap-2">
           <div className="flex flex-col space-y-2">
@@ -66,17 +68,15 @@ const WifiAf83Data: React.FC = () => {
             <div className="flex justify-between items-center">
               <span className="font-medium">Diff Indoor/Soll:</span>
               {(() => {
-                // Calculate live diff: (t_soll + t_delta) - indoor_temperature
                 const tSoll = Number(config.data[ConfigKeys.T_SOLL] ?? NaN);
                 const tDelta = Number(config.data[ConfigKeys.T_DELTA] ?? NaN);
                 const indoor = Number(wifiData.indoorTemperature ?? NaN);
 
-                if (!Number.isFinite(tSoll) || !Number.isFinite(tDelta) || !Number.isFinite(indoor)) {
+                const roundedDiff = calculateLiveTemperatureDiff(tSoll, tDelta, indoor);
+                if (roundedDiff === null) {
                   return <span className="badge badge--warn">--</span>;
                 }
 
-                const diff = (tSoll + tDelta / TEMP_CALC_CONSTANTS.DELTA_DAMPENING_FACTOR) - indoor;
-                const roundedDiff = Math.round(diff * 100) / 100;
                 // Positive diff => kälter als Soll (blau), Negative => wärmer als Soll (grün)
                 const cls = roundedDiff > 0 ? 'badge--primary' : roundedDiff < 0 ? 'badge--ok' : 'badge--neutral';
                 return <span className={`badge ${cls}`}>{roundedDiff.toFixed(2)}°C</span>;
