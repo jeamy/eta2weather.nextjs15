@@ -251,23 +251,22 @@ The system calculates the ETA heating valve position (slider position) in two st
 
 #### Stage 1: Base Position Calculation
 
-The base slider position is calculated from the temperature differential using a linear mapping:
+The base slider position is calculated from the temperature differential using a
+nonlinear mapping:
 
 ```
-basePosition = map(diff, 1.25, 5.0, 0.0, 100.0)
+positive diff:  basePosition ≈ 100 × (diff / 5)^1.25
+negative diff:  basePosition ≈ -100 × ln(1 + |diff|) / ln(6)
 ```
 
-**Mapping Function:**
-- **Input Range**: `diff` from 1.25°C to 5.0°C
-- **Output Range**: 0% to 100%
-- **Linear Interpolation**: 
-  - `diff ≤ 1.25°C` → 0% (no heating needed)
-  - `diff ≥ 5.0°C` → 100% (maximum heating)
-  - `1.25°C < diff < 5.0°C` → proportional value
+The normalized value is rounded to four decimal places, limited to −100% through
+100%, and rounded to an integer. `1.25` is the exponent for positive values, not
+a temperature threshold.
 
 **Example:**
-- `diff = 1.25°C` → `basePosition = 0%`
-- `diff = 3.125°C` → `basePosition = 50%` (midpoint)
+- `diff = -0.22°C` → `basePosition = -11%`
+- `diff = 1.25°C` → `basePosition = 18%`
+- `diff = 3.125°C` → `basePosition = 56%`
 - `diff = 5.0°C` → `basePosition = 100%`
 
 **Special Cases:**
@@ -280,9 +279,10 @@ The base position is scaled based on the **Vorlauftemperatur** (flow temperature
 
 ```
 vorlaufFactor = {
+  1.0           if vorlauftemp is unavailable or stale (no reduction)
   1.0           if vorlauftemp ≤ 38°C  (no reduction)
-  0.0           if vorlauftemp ≥ 50°C  (heating off)
-  (50 - vorlauftemp) / 12   if 38°C < vorlauftemp < 50°C  (linear reduction)
+  0.0           if vorlauftemp ≥ 60°C  (slider reduced to zero)
+  (60 - vorlauftemp) / 22   if 38°C < vorlauftemp < 60°C  (linear reduction)
 }
 
 finalPosition = basePosition × vorlaufFactor
@@ -290,8 +290,8 @@ finalPosition = basePosition × vorlaufFactor
 
 **Flow Temperature Thresholds:**
 - **≤ 38°C**: Full base position (100% adoption, factor = 1.0)
-- **38-50°C**: Linear reduction based on flow temperature
-- **≥ 50°C**: Slider position forced to 0% (factor = 0.0)
+- **38-60°C**: Linear reduction based on flow temperature
+- **≥ 60°C**: Positive slider position reduced to 0% (factor = 0.0)
 
 **Example Calculation:**
 ```
@@ -319,20 +319,18 @@ Explanation:
 - Final diff = 22.58 - 21.6 = 0.98°C
 
 Step 2: Calculate base position
-basePosition = map(0.98, 1.25, 5.0, 0.0, 100.0)
-Since 0.98 < 1.25 (minimum threshold), basePosition would be 0% or negative.
-
-Let's use a more realistic example where heating is actually needed:
-diff = 3.2°C → basePosition = map(3.2, 1.25, 5.0, 0, 100) = 52%
+basePosition ≈ 100 × (0.98 / 5)^1.25
+basePosition = 13% after rounding
 
 Step 3: Calculate flow temperature factor
 vorlauftemp = 48°C
-vorlaufFactor = (50 - 48) / 12 = 0.167
+vorlaufFactor = (60 - 48) / 22 ≈ 0.545
 
 Step 4: Calculate final position
-finalPosition = 52% × 0.167 = 8.7% → rounded to 9%
+finalPosition = 13% × 0.545 = 7.1%
+The physical slider is rounded to 7%.
 
-Display: "Schieberposition: 52 % → 9 %"
+Base → final: 13% → 7.1%
 ```
 
 **Why is t_delta 2.9°C when target - indoor = 0.4°C?**
@@ -375,8 +373,10 @@ configured polling interval. ETA control readings must come from the current sca
 and be no older than the greater of one minute or twice the polling interval.
 Failed refreshes do not replace the last WiFi timestamp or issue automatic actuator
 writes. The dashboard distinguishes a recent, complete ETA poll from readiness for
-automatic control: a current response can still contain an unavailable flow
-temperature, in which case control remains paused. A manual mode command remains available.
+automatic control. The flow temperature is optional: when unavailable or stale,
+the slider is not reduced by the flow-temperature factor, and the dashboard warns
+that this damping is inactive. Other required inputs must still be fresh and valid.
+A manual mode command remains available.
 Heating mode commands are serialized within the application process. Direct writes
 to mode button IDs through `/api/eta/update` are rejected; use the heating-mode API.
 
@@ -447,11 +447,11 @@ Manual Mode (Override ON):
 
 **Flow Temperature Scaling:**
 - Uses `EtaConstants.VORLAUFTEMP` (ID: `/120/10101/0/0/12241`)
-- Scaling thresholds: 38°C (full), 50°C (off)
+- Scaling thresholds: 38°C (full), 60°C (positive slider reduced to zero)
 
 **Display:**
 - `src/components/EtaTab.tsx` - Shows both base and final values (lines 31-70)
-- Format: "Schieberposition: 52 % → 9 %" (base → final)
+- Example base → final: 13% → 7.1%
 
 **Configuration Storage:**
 - `ConfigKeys.T_SLIDER_BASE` - Calculated base position before scaling

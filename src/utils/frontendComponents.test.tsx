@@ -138,8 +138,12 @@ const etaStatusData = {
 const etaStatus = (isStale: boolean, controlDataReady: boolean) => renderToStaticMarkup(
   <EtaControlStatus data={etaStatusData} isStale={isStale} controlDataReady={controlDataReady} />,
 );
-assert.match(etaStatus(false, false), /Regelung pausiert.*Vorlauftemperatur nicht verfügbar/);
+assert.match(etaStatus(false, false), /Regelung pausiert.*ETA-Regelungsdaten nicht verfügbar oder ungültig.*Vorlauftemperatur nicht verfügbar.*Dämpfung inaktiv/);
 assert.doesNotMatch(etaStatus(false, false), /veraltet/);
 assert.match(etaStatus(true, false), /ETA-Abfrage veraltet oder unvollständig/);
-assert.equal(etaStatus(false, true), '');
+assert.match(etaStatus(false, true), /Vorlauftemperatur nicht verfügbar.*Dämpfung inaktiv/);
+assert.doesNotMatch(etaStatus(false, true), /Regelung pausiert/);
+assert.equal(renderToStaticMarkup(
+  <EtaControlStatus data={{ flow: { ...etaStatusData.flow, strValue: '44 °C' } }} isStale={false} controlDataReady />,
+), '');
 console.log('PASS: dashboard distinguishes current ETA responses from unavailable control data');

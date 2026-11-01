@@ -29,7 +29,7 @@ import { checkHeatingTime } from '@/utils/etaUtils';
 import { HeatingModeCancelledError, setHeatingMode } from './heatingMode';
 import { getEtaModeState } from './etaModeState';
 import { calculateAutomaticDelta } from './automaticDelta';
-import { getFreshWifiMeasurementTime, getMaxFreshDataAge, hasFreshControlEtaData } from './controlFreshness';
+import { getFreshFlowTemperature, getFreshWifiMeasurementTime, getMaxFreshDataAge, hasFreshControlEtaData } from './controlFreshness';
 const getRuntimeRoot = () => process.cwd();
 
 const CONFIG_FILE_PATH = path.resolve(getRuntimeRoot(), process.env.CONFIG_PATH || 'src/config/f_etacfg.json');
@@ -506,6 +506,11 @@ export class BackgroundService {
 
       const etaCutoff = Date.now() - this.getMaxDataAge(60000);
       const timelyEtaData = Object.fromEntries(Object.entries(freshEtaData).filter(([, value]) => Number(value._readAt) >= etaCutoff));
+      const flowId = this.names2Id[EtaConstants.VORLAUFTEMP]?.id;
+      if (flowId) {
+        if (timelyEtaData[flowId]) menuData[flowId] = timelyEtaData[flowId];
+        else delete menuData[flowId];
+      }
       let completeEtaPollAt = uris.length > 0 && fetchedCount === uris.length &&
         Object.keys(timelyEtaData).length === uris.length
         ? Math.min(...Object.values(timelyEtaData).map(value => Number(value._readAt)))
@@ -867,7 +872,9 @@ export class BackgroundService {
           schaltzustand: getEtaValue(EtaConstants.SCHALTZUSTAND),
           heizentaste: getEtaValue(EtaConstants.HEIZENTASTE),
           kommentaste: getEtaValue(EtaConstants.KOMMENTASTE),
-          vorlauftemp: parseNumOrZero(getEtaValue(EtaConstants.VORLAUFTEMP)),
+          vorlauftemp: getFreshFlowTemperature(
+            etaState.data, this.names2Id[EtaConstants.VORLAUFTEMP]?.id, Date.now(), this.getMaxDataAge(60000),
+          ),
         };
         const sliderPositions = calculateNewSliderPosition(etaValues, numericDiff);
         const currentConfigData = store.getState().config.data;

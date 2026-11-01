@@ -33,6 +33,14 @@ export function getFreshWifiMeasurementTime(
   return oldest;
 }
 
+export function getFreshFlowTemperature(data: EtaData, id: string | undefined, now: number, maxAge: number): number | null {
+  const flow = id ? data[id] : undefined;
+  const readAt = Number(flow?._readAt);
+  if (!Number.isFinite(readAt) || readAt <= 0 || readAt > now || now - readAt > maxAge) return null;
+  const value = parseNum(flow?.strValue);
+  return value !== null && Number.isFinite(value) ? value : null;
+}
+
 export function hasFreshControlEtaData(data: EtaData, names: Names2Id, menu: MenuNode[]): boolean {
   const get = (key: EtaConstants) => data[names[key]?.id];
   if (MODE_KEYS.some(key => {
@@ -40,14 +48,12 @@ export function hasFreshControlEtaData(data: EtaData, names: Names2Id, menu: Men
     return value !== EtaPos.EIN && value !== EtaPos.AUS;
   })) return false;
 
-  if ([EtaConstants.SCHIEBERPOS, EtaConstants.VORLAUFTEMP].some(key => {
-    const value = parseNum(get(key)?.strValue);
-    return value === null || !Number.isFinite(value);
-  })) return false;
+  const slider = parseNum(get(EtaConstants.SCHIEBERPOS)?.strValue);
+  if (slider === null || !Number.isFinite(slider)) return false;
 
   if ([EtaConstants.EIN_AUS_TASTE, EtaConstants.SCHALTZUSTAND].some(key => {
     const value = get(key)?.strValue?.trim();
-    return !value || value === 'N/A';
+    return value !== 'Ein' && value !== 'Aus';
   })) return false;
 
   const visit = (node: MenuNode): boolean => {

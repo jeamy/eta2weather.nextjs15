@@ -11,7 +11,7 @@ type EtaValues = {
     schaltzustand: string;
     heizentaste: string;
     kommentaste: string;
-    vorlauftemp?: number;
+    vorlauftemp?: number | null;
 };
 
 export function calculateNewSliderPosition({ einaus, schaltzustand, heizentaste, kommentaste, vorlauftemp }: EtaValues, diff: number): { base: string; final: string } {
@@ -39,7 +39,7 @@ export function calculateNewSliderPosition({ einaus, schaltzustand, heizentaste,
 
     const vorlaufFactor = (() => {
         const maxTemp = TEMP_CALC_CONSTANTS.VORLAUF_FACTOR_MAX_TEMP;
-        if (vorlauftemp === undefined || vorlauftemp === null || isNaN(vorlauftemp)) {
+        if (vorlauftemp == null || !Number.isFinite(vorlauftemp)) {
             return 1;
         }
         if (vorlauftemp <= 38) {
