@@ -1,5 +1,17 @@
+import type { WeatherDataPoint } from './weatherData';
+
 export interface WeatherChannelPoint {
   channels?: Record<string, unknown>;
+}
+
+export function hasWeatherMeasurements(data: WeatherDataPoint[]): boolean {
+  return data.some(point =>
+    [point.temperature, point.humidity, point.pressure, point.indoor?.temperature, point.indoor?.humidity]
+      .some(value => typeof value === 'number' && Number.isFinite(value)) ||
+    Object.values(point.channels || {}).some(channel =>
+      [channel.temperature, channel.humidity].some(value => typeof value === 'number' && Number.isFinite(value)),
+    ),
+  );
 }
 
 export function collectWeatherChannels(data: WeatherChannelPoint[]): string[] {

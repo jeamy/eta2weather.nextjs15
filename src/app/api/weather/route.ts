@@ -3,8 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { DOMParser } from '@xmldom/xmldom';
 import { DatabaseHelpers, getTimeRangeHours, isTimeRange, TimeRange } from '@/lib/database/dbHelpers';
-import { parseNum } from '@/utils/numberParser';
-import { extractWeatherChannels } from '@/utils/weatherData';
+import { extractWeatherPoint } from '@/utils/weatherData';
 
 // Simple in-memory cache per range to speed up repeated requests.
 // TTLs are conservative and per-range.
@@ -158,33 +157,19 @@ async function processXmlFiles(files: string[], range: TimeRange): Promise<any[]
         continue;
       }
 
-      const outdoorTemperature = parseNum(data?.outdoor?.temperature?.value);
-      const pressure = parseNum(data?.pressure?.relative?.value);
-      const outdoorHumidity = parseNum(data?.outdoor?.humidity?.value);
-      const indoorTemperature = parseNum(data?.indoor?.temperature?.value);
-      const indoorHumidity = parseNum(data?.indoor?.humidity?.value);
+      const point = extractWeatherPoint(timestamp, data);
 
       // Validate required data exists before adding
-      if (outdoorTemperature === null ||
-        pressure === null ||
-        outdoorHumidity === null ||
-        indoorTemperature === null ||
-        indoorHumidity === null) {
+      if (point.temperature === null ||
+        point.pressure === null ||
+        point.humidity === null ||
+        point.indoor.temperature === null ||
+        point.indoor.humidity === null) {
         console.error(`Missing required data fields in file: ${file}`);
         continue;
       }
 
-      weatherData.push({
-        timestamp,
-        temperature: outdoorTemperature,
-        pressure,
-        humidity: outdoorHumidity,
-        indoor: {
-          temperature: indoorTemperature,
-          humidity: indoorHumidity
-        },
-        channels: extractWeatherChannels(data),
-      });
+      weatherData.push(point);
     } catch (error) {
       console.error(`Error processing file ${file}:`, error);
     }

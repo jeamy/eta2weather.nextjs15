@@ -1,6 +1,6 @@
 import { formatLogData } from './logging';
 import { getLogExtension, isLogType } from '@/lib/logTypes';
-import { extractWeatherChannels } from './weatherData';
+import { extractWeatherChannels, extractWeatherPoint } from './weatherData';
 import { normalizeNames2Id } from './cache';
 
 function assert(condition: boolean, message: string): void {
@@ -32,6 +32,15 @@ const channels = extractWeatherChannels({
 });
 assert(channels.ch1.temperature === 21.5, 'weather channel values are parsed once through the shared helper');
 assert(!channels.ch2, 'invalid weather channels are omitted');
+
+const wrapper = { temperature: 0, indoorTemperature: 0, allData: null };
+const fallback = extractWeatherPoint('time', wrapper);
+assert(fallback.temperature === 0 && fallback.indoor.temperature === 0, 'missing allData falls back to recorded temperatures including zero');
+assert(fallback.pressure === null && fallback.humidity === null, 'missing weather readings are not converted to zero');
+const encoded = extractWeatherPoint('time', JSON.stringify({
+  allData: JSON.stringify({ outdoor: { temperature: { value: '10,2' } } }),
+}));
+assert(encoded.temperature === 10.2, 'double-encoded historical weather data is parsed');
 
 const names = normalizeNames2Id({ AT: { id: '120/10101/0/0/12197', name: 'Outdoor' } });
 assert(names.AT.id === '/120/10101/0/0/12197', 'names2id identifiers use one canonical leading slash');

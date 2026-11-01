@@ -1,4 +1,4 @@
-import { collectWeatherChannels, reconcileVisibleChannels } from './weatherChartUtils';
+import { collectWeatherChannels, hasWeatherMeasurements, reconcileVisibleChannels } from './weatherChartUtils';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`FAIL: ${message}`);
@@ -23,3 +23,10 @@ assert(
   reconcileVisibleChannels(['ch1'], ['ch1', 'ch8']).join(',') === 'ch1',
   'removed weather channels are pruned from the current selection',
 );
+const emptyPoint = {
+  timestamp: '2026-11-01T12:00:00Z', temperature: null, humidity: null, pressure: null,
+  indoor: { temperature: null, humidity: null }, channels: {},
+};
+assert(!hasWeatherMeasurements([]) && !hasWeatherMeasurements([emptyPoint]), 'empty weather rows do not produce a misleading blank chart');
+assert(hasWeatherMeasurements([{ ...emptyPoint, temperature: 0 }]), 'zero is a valid weather measurement');
+assert(hasWeatherMeasurements([{ ...emptyPoint, channels: { ch1: { temperature: 12, humidity: 52 } } }]), 'additional sensors count as weather measurements');

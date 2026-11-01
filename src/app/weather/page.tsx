@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import type { Chart as ChartJS } from 'chart.js';
 import useSWR from 'swr';
 import { API } from '@/constants/apiPaths';
+import type { WeatherDataPoint } from '@/utils/weatherData';
 
 // Create a dynamic component for the charts
 const WeatherCharts = dynamic(
@@ -13,23 +14,6 @@ const WeatherCharts = dynamic(
 );
 
 // Chart options and datasets are defined within WeatherCharts (single source of truth).
-
-interface WeatherData {
-  timestamp: string;
-  temperature: number;
-  humidity: number;
-  pressure: number;
-  indoor: {
-    temperature: number;
-    humidity: number;
-  };
-  channels: {
-    [key: string]: {
-      temperature: number;
-      humidity: number;
-    };
-  };
-}
 
 export default function WeatherPage() {
   const [timeRange, setTimeRange] = useState<string>('24h');
@@ -51,7 +35,7 @@ export default function WeatherPage() {
     3_600_000;
 
   const { data: weatherData, error: weatherError, isLoading: isLoadingWeather, mutate: refetchWeather } =
-    useSWR<WeatherData[]>(`${API.WEATHER}?range=${timeRange}`, fetcher, {
+    useSWR<WeatherDataPoint[]>(`${API.WEATHER}?range=${timeRange}`, fetcher, {
       refreshInterval,
       revalidateOnFocus: true,
       dedupingInterval: 30000,

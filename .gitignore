@@ -38,6 +38,7 @@ next-env.d.ts
 eco.ts
 eco.tsx
 public/log/*
+/public/log1/
 #docker-compose.yml
 
 .codex

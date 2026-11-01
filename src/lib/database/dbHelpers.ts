@@ -1,6 +1,6 @@
 import { DatabaseService } from './sqliteService';
 import { getLogExtension, isLogType, LOG_TABLES, LogType } from '../logTypes';
-import { extractWeatherChannels } from '@/utils/weatherData';
+import { extractWeatherPoint } from '@/utils/weatherData';
 
 export const TIME_RANGES = ['24h', '7d', '30d', '1m'] as const;
 export type TimeRange = typeof TIME_RANGES[number];
@@ -97,20 +97,7 @@ export class DatabaseHelpers {
         // Sort combined results
         allRows.sort((a: any, b: any) => a.timestamp.localeCompare(b.timestamp));
 
-        return allRows.map((row: any) => {
-            const data = JSON.parse(row.data);
-            return {
-                timestamp: row.timestamp,
-                temperature: data.outdoor?.temperature?.value,
-                pressure: data.pressure?.relative?.value,
-                humidity: data.outdoor?.humidity?.value,
-                indoor: {
-                    temperature: data.indoor?.temperature?.value,
-                    humidity: data.indoor?.humidity?.value
-                },
-                channels: extractWeatherChannels(data)
-            };
-        });
+        return allRows.map((row: any) => extractWeatherPoint(row.timestamp, JSON.parse(row.data)));
     }
 
     private getSampleRate(range: TimeRange): number {

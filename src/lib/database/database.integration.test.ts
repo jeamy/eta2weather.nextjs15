@@ -8,7 +8,7 @@ function assert(condition: unknown, message: string): asserts condition {
   console.log(`PASS: ${message}`);
 }
 
-function weatherPayload(temperature: number) {
+function weatherPayload(temperature: number | string) {
   return {
     outdoor: {
       temperature: { value: temperature },
@@ -66,6 +66,7 @@ function createPreviousYearDatabase(filePath: string, timestamp: string, year: n
 
 async function main(): Promise<void> {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'eta2weather-db-integration-'));
+  const originalCwd = process.cwd();
   process.env.DATABASE_PATH = path.join(tempDir, 'database.db');
 
   const { DatabaseService } = await import('./sqliteService');
@@ -102,7 +103,7 @@ async function main(): Promise<void> {
     currentDate.getDate(),
     currentDate.getHours(),
     currentDate.getMinutes(),
-    JSON.stringify(weatherPayload(3)),
+    JSON.stringify({ temperature: 3.5, indoorTemperature: 21, allData: weatherPayload('3,5') }),
   );
 
   const helpers = new DatabaseHelpers();
@@ -110,12 +111,34 @@ async function main(): Promise<void> {
   assert(rows.length === 2, 'weather query combines rows across the year boundary');
   assert(rows[0].timestamp === previousTimestamp, 'cross-year weather rows remain chronological');
   assert(rows[0].channels.ch1.temperature === 18, 'cross-year query uses normal channel parsing');
+  assert(rows[0].temperature === -2, 'legacy raw sensor readings are retained');
+  assert(rows[1].temperature === 3.5 && rows[1].indoor.temperature === 21, 'nested live readings and decimal commas are parsed');
+  assert(rows[1].humidity === 71 && rows[1].indoor.humidity === 44 && rows[1].pressure === 1013, 'nested humidity and pressure are parsed');
+  assert(rows[1].channels.ch1.temperature === 18 && rows[1].channels.ch1.humidity === 52, 'nested additional channels are parsed');
+
+  const recentDate = new Date(Date.now() - 10_000);
+  const recentTimestamp = recentDate.toISOString();
+  currentDatabase.prepare(`
+    INSERT OR REPLACE INTO ecowitt_logs (timestamp, year, month, day, hour, minute, data)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    recentTimestamp, recentDate.getFullYear(), recentDate.getMonth() + 1, recentDate.getDate(),
+    recentDate.getHours(), recentDate.getMinutes(),
+    JSON.stringify({ temperature: 9.1, indoorTemperature: 21.4, allData: weatherPayload('9.1') }),
+  );
+  const { GET: getWeather } = await import('../../app/api/weather/route');
+  const weatherResponse = await getWeather(new Request('http://localhost/api/weather?range=24h'));
+  const weatherRows = await weatherResponse.json();
+  const recentPoint = weatherRows.find((row: { timestamp: string }) => row.timestamp === recentTimestamp);
+  assert(weatherResponse.status === 200 && recentPoint?.temperature === 9.1, 'weather API returns real values from nested database records');
+  assert(recentPoint.indoor.temperature === 21 && recentPoint.channels.ch1.temperature === 18, 'weather API includes nested indoor and channel readings');
 
   const logPaths = await helpers.getLogsAsFilePaths('ecowitt', 1);
   assert(logPaths.length === 1, 'SQLite-backed log listing enforces its requested limit');
   assert(logPaths[0].startsWith(`ecowitt/${currentYear}/`), 'the global limit selects the newest year first');
   assert(logPaths[0].includes('-id'), 'SQLite-backed log listing returns addressable row identifiers');
 
+  process.chdir(tempDir);
   const response = await getDatabaseLog(
     new Request(`http://localhost/api/logs/${logPaths[0]}`),
     { params: Promise.resolve({ path: logPaths[0].split('/') }) },
@@ -130,6 +153,7 @@ async function main(): Promise<void> {
   assert(/^\d{2}:\d{2}:\d{2}$/.test(listedLogs[0]?.time || ''), 'log list preserves seconds in display time');
   assert(/T\d{2}:\d{2}:\d{2}$/.test(listedLogs[0]?.date || ''), 'log list preserves seconds in sort timestamp');
   } finally {
+    process.chdir(originalCwd);
     await service.close();
     fs.rmSync(tempDir, { recursive: true, force: true });
   }

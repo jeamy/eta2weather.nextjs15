@@ -22,7 +22,8 @@ import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { de } from 'date-fns/locale';
 import 'chartjs-adapter-date-fns';
 import { TimeScale, TimeSeriesScale } from 'chart.js';
-import { collectWeatherChannels, reconcileVisibleChannels } from '@/utils/weatherChartUtils';
+import { collectWeatherChannels, hasWeatherMeasurements, reconcileVisibleChannels } from '@/utils/weatherChartUtils';
+import type { WeatherDataPoint } from '@/utils/weatherData';
 
 // Register Chart.js components
 Chart.register(
@@ -42,25 +43,8 @@ Chart.register(
 // Set default locale for Chart.js
 Chart.defaults.locale = 'de';
 
-interface WeatherData {
-  timestamp: string;
-  temperature: number;
-  humidity: number;
-  pressure: number;
-  indoor: {
-    temperature: number;
-    humidity: number;
-  };
-  channels: {
-    [key: string]: {
-      temperature: number;
-      humidity: number;
-    };
-  };
-}
-
 interface WeatherChartsProps {
-  weatherData: WeatherData[];
+  weatherData: WeatherDataPoint[];
   timeRange: string;
   onTimeRangeChange: (range: string) => void;
   resetZoom: () => void;
@@ -557,14 +541,6 @@ export default function WeatherCharts({
   const channelTempChartOptionsUpdated = createChannelOptions('Temperatur', '°C', 'temperature');
   const channelHumidityChartOptionsUpdated = createChannelOptions('Luftfeuchtigkeit', '%', 'humidity');
 
-  if (!weatherData || weatherData.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <p className="text-muted">No weather data available</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-2">
@@ -572,33 +548,39 @@ export default function WeatherCharts({
         <ResetZoomButton />
       </div>
       
-      <div className="bg-surface rounded-lg shadow-lg p-4">
-        <div className="flex items-center mb-4">
-          <h2 className="text-xl font-semibold flex-grow">Hauptsensoren</h2>
-        </div>
-        <div className="relative aspect-[21/9]">
-          <Line ref={mainChartRef} options={mainChartOptionsUpdated} data={mainChartDataUpdated} />
-        </div>
-      </div>
+      {!hasWeatherMeasurements(weatherData) ? (
+        <div className="alert alert--warning">Für diesen Zeitraum sind keine Wetter-Messwerte verfügbar.</div>
+      ) : (
+        <>
+          <div className="bg-surface rounded-lg shadow-lg p-4">
+            <div className="flex items-center mb-4">
+              <h2 className="text-xl font-semibold flex-grow">Hauptsensoren</h2>
+            </div>
+            <div className="relative aspect-[21/9]">
+              <Line ref={mainChartRef} options={mainChartOptionsUpdated} data={mainChartDataUpdated} />
+            </div>
+          </div>
 
-      <div className="bg-surface rounded-lg shadow-lg p-4">
-        <div className="flex items-center mb-4">
-          <h2 className="text-xl font-semibold flex-grow">Temperatur</h2>
-        </div>
-        {ChannelSelector}
-        <div className="relative aspect-[21/9]">
-          <Line ref={channelTempChartRef} options={channelTempChartOptionsUpdated} data={createChannelDatasets(channels, 'temperature')} />
-        </div>
-      </div>
+          <div className="bg-surface rounded-lg shadow-lg p-4">
+            <div className="flex items-center mb-4">
+              <h2 className="text-xl font-semibold flex-grow">Temperatur</h2>
+            </div>
+            {ChannelSelector}
+            <div className="relative aspect-[21/9]">
+              <Line ref={channelTempChartRef} options={channelTempChartOptionsUpdated} data={createChannelDatasets(channels, 'temperature')} />
+            </div>
+          </div>
 
-      <div className="bg-surface rounded-lg shadow-lg p-4">
-        <div className="flex items-center mb-4">
-          <h2 className="text-xl font-semibold flex-grow">Luftfeuchtigkeit</h2>
-        </div>
-        <div className="relative aspect-[21/9]">
-          <Line ref={channelHumidityChartRef} options={channelHumidityChartOptionsUpdated} data={createChannelDatasets(channels, 'humidity')} />
-        </div>
-      </div>
+          <div className="bg-surface rounded-lg shadow-lg p-4">
+            <div className="flex items-center mb-4">
+              <h2 className="text-xl font-semibold flex-grow">Luftfeuchtigkeit</h2>
+            </div>
+            <div className="relative aspect-[21/9]">
+              <Line ref={channelHumidityChartRef} options={channelHumidityChartOptionsUpdated} data={createChannelDatasets(channels, 'humidity')} />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
