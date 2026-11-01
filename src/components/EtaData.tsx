@@ -1,18 +1,19 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useStore } from 'react-redux';
 import { RootState } from '@/redux';
 import { AppDispatch } from '@/redux/index';
 import { useAppDispatch } from '@/redux/hooks';
 import { storeData as storeEtaData } from '@/redux/etaSlice';
 import { storeData as storeControlData } from '@/redux/controlSlice';
-import { ETA_MODE_BUTTONS, EtaModeButton, EtaPos, EtaText, EtaButtons } from '@/reader/functions/types-constants/EtaConstants';
+import { ETA_MODE_BUTTONS, ETA_MODE_LABELS, EtaModeButton, EtaPos, EtaText, EtaButtons, isCircuitPosition } from '@/reader/functions/types-constants/EtaConstants';
 import { EtaConstants } from '@/reader/functions/types-constants/Names2IDconstants';
 import { API } from '@/constants/apiPaths';
 import { useToast } from '@/components/ToastProvider';
 import { getEtaModeState } from '@/lib/etaModeState';
 import { getManualOverrideDuration } from '@/lib/controlLogic';
+import HeatingCircuitDialog from '@/components/HeatingCircuitDialog';
 
 const ETA_DISPLAY_ORDER: Partial<Record<EtaConstants, number>> = {
   [EtaConstants.SCHIEBERPOS]: 1,
@@ -28,11 +29,11 @@ const ETA_DISPLAY_ORDER: Partial<Record<EtaConstants, number>> = {
 
 const ETA_DISPLAY_SHORTS = new Set<string>(Object.keys(ETA_DISPLAY_ORDER));
 const ETA_BUTTON_OPTIONS = [
-  { key: EtaButtons.HT, label: 'Heizen', longLabel: 'Heizen Taste' },
-  { key: EtaButtons.KT, label: 'Kommen', longLabel: 'Kommen Taste' },
-  { key: EtaButtons.AA, label: 'Auto', longLabel: 'Autotaste' },
-  { key: EtaButtons.GT, label: 'Gehen', longLabel: 'Gehen Taste' },
-  { key: EtaButtons.DT, label: 'Absenken', longLabel: 'Absenken Taste' },
+  { key: EtaButtons.HT, label: ETA_MODE_LABELS[EtaButtons.HT], longLabel: 'Heizen Taste' },
+  { key: EtaButtons.KT, label: ETA_MODE_LABELS[EtaButtons.KT], longLabel: 'Kommen Taste' },
+  { key: EtaButtons.AA, label: ETA_MODE_LABELS[EtaButtons.AA], longLabel: 'Autotaste' },
+  { key: EtaButtons.GT, label: ETA_MODE_LABELS[EtaButtons.GT], longLabel: 'Gehen Taste' },
+  { key: EtaButtons.DT, label: ETA_MODE_LABELS[EtaButtons.DT], longLabel: 'Absenken Taste' },
 ] as const;
 const ETA_BUTTON_KEYS = ETA_BUTTON_OPTIONS.map(option => option.key);
 const ETA_BUTTON_LABELS = Object.fromEntries(
@@ -52,6 +53,7 @@ type DisplayDataType = {
 
 const EtaData: React.FC = () => {
   const dispatch: AppDispatch = useAppDispatch();
+  const store = useStore<RootState>();
   const config = useSelector((state: RootState) => state.config.data);
   const etaState = useSelector((state: RootState) => state.eta);
   const serverControlState = useSelector((state: RootState) => state.control);
@@ -62,6 +64,11 @@ const EtaData: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [overrideActive, setOverrideActive] = useState<boolean>(false);
   const [overrideRemainingMs, setOverrideRemainingMs] = useState<number>(0);
+  const [circuitConfirmation, setCircuitConfirmation] = useState<{
+    id: string;
+    expected: EtaPos;
+    target: EtaPos;
+  } | null>(null);
   const { showToast } = useToast();
   const lastTempState = useRef<{
     manualOverride: boolean;
@@ -83,6 +90,46 @@ const EtaData: React.FC = () => {
     setOverrideActive(remaining > 0);
     setOverrideRemainingMs(remaining);
   }, [serverControlState, config.t_override]);
+
+  const confirmCircuitChange = useCallback(async () => {
+    if (!circuitConfirmation || updateBusyRef.current) return;
+    const { id, expected, target } = circuitConfirmation;
+    if (store.getState().eta.data[id]?.value !== expected) {
+      setCircuitConfirmation(null);
+      showToast('Der Heizkreis-Zustand hat sich geändert. Bitte erneut prüfen.', 'error');
+      return;
+    }
+    updateBusyRef.current = true;
+    setIsUpdating(true);
+    try {
+      let response: Response;
+      let result: { success?: boolean; error?: string; data?: RootState['eta']['data'][string] };
+      try {
+        response = await fetch(API.ETA_HEATING_CIRCUIT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, expected, target }),
+        });
+        result = await response.json();
+      } catch {
+        throw new Error('Der Schaltzustand ist ungewiss. Bitte an der ETA prüfen, bevor erneut geschaltet wird.');
+      }
+      if (result.data) {
+        const current = store.getState().eta.data;
+        dispatch(storeEtaData({ ...current, [id]: result.data }));
+      }
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Heizkreis-Schaltung fehlgeschlagen');
+      }
+      showToast(target === EtaPos.EIN ? 'Heizkreis eingeschaltet' : 'Heizkreis ausgeschaltet', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Heizkreis-Schaltung fehlgeschlagen', 'error');
+    } finally {
+      updateBusyRef.current = false;
+      setIsUpdating(false);
+      setCircuitConfirmation(null);
+    }
+  }, [circuitConfirmation, dispatch, showToast, store]);
 
   // Memoized map of button short codes to their URIs
   const buttonIds = useMemo<Record<string, string>>(() => {
@@ -360,9 +407,35 @@ const EtaData: React.FC = () => {
                         <span className="font-medium">{value.long || value.short}:</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="badge badge--neutral">
-                          {text}{value.unit && <span>&nbsp;{value.unit}</span>}
-                        </span>
+                        {value.short === EtaConstants.EIN_AUS_TASTE ? (
+                          <>
+                            <span className="badge badge--neutral">{text}</span>
+                            <button
+                              type="button"
+                              className="switch etaCircuitSwitch"
+                              role="switch"
+                              aria-checked={value.value === EtaPos.EIN}
+                              disabled={isUpdating || !isCircuitPosition(value.value)}
+                              onClick={() => {
+                                if (!isCircuitPosition(value.value)) return;
+                                setCircuitConfirmation({
+                                  id: key,
+                                  expected: value.value,
+                                  target: value.value === EtaPos.EIN ? EtaPos.AUS : EtaPos.EIN,
+                                });
+                              }}
+                              aria-label={isCircuitPosition(value.value)
+                                ? `Heizkreis ${value.value === EtaPos.EIN ? 'ausschalten' : 'einschalten'}`
+                                : 'Heizkreis-Status unbekannt'}
+                            >
+                              <span className="switch__thumb" />
+                            </button>
+                          </>
+                        ) : (
+                          <span className="badge badge--neutral">
+                            {text}{value.unit && <span>&nbsp;{value.unit}</span>}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -420,6 +493,10 @@ const EtaData: React.FC = () => {
         <div className="flex justify-center items-center min-h-[200px]">
           <p>Laden…</p>
         </div>
+      )}
+      {circuitConfirmation && (
+        <HeatingCircuitDialog target={circuitConfirmation.target} stale={etaState.isStale}
+          busy={isUpdating} onCancel={() => setCircuitConfirmation(null)} onConfirm={confirmCircuitChange} />
       )}
     </div>
   );

@@ -23,6 +23,10 @@ export enum EtaPos {
   AUS = "1802",
 }
 
+export function isCircuitPosition(value: unknown): value is EtaPos {
+  return value === EtaPos.EIN || value === EtaPos.AUS;
+}
+
 export enum EtaText {
   EIN = "Ein",
   AUS = "Aus",
@@ -43,6 +47,14 @@ export type EtaModeButton =
   | EtaButtons.AA
   | EtaButtons.GT
   | EtaButtons.DT;
+
+export const ETA_MODE_LABELS: Record<EtaModeButton, string> = {
+  [EtaButtons.HT]: 'Heizen',
+  [EtaButtons.KT]: 'Kommen',
+  [EtaButtons.AA]: 'Auto',
+  [EtaButtons.GT]: 'Gehen',
+  [EtaButtons.DT]: 'Absenken',
+};
 
 export const ETA_MODE_BUTTONS: readonly EtaModeButton[] = [
   EtaButtons.HT,

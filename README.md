@@ -130,7 +130,7 @@ The redesigned main dashboard features a modern, unified tab interface:
 - **Live Temperature Display**: Real-time indoor/outdoor temperatures with automatic updates
 - **Smart Status Indicators**: Color-coded badges showing system health at a glance
 - **Temperature Differential**: ETA vs WiFi outdoor temperature comparison with visual indicators
-- **Slider Position**: Current ETA valve position with recommended settings
+- **Slider Position**: Current ETA slider position and the reported heating mode. The recommended slider position remains in the configuration card.
 
 **Integrated Tab Navigation**
 - **Configuration**: Enhanced temperature control with improved number inputs
@@ -141,6 +141,7 @@ The redesigned main dashboard features a modern, unified tab interface:
 - **ETA Data**: Complete system monitoring with stable rendering
   - All ETA parameters displayed without flickering during updates
   - Interactive control buttons with manual override capabilities
+  - The heating circuit's Ein/Aus button asks for confirmation, checks the current ETA state before writing, and verifies the result afterward. If verification fails, check the ETA before trying again. Switching the circuit off also prevents the app's minimum-temperature control from heating it.
   - Real-time status updates with persistent display during browser state changes
 - **Zeitfenster (Time Windows)**: Advanced scheduling interface
   - Visual 24-hour timeline with drag-and-drop time segments

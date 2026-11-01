@@ -11,12 +11,22 @@
 .homeKpi__value { margin-top: 8px; color: var(--color-text-strong); font: 720 25px/1.1 var(--font-mono); letter-spacing: -.04em; }
 .homeKpi__value.is-good { color: var(--color-success); } .homeKpi__value.is-warning { color: var(--color-warning); } .homeKpi__value.is-info { color: var(--color-info); }
 .homeKpi__meta { margin-top: 5px; color: var(--color-muted); font-size: 11px; }
+.homeKpi__progress { display: block; width: 100%; height: 7px; margin-top: 5px; overflow: hidden; appearance: none; border: 0; border-radius: 99px; background: var(--color-raised-2); }
+.homeKpi__progress::-webkit-progress-bar { border-radius: 99px; background: var(--color-raised-2); }
+.homeKpi__progress::-webkit-progress-value { border-radius: 99px; background: var(--color-success); }
+.homeKpi__progress::-moz-progress-bar { border-radius: 99px; background: var(--color-success); }
 .home__controlGrid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
 .home__detailsGrid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(360px, .8fr); gap: 16px; align-items: start; }
 .etaControlCard .alert { display: flex; align-items: center; gap: 12px; }
 .etaControlCard .alert .btn { margin-left: auto; }
 .etaControlCard .grid { gap: 0; }
 .etaControlCard .grid > .flex { min-height: 40px; border-bottom: 1px solid var(--color-line); }
+.etaCircuitSwitch:disabled { cursor: not-allowed; opacity: .6; }
+.etaConfirmDialog { width: min(420px, calc(100% - 32px)); padding: 24px; border: 1px solid var(--color-line); border-radius: 13px; color: var(--color-text); background: var(--color-surface); box-shadow: var(--shadow); }
+.etaConfirmDialog::backdrop { background: rgba(0, 0, 0, .5); }
+.etaConfirmDialog h2 { margin: 0 0 10px; color: var(--color-text-strong); font-size: 20px; }
+.etaConfirmDialog p { margin: 0; line-height: 1.5; }
+.etaConfirmDialog__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .etaModePanel { margin-top: 16px; padding-top: 8px; border-top: 1px solid var(--color-line); }
 .etaModePanel__summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; color: var(--color-text-strong); list-style: none; cursor: pointer; }
 .etaModePanel__summary::-webkit-details-marker { display: none; }

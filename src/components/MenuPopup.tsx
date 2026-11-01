@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import { MenuNode } from '../types/menu';
 import { ParsedXmlData } from '@/reader/functions/types-constants/EtaConstants';
 import { formatValue } from '@/utils/formatters';
@@ -14,6 +14,11 @@ interface MenuPopupProps {
   menuItems: MenuNode[];
 }
 
+export function MenuPopupValue({ data }: { data: ParsedXmlData }) {
+  const { text, color } = formatValue(data);
+  return <span className={color}>{text}</span>;
+}
+
 export default function MenuPopup({ isOpen, onClose, title, menuItems }: MenuPopupProps) {
   const { values, loading, error, fetchValues, cleanupAllAbortControllers } = useEtaData();
 
@@ -23,11 +28,6 @@ export default function MenuPopup({ isOpen, onClose, title, menuItems }: MenuPop
     }
     return cleanupAllAbortControllers;
   }, [isOpen, menuItems, fetchValues, cleanupAllAbortControllers]);
-
-  const renderValue = useCallback((data: ParsedXmlData) => {
-    const { text, color } = formatValue(data);
-    return <span className={color}>{text}</span>;
-  }, []);
 
   const renderMenuItem = (item: MenuNode, index: number, parentKey: string = '') => {
     const itemKey = `${parentKey}${index}-${item.name}`;
@@ -55,13 +55,8 @@ export default function MenuPopup({ isOpen, onClose, title, menuItems }: MenuPop
                   title={item.uri}
                 >
                   <span className="inline-block min-w-[3rem] text-right">
-                    {renderValue(values[item.uri])}
+                    <MenuPopupValue data={values[item.uri]} />
                   </span>
-                  {values[item.uri].unit && (
-                    <span className="text-muted ml-1 inline-block">
-                      {values[item.uri].unit}
-                    </span>
-                  )}
                 </div>
               ) : (
                 <span className="text-muted">Keine Daten</span>

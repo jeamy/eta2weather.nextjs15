@@ -71,7 +71,11 @@ export const formatValue = (data: ParsedXmlData): FormattedValue => {
   // Special case: If strValue already contains time units (h, m, s), don't append the unit
   // Example: strValue="174h 8m" with unit="s" should display as "174h 8m", not "174h 8m s"
   const hasTimeUnits = /\d+[hms]\b/.test(value);
-  const unit = (data.unit && !hasTimeUnits) ? <span className="text-muted ml-1">{data.unit}</span> : null;
+  const unitText = data.unit?.trim();
+  const trimmedValue = value.trimEnd();
+  const unitStart = unitText && trimmedValue.endsWith(unitText) ? trimmedValue.length - unitText.length : -1;
+  const hasUnit = unitStart === 0 || (unitStart > 0 && /[\s\d.,]/.test(trimmedValue[unitStart - 1]));
+  const unit = (unitText && !hasTimeUnits && !hasUnit) ? <span className="text-muted ml-1">{unitText}</span> : null;
   
   return { 
     text: <>{value}{unit}</>, 

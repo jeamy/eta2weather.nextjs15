@@ -7,6 +7,7 @@ import { defaultConfig } from '@/reader/functions/types-constants/ConfigConstant
 import { EtaPos } from '@/reader/functions/types-constants/EtaConstants';
 import { store } from '@/redux/store';
 import { storeData as storeWifiData } from '@/redux/wifiAf83Slice';
+import { storeData as storeEtaData } from '@/redux/etaSlice';
 import { WIFIAF83_CACHE_KEY, wifiaf83Cache } from '@/utils/cache';
 import { GET as getBackgroundStatus } from '@/app/api/background/status/route';
 
@@ -23,6 +24,7 @@ async function main() {
   };
   let failedId: string | null = null;
   let writes = 0;
+  let changeCircuitDuringScan = false;
   const actions: string[] = [];
   const shortById = Object.fromEntries(Object.entries(defaultNames2Id).map(([key, item]) => [item.id.slice(1), key]));
 
@@ -41,6 +43,15 @@ async function main() {
     getUserVar: async (id: string) => {
       if (id === failedId) return { result: null, error: 'offline' };
       const key = shortById[id];
+      if (key === EtaConstants.EIN_AUS_TASTE && changeCircuitDuringScan) {
+        changeCircuitDuringScan = false;
+        const circuitId = defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id;
+        const etaData = store.getState().eta.data;
+        store.dispatch(storeEtaData({
+          ...etaData,
+          [circuitId]: { ...etaData[circuitId], value: EtaPos.EIN, strValue: 'Ein' },
+        }));
+      }
       const strValue = key === EtaConstants.SCHIEBERPOS ? '0 %'
         : key === EtaConstants.VORLAUFTEMP ? '40 °C'
           : key === EtaConstants.AUSSENTEMP ? '6 °C' : 'Aus';
@@ -86,7 +97,17 @@ async function main() {
     assert.equal(recoveredStatus.data.diagnostics.etaFresh, true);
     assert.deepEqual(actions, ['delta', 'diff', 'mode']);
     assert.equal(writes, 0);
+
+    actions.length = 0;
+    changeCircuitDuringScan = true;
+    shared.__ETA2WEATHER_WIFI_REFRESH__ = Promise.resolve(allData);
+    await service.loadAndStoreData();
+    assert.equal(store.getState().eta.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id].value, EtaPos.EIN);
+    assert.equal(service.getDataFreshness().etaFresh, false);
+    assert.deepEqual(actions, ['delta']);
+    assert.equal(writes, 0);
     console.log('PASS: stale WiFi and incomplete ETA data pause control; valid readings resume it');
+    console.log('PASS: manual circuit status is not overwritten by an older in-flight ETA scan');
   } finally {
     shared.__ETA2WEATHER_WIFI_REFRESH__ = null;
     db.insertEcowittLog = originalInsert;

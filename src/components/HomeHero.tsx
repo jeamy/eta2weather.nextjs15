@@ -4,8 +4,9 @@ import { useMemo } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux";
 import { ConfigKeys } from "@/reader/functions/types-constants/ConfigConstants";
-import { ETA_MODE_BUTTONS, EtaModeButton, EtaButtons, EtaPos } from "@/reader/functions/types-constants/EtaConstants";
+import { ETA_MODE_LABELS, EtaButtons } from "@/reader/functions/types-constants/EtaConstants";
 import { EtaConstants as EtaConstKeys, defaultNames2Id } from "@/reader/functions/types-constants/Names2IDconstants";
+import { getEtaModeState } from "@/lib/etaModeState";
 import { parseNum } from "@/utils/numberParser";
 import { calculateLiveTemperatureDiff } from "@/utils/temperatureCalculations";
 
@@ -26,12 +27,13 @@ export default function HomeHero() {
   const wifi = useSelector((s: RootState) => s.wifiAf83.data);
   const config = useSelector((s: RootState) => s.config.data);
   const eta = useSelector((s: RootState) => s.eta.data);
+  const etaIsStale = useSelector((s: RootState) => s.eta.isStale);
 
   const sliderPercent = useMemo(() => {
-    const v = Number(config?.[ConfigKeys.T_SLIDER] ?? 0);
-    if (!Number.isFinite(v)) return 0;
-    return Math.round(v);
-  }, [config]);
+    const slider = Object.values(eta || {}).find(item => item.short === EtaConstKeys.SCHIEBERPOS);
+    const value = parseNum(slider?.strValue);
+    return value !== null && Number.isFinite(value) ? value : null;
+  }, [eta]);
 
   const diffIndoorSoll = useMemo(() => {
     if (!wifi?.time) return null;
@@ -50,21 +52,11 @@ export default function HomeHero() {
     return ind >= min;
   }, [config, wifi]);
 
-  const mode = useMemo(() => {
-    // Determine if AA (Auto) is active or one of manual keys (HT, KT, DT, GT)
-    let active: string | null = null;
-    for (const item of Object.values(eta || {})) {
-      if (!item?.short) continue;
-      const isButton = ETA_MODE_BUTTONS.includes(item.short as EtaModeButton);
-      if (isButton && item.value === EtaPos.EIN) {
-        active = item.short as string;
-        break;
-      }
-    }
-    if (active === EtaButtons.AA) return "Auto";
-    if (active) return "Manuell";
-    return "-";
-  }, [eta]);
+  const activeButton = useMemo(() => getEtaModeState(eta).activeButton, [eta]);
+  const mode = activeButton ? ETA_MODE_LABELS[activeButton] : null;
+  const sliderDisplay = sliderPercent === null
+    ? '–'
+    : `${sliderPercent > 0 ? '+' : ''}${String(sliderPercent).replace('.', ',')} %`;
 
   const etaOutdoor = useMemo(() => {
     try {
@@ -141,15 +133,21 @@ export default function HomeHero() {
           <div className={`homeKpi__value ${diffIndoorSoll !== null && diffIndoorSoll < 0 ? 'is-good' : 'is-info'}`}>{diffIndoorSoll !== null ? `${diffIndoorSoll > 0 ? '+' : ''}${diffIndoorSoll.toFixed(2)} °C` : '–'}</div>
           <div className="homeKpi__meta">positiv = kälter als Soll</div>
         </article>
-        <article className="homeKpi" title="Empfohlene Schieberposition">
+        <article className="homeKpi" title="Von der ETA gemeldete Schieberposition">
           <div className="homeKpi__head"><span>Schieber</span><i>↔</i></div>
-          <div className="homeKpi__value">{sliderPercent > 0 ? '+' : ''}{sliderPercent} %</div>
-          <div className="progress" aria-label="Empfohlene Schieberposition"><div className="progress__bar progress__bar--ok" style={{ width: `${Math.max(0, Math.min(100, (sliderPercent + 100) / 2))}%` }} /></div>
+          <div className="homeKpi__value">{sliderDisplay}</div>
+          {sliderPercent !== null && (
+            <progress className="homeKpi__progress" max={200} value={Math.max(0, Math.min(200, sliderPercent + 100))}
+              aria-label="ETA-Schieberposition" aria-valuetext={sliderDisplay} />
+          )}
+          <div className="homeKpi__meta">
+            {mode ? `${mode} aktiv` : 'Modus unbekannt'}{etaIsStale ? ' · ETA-Daten veraltet' : ''}
+          </div>
         </article>
         <article className="homeKpi" title="Betriebsmodus">
           <div className="homeKpi__head"><span>Betriebsmodus</span><i>A</i></div>
-          <div className={`homeKpi__value ${mode === 'Auto' ? 'is-good' : 'is-warning'}`}>{mode}</div>
-          <div className="homeKpi__meta">{schaltzustand ?? 'ETA-Tastenstatus'}</div>
+          <div className={`homeKpi__value ${activeButton === EtaButtons.AA ? 'is-good' : 'is-warning'}`}>{mode ?? '–'}</div>
+          <div className="homeKpi__meta">{schaltzustand ?? 'ETA-Tastenstatus'}{etaIsStale ? ' · ETA-Daten veraltet' : ''}</div>
         </article>
         <article className="homeKpi" title="Differenz ETA/WiFi Außentemperatur">
           <div className="homeKpi__head"><span>ETA / WiFi außen</span><i>≋</i></div>

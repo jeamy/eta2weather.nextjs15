@@ -520,6 +520,16 @@ export class BackgroundService {
         this.logger.debug('Skipping ETA full-data log for control subset refresh');
       }
 
+      // A manual circuit read/write may have completed during this scan.
+      // Keep its newer status and wait for the next complete scan before control.
+      const circuitId = this.names2Id[EtaConstants.EIN_AUS_TASTE]?.id;
+      const latestCircuit = circuitId ? store.getState().eta.data[circuitId] : undefined;
+      if (circuitId && latestCircuit !== existingEtaData[circuitId]) {
+        if (latestCircuit) menuData[circuitId] = latestCircuit;
+        else delete menuData[circuitId];
+        this.lastControlEtaUpdate = null;
+      }
+
       // Quick win: store ETA data in Redux
       try {
         store.dispatch(storeEtaData(menuData));

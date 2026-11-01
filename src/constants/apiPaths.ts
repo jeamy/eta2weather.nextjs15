@@ -7,6 +7,7 @@ export const API = {
   ETA_READ: '/api/eta/read',
   ETA_UPDATE: '/api/eta/update',
   ETA_HEATING_MODE: '/api/eta/heating-mode',
+  ETA_HEATING_CIRCUIT: '/api/eta/heating-circuit',
   ETA_READ_BATCH_MENU_DATA: '/api/eta/readBatchMenuData',
   ETA_RAW: '/api/eta/raw',
 
