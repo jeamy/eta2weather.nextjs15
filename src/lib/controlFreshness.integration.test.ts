@@ -25,6 +25,8 @@ async function main() {
   let failedId: string | null = null;
   let writes = 0;
   let changeCircuitDuringScan = false;
+  let unavailableFlow = false;
+  let changeEndpointDuringScan = false;
   const actions: string[] = [];
   const shortById = Object.fromEntries(Object.entries(defaultNames2Id).map(([key, item]) => [item.id.slice(1), key]));
 
@@ -43,6 +45,10 @@ async function main() {
     getUserVar: async (id: string) => {
       if (id === failedId) return { result: null, error: 'offline' };
       const key = shortById[id];
+      if (changeEndpointDuringScan) {
+        changeEndpointDuringScan = false;
+        service.config = { ...service.config, s_eta: 'http://different.invalid' };
+      }
       if (key === EtaConstants.EIN_AUS_TASTE && changeCircuitDuringScan) {
         changeCircuitDuringScan = false;
         const circuitId = defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id;
@@ -53,7 +59,7 @@ async function main() {
         }));
       }
       const strValue = key === EtaConstants.SCHIEBERPOS ? '0 %'
-        : key === EtaConstants.VORLAUFTEMP ? '40 °C'
+        : key === EtaConstants.VORLAUFTEMP ? (unavailableFlow ? '---' : '40 °C')
           : key === EtaConstants.AUSSENTEMP ? '6 °C' : 'Aus';
       return { result: `<eta><value uri="/${id}" strValue="${strValue}">${EtaPos.AUS}</value></eta>`, error: null };
     },
@@ -75,6 +81,7 @@ async function main() {
     assert.equal(staleStatus.data.wifiAf83.time, previous.time);
     assert.equal(staleStatus.data.wifiAf83.stale, true);
     assert.equal(staleStatus.data.diagnostics.wifiFresh, false);
+    assert.equal(staleStatus.data.diagnostics.etaDataFresh, true);
 
     shared.__ETA2WEATHER_WIFI_REFRESH__ = Promise.resolve(allData);
     failedId = defaultNames2Id[EtaConstants.VORLAUFTEMP].id.slice(1);
@@ -82,12 +89,25 @@ async function main() {
     assert.equal(service.getDataFreshness().etaFresh, false);
     const partialStatus = await (await getBackgroundStatus()).json();
     assert.equal(partialStatus.data.diagnostics.etaFresh, false);
+    assert.equal(partialStatus.data.diagnostics.etaDataFresh, false);
     assert.equal(partialStatus.data.eta[defaultNames2Id[EtaConstants.VORLAUFTEMP].id], undefined);
     assert.deepEqual(actions, ['delta']);
     assert.equal(writes, 0);
 
     actions.length = 0;
     failedId = null;
+    unavailableFlow = true;
+    shared.__ETA2WEATHER_WIFI_REFRESH__ = Promise.resolve(allData);
+    await service.loadAndStoreData();
+    const unavailableStatus = await (await getBackgroundStatus()).json();
+    assert.equal(unavailableStatus.data.diagnostics.etaDataFresh, true);
+    assert.equal(unavailableStatus.data.diagnostics.etaFresh, false);
+    assert.equal(unavailableStatus.data.eta[defaultNames2Id[EtaConstants.VORLAUFTEMP].id].strValue, '---');
+    assert.deepEqual(actions, ['delta']);
+    assert.equal(writes, 0);
+
+    actions.length = 0;
+    unavailableFlow = false;
     shared.__ETA2WEATHER_WIFI_REFRESH__ = Promise.resolve(allData);
     await service.loadAndStoreData();
     assert.equal(service.getDataFreshness().etaFresh, true);
@@ -95,8 +115,14 @@ async function main() {
     const recoveredStatus = await (await getBackgroundStatus()).json();
     assert.equal(recoveredStatus.data.wifiAf83.stale, false);
     assert.equal(recoveredStatus.data.diagnostics.etaFresh, true);
+    assert.equal(recoveredStatus.data.diagnostics.etaDataFresh, true);
     assert.deepEqual(actions, ['delta', 'diff', 'mode']);
     assert.equal(writes, 0);
+
+    const lastCompletePoll = service.lastCompleteEtaPoll;
+    service.lastCompleteEtaPoll = Date.now() - 1200000;
+    assert.equal(service.getDataFreshness().etaDataFresh, false);
+    service.lastCompleteEtaPoll = lastCompletePoll;
 
     actions.length = 0;
     changeCircuitDuringScan = true;
@@ -104,10 +130,22 @@ async function main() {
     await service.loadAndStoreData();
     assert.equal(store.getState().eta.data[defaultNames2Id[EtaConstants.EIN_AUS_TASTE].id].value, EtaPos.EIN);
     assert.equal(service.getDataFreshness().etaFresh, false);
+    assert.equal(service.getDataFreshness().etaDataFresh, true);
     assert.deepEqual(actions, ['delta']);
+    assert.equal(writes, 0);
+
+    actions.length = 0;
+    changeEndpointDuringScan = true;
+    shared.__ETA2WEATHER_WIFI_REFRESH__ = Promise.resolve(allData);
+    await service.loadAndStoreData();
+    assert.equal(service.getDataFreshness().etaDataFresh, false);
+    assert.equal(service.getDataFreshness().etaFresh, false);
+    assert.equal(service.lastFullEtaScan, null);
+    assert.deepEqual(actions, []);
     assert.equal(writes, 0);
     console.log('PASS: stale WiFi and incomplete ETA data pause control; valid readings resume it');
     console.log('PASS: manual circuit status is not overwritten by an older in-flight ETA scan');
+    console.log('PASS: ETA poll freshness is separate from control readiness and invalidated on source changes');
   } finally {
     shared.__ETA2WEATHER_WIFI_REFRESH__ = null;
     db.insertEcowittLog = originalInsert;

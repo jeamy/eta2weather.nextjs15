@@ -374,7 +374,9 @@ one minute in the future and no older than the greater of ten minutes or twice t
 configured polling interval. ETA control readings must come from the current scan
 and be no older than the greater of one minute or twice the polling interval.
 Failed refreshes do not replace the last WiFi timestamp or issue automatic actuator
-writes. The dashboard marks stale values; a manual mode command remains available.
+writes. The dashboard distinguishes a recent, complete ETA poll from readiness for
+automatic control: a current response can still contain an unavailable flow
+temperature, in which case control remains paused. A manual mode command remains available.
 Heating mode commands are serialized within the application process. Direct writes
 to mode button IDs through `/api/eta/update` are rejected; use the heating-mode API.
 

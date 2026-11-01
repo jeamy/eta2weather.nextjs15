@@ -72,6 +72,7 @@ export class BackgroundService {
       initialized: false
     };
   private lastEtaUpdate: number | null = null;
+  private lastCompleteEtaPoll: number | null = null;
   private lastControlEtaUpdate: number | null = null;
   private wifiRefreshSucceeded = false;
   private pendingAutomaticSwitch = false;
@@ -118,6 +119,7 @@ export class BackgroundService {
     const wifiTime = store.getState().wifiAf83.data.time;
     return {
       wifiFresh: this.wifiRefreshSucceeded && wifiTime > 0 && now - wifiTime <= this.getMaxDataAge(600000),
+      etaDataFresh: this.lastCompleteEtaPoll !== null && now - this.lastCompleteEtaPoll <= this.getMaxDataAge(60000),
       etaFresh: this.lastControlEtaUpdate !== null && now - this.lastControlEtaUpdate <= this.getMaxDataAge(60000),
     };
   }
@@ -242,6 +244,10 @@ export class BackgroundService {
         const newEtaEndpoint = newConfig[ConfigKeys.S_ETA];
         const namesFileChanged = this.config[ConfigKeys.F_NAMES2ID] !== newConfig[ConfigKeys.F_NAMES2ID];
         this.config = newConfig;
+        if (namesFileChanged || oldEtaEndpoint !== newEtaEndpoint) {
+          this.lastCompleteEtaPoll = null;
+          this.lastControlEtaUpdate = null;
+        }
         if (namesFileChanged) {
           await this.loadNames2Id(true);
           this.lastFullEtaScan = null;
@@ -371,6 +377,7 @@ export class BackgroundService {
     this.lastControlEtaUpdate = null;
     // Capture config at the start to avoid race conditions if config changes during execution
     const currentConfig = { ...this.config };
+    let etaSnapshotCommitted = false;
 
     try {
       // Run cleanup before loading new data
@@ -499,10 +506,14 @@ export class BackgroundService {
 
       const etaCutoff = Date.now() - this.getMaxDataAge(60000);
       const timelyEtaData = Object.fromEntries(Object.entries(freshEtaData).filter(([, value]) => Number(value._readAt) >= etaCutoff));
-      this.lastControlEtaUpdate = hasFreshControlEtaData(timelyEtaData, this.names2Id, this.cachedMenuNodes || [])
+      let completeEtaPollAt = uris.length > 0 && fetchedCount === uris.length &&
+        Object.keys(timelyEtaData).length === uris.length
         ? Math.min(...Object.values(timelyEtaData).map(value => Number(value._readAt)))
         : null;
-      if (!this.lastControlEtaUpdate) {
+      let completeControlAt = hasFreshControlEtaData(timelyEtaData, this.names2Id, this.cachedMenuNodes || [])
+        ? Math.min(...Object.values(timelyEtaData).map(value => Number(value._readAt)))
+        : null;
+      if (!completeControlAt) {
         console.warn(`${this.getTimestamp()} Incomplete or invalid ETA control data; automatic control paused.`);
       }
 
@@ -520,20 +531,37 @@ export class BackgroundService {
         this.logger.debug('Skipping ETA full-data log for control subset refresh');
       }
 
+      if (currentConfig[ConfigKeys.S_ETA] !== this.config[ConfigKeys.S_ETA] ||
+          currentConfig[ConfigKeys.F_NAMES2ID] !== this.config[ConfigKeys.F_NAMES2ID]) {
+        this.lastCompleteEtaPoll = null;
+        this.lastControlEtaUpdate = null;
+        this.lastFullEtaScan = null;
+        console.warn(`${this.getTimestamp()} ETA configuration changed during the scan; discarding old readings.`);
+        return;
+      }
+
       // A manual circuit read/write may have completed during this scan.
       // Keep its newer status and wait for the next complete scan before control.
       const circuitId = this.names2Id[EtaConstants.EIN_AUS_TASTE]?.id;
       const latestCircuit = circuitId ? store.getState().eta.data[circuitId] : undefined;
       if (circuitId && latestCircuit !== existingEtaData[circuitId]) {
         if (latestCircuit) menuData[circuitId] = latestCircuit;
-        else delete menuData[circuitId];
-        this.lastControlEtaUpdate = null;
+        else {
+          delete menuData[circuitId];
+          completeEtaPollAt = null;
+        }
+        completeControlAt = null;
       }
 
       // Quick win: store ETA data in Redux
       try {
         store.dispatch(storeEtaData(menuData));
+        this.lastCompleteEtaPoll = completeEtaPollAt;
+        this.lastControlEtaUpdate = completeControlAt;
+        etaSnapshotCommitted = true;
       } catch (e) {
+        this.lastCompleteEtaPoll = null;
+        this.lastControlEtaUpdate = null;
         console.warn(`${this.getTimestamp()} Failed to dispatch ETA data to store:`, e);
       }
       // Mark ETA update time for cleanup checks
@@ -611,6 +639,7 @@ export class BackgroundService {
     } catch (error) {
       this.wifiRefreshSucceeded = false;
       this.lastControlEtaUpdate = null;
+      if (!etaSnapshotCommitted) this.lastCompleteEtaPoll = null;
       console.error(`${this.getTimestamp()} Error loading and storing data:`, error);
       throw error;
     } finally {
@@ -1085,6 +1114,10 @@ export class BackgroundService {
       this.config = freshConfig;
       store.dispatch(storeConfigData(freshConfig));
 
+      if (namesFileChanged || oldEtaEndpoint !== newEtaEndpoint) {
+        this.lastCompleteEtaPoll = null;
+        this.lastControlEtaUpdate = null;
+      }
       if (namesFileChanged) {
         await this.loadNames2Id(true);
         this.lastFullEtaScan = null;

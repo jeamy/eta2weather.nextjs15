@@ -28,6 +28,7 @@ export default function HomeHero() {
   const config = useSelector((s: RootState) => s.config.data);
   const eta = useSelector((s: RootState) => s.eta.data);
   const etaIsStale = useSelector((s: RootState) => s.eta.isStale);
+  const etaControlReady = useSelector((s: RootState) => s.eta.controlDataReady);
 
   const sliderPercent = useMemo(() => {
     const slider = Object.values(eta || {}).find(item => item.short === EtaConstKeys.SCHIEBERPOS);
@@ -141,13 +142,13 @@ export default function HomeHero() {
               aria-label="ETA-Schieberposition" aria-valuetext={sliderDisplay} />
           )}
           <div className="homeKpi__meta">
-            {mode ? `${mode} aktiv` : 'Modus unbekannt'}{etaIsStale ? ' · ETA-Daten veraltet' : ''}
+            {mode ? `${mode} aktiv` : 'Modus unbekannt'}{etaIsStale ? ' · ETA-Abruf veraltet/unvollständig' : !etaControlReady ? ' · Regelung pausiert' : ''}
           </div>
         </article>
         <article className="homeKpi" title="Betriebsmodus">
           <div className="homeKpi__head"><span>Betriebsmodus</span><i>A</i></div>
           <div className={`homeKpi__value ${activeButton === EtaButtons.AA ? 'is-good' : 'is-warning'}`}>{mode ?? '–'}</div>
-          <div className="homeKpi__meta">{schaltzustand ?? 'ETA-Tastenstatus'}{etaIsStale ? ' · ETA-Daten veraltet' : ''}</div>
+          <div className="homeKpi__meta">{schaltzustand ?? 'ETA-Tastenstatus'}{etaIsStale ? ' · ETA-Abruf veraltet/unvollständig' : ''}</div>
         </article>
         <article className="homeKpi" title="Differenz ETA/WiFi Außentemperatur">
           <div className="homeKpi__head"><span>ETA / WiFi außen</span><i>≋</i></div>

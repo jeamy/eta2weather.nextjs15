@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useDispatch, useSelector, useStore } from 'react-redux';
 import { storeData as storeConfigData } from '@/redux/configSlice';
-import { storeData as storeEtaData, setStale as setEtaStale } from '@/redux/etaSlice';
+import { storeData as storeEtaData, setStale as setEtaStale, setControlDataReady } from '@/redux/etaSlice';
 import { storeData as storeWifiAf83Data, setStale as setWifiStale } from '@/redux/wifiAf83Slice';
 import { storeData as storeNames2IdData } from '@/redux/names2IdSlice';
 import { storeData as storeControlData } from '@/redux/controlSlice';
@@ -37,9 +37,10 @@ const BackgroundSync: React.FC = () => {
       }
 
       if (result.success) {
-        dispatch(setEtaStale(!result.data.diagnostics?.etaFresh));
-        dispatch(setWifiStale(!result.data.diagnostics?.wifiFresh));
         const hasEtaData = result.data.eta && Object.keys(result.data.eta).length > 0;
+        dispatch(setEtaStale(!hasEtaData || result.data.diagnostics?.etaDataFresh !== true));
+        dispatch(setControlDataReady(Boolean(hasEtaData && result.data.diagnostics?.etaFresh === true)));
+        dispatch(setWifiStale(!result.data.diagnostics?.wifiFresh));
         // Do not replace an edit made while this request was in flight.
         if (store.getState().config.data === initialState.config.data &&
             JSON.stringify(result.data.config) !== JSON.stringify(initialState.config.data)) {
@@ -74,6 +75,7 @@ const BackgroundSync: React.FC = () => {
       // Ignore aborted fetches
       if ((error as any)?.name === 'AbortError') return;
       dispatch(setEtaStale(true));
+      dispatch(setControlDataReady(false));
       dispatch(setWifiStale(true));
       console.error('Error fetching background data:', error);
     } finally {

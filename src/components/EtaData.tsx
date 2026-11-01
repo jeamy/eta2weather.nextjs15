@@ -14,6 +14,7 @@ import { useToast } from '@/components/ToastProvider';
 import { getEtaModeState } from '@/lib/etaModeState';
 import { getManualOverrideDuration } from '@/lib/controlLogic';
 import HeatingCircuitDialog from '@/components/HeatingCircuitDialog';
+import EtaControlStatus from '@/components/EtaControlStatus';
 
 const ETA_DISPLAY_ORDER: Partial<Record<EtaConstants, number>> = {
   [EtaConstants.SCHIEBERPOS]: 1,
@@ -344,9 +345,11 @@ const EtaData: React.FC = () => {
           <p className="card__subtitle">ETA-Heizmodus und aktuelle Kesselwerte</p>
         </div>
         <span className={`source-pill ${etaState.isStale ? '' : 'source-pill--live'}`}>
-          {etaState.isStale ? 'Daten veraltet' : '● verbunden'}
+          {etaState.isStale ? 'Abfrage nicht aktuell' : '● ETA-Abruf aktuell'}
         </span>
       </div>
+      <EtaControlStatus data={etaState.data} isStale={etaState.isStale}
+        controlDataReady={etaState.controlDataReady} />
       {overrideActive && (
         <div className="alert alert--warning mb-3 flex items-center justify-between">
           <span>

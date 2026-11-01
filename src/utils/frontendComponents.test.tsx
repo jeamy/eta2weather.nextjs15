@@ -8,12 +8,13 @@ import HomeHero from '@/components/HomeHero';
 import Header from '@/components/Header';
 import HeatingCircuitDialog from '@/components/HeatingCircuitDialog';
 import { MenuPopupValue } from '@/components/MenuPopup';
+import EtaControlStatus from '@/components/EtaControlStatus';
 import { EtaDataProvider } from '@/components/EtaDataProvider';
 import ToastProvider from '@/components/ToastProvider';
 import { makeStore } from '@/redux';
 import { storeData as storeConfig } from '@/redux/configSlice';
 import { storeData as storeWifi } from '@/redux/wifiAf83Slice';
-import { storeData as storeEta, setStale as setEtaStale } from '@/redux/etaSlice';
+import { storeData as storeEta, setStale as setEtaStale, setControlDataReady } from '@/redux/etaSlice';
 import { defaultConfig } from '@/reader/functions/types-constants/ConfigConstants';
 import { EtaButtons, EtaPos } from '@/reader/functions/types-constants/EtaConstants';
 import { EtaConstants } from '@/reader/functions/types-constants/Names2IDconstants';
@@ -57,22 +58,30 @@ heroStore.dispatch(storeEta({
   gehen: { id: 'gehen', parentId: null, short: EtaButtons.GT, value: EtaPos.EIN, strValue: 'Ein' },
 }));
 heroStore.dispatch(setEtaStale(false));
+heroStore.dispatch(setControlDataReady(true));
 const renderHero = () => renderToStaticMarkup(<Provider store={heroStore}><HomeHero /></Provider>);
 let heroHtml = renderHero();
 assert.match(heroHtml, /title="Von der ETA gemeldete Schieberposition"[\s\S]*?-29 %[\s\S]*?Gehen aktiv/);
 assert.match(heroHtml, /title="Betriebsmodus"[\s\S]*?homeKpi__value is-warning">Gehen</);
 assert.match(heroHtml, /aria-valuetext="-29 %"/);
-assert.doesNotMatch(heroHtml, /ETA-Daten veraltet/);
+assert.doesNotMatch(heroHtml, /Regelung pausiert|ETA-Abruf veraltet/);
 
 heroStore.dispatch(setEtaStale(true));
 heroHtml = renderHero();
-assert.match(heroHtml, /-29 %[\s\S]*?Gehen aktiv · ETA-Daten veraltet/);
+assert.match(heroHtml, /-29 %[\s\S]*?Gehen aktiv · ETA-Abruf veraltet\/unvollständig/);
+
+heroStore.dispatch(setEtaStale(false));
+heroStore.dispatch(setControlDataReady(false));
+heroHtml = renderHero();
+assert.match(heroHtml, /-29 %[\s\S]*?Gehen aktiv · Regelung pausiert/);
+assert.doesNotMatch(heroHtml, /ETA-Abruf veraltet/);
 
 heroStore.dispatch(storeEta({
   slider: { id: 'slider', parentId: null, short: EtaConstants.SCHIEBERPOS, value: '-290', strValue: '-29' },
   auto: { id: 'auto', parentId: null, short: EtaButtons.AA, value: EtaPos.EIN, strValue: 'Ein' },
 }));
 heroStore.dispatch(setEtaStale(false));
+heroStore.dispatch(setControlDataReady(true));
 heroHtml = renderHero();
 assert.match(heroHtml, /-29 %[\s\S]*?Auto aktiv/);
 assert.doesNotMatch(heroHtml, /Gehen aktiv/);
@@ -122,3 +131,15 @@ for (const [value, unit, expected] of [
   assert.equal(markup.replace(/<span class="text-muted ml-1">/g, ' ').replace(/<[^>]*>/g, ''), expected);
 }
 console.log('PASS: ETA menu values display each unit only once');
+
+const etaStatusData = {
+  flow: { id: 'flow', parentId: null, short: EtaConstants.VORLAUFTEMP, value: '0', strValue: '---' },
+};
+const etaStatus = (isStale: boolean, controlDataReady: boolean) => renderToStaticMarkup(
+  <EtaControlStatus data={etaStatusData} isStale={isStale} controlDataReady={controlDataReady} />,
+);
+assert.match(etaStatus(false, false), /Regelung pausiert.*Vorlauftemperatur nicht verfügbar/);
+assert.doesNotMatch(etaStatus(false, false), /veraltet/);
+assert.match(etaStatus(true, false), /ETA-Abfrage veraltet oder unvollständig/);
+assert.equal(etaStatus(false, true), '');
+console.log('PASS: dashboard distinguishes current ETA responses from unavailable control data');

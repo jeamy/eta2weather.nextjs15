@@ -6,12 +6,14 @@ import { updateLoadingState } from './loadingStateUtils';
 export type EtaState = {
   data: EtaData,
   loadingState: LoadingState,
-  isStale: boolean
+  isStale: boolean,
+  controlDataReady: boolean
 }
 
 const initialState: EtaState = { 
   data: { },
   isStale: true,
+  controlDataReady: false,
   loadingState: {
     error: null,
     isLoading: false    
@@ -34,9 +36,12 @@ const etaSlice = createSlice({
     },
     setStale: (state, action: PayloadAction<boolean>) => {
       state.isStale = action.payload;
+    },
+    setControlDataReady: (state, action: PayloadAction<boolean>) => {
+      state.controlDataReady = action.payload;
     }
   },
 });
 
-export const { storeData, storeError, setIsLoading, setStale } = etaSlice.actions;
+export const { storeData, storeError, setIsLoading, setStale, setControlDataReady } = etaSlice.actions;
 export default etaSlice.reducer;
